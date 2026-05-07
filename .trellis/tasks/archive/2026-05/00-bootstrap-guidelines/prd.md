@@ -21,9 +21,9 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill backend guidelines
-- [ ] Fill frontend guidelines
-- [ ] Add code examples
+- [x] Backend guidelines → **Not applicable** (pure local app, no API backend)
+- [x] Fill frontend guidelines (Flutter UI layer)
+- [x] Add code examples
 
 ---
 
