@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# AI Agent ignored files
+.claude/settings.local.json
+.mcp.json
+
+# 临时
+docs

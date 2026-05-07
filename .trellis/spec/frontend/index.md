@@ -1,12 +1,12 @@
 # Frontend Development Guidelines
 
-> Best practices for frontend development in this project.
+> Best practices for Flutter development in this project.
 
 ---
 
 ## Overview
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
+This directory contains guidelines for Flutter development following Clean Architecture + Feature-First + Riverpod + Material Design 3.
 
 ---
 
@@ -14,25 +14,44 @@ This directory contains guidelines for frontend development. Fill in each file w
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
+| [Directory Structure](./directory-structure.md) | Module organization, feature-first layout | ✅ Complete |
+| [Component Guidelines](./component-guidelines.md) | Widget patterns, props, Material Design 3 | ✅ Complete |
+| [Provider Guidelines](./hook-guidelines.md) | Riverpod providers, state patterns | ✅ Complete |
+| [State Management](./state-management.md) | Riverpod patterns, when to use providers | ✅ Complete |
+| [Quality Guidelines](./quality-guidelines.md) | Linting, testing, code review | ✅ Complete |
+| [Type Safety](./type-safety.md) | Dart null safety, sealed classes, generics | ✅ Complete |
 
 ---
 
-## How to Fill These Guidelines
+## Quick Reference
 
-For each guideline file:
+### Tech Stack
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
+- **Framework**: Flutter 3.10+
+- **State Management**: Riverpod
+- **Architecture**: Clean Architecture + Feature-First
+- **UI**: Material Design 3
+- **Typography**: Inter font family
+- **Testing**: flutter_test
 
-The goal is to help AI assistants and new team members understand how YOUR project works.
+### Key Design Tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| Primary | `#6750a4` | CTAs, key elements |
+| Secondary | `#625b71` | Secondary actions |
+| Tertiary | `#7d5260` | Accents, badges |
+| Neutral | `#79747e` | Backgrounds |
+
+### Common Commands
+
+```bash
+flutter pub get        # Install dependencies
+flutter run            # Run app
+flutter test           # Run tests
+flutter analyze        # Static analysis
+dart format .          # Format code
+```
 
 ---
 

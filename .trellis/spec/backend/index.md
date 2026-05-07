@@ -6,32 +6,36 @@
 
 ## Overview
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+**Status: Not Applicable**
+
+This is a **pure local Flutter application** without a dedicated backend API layer. All data persistence is handled locally through:
+
+- **Shared Preferences** - Simple key-value storage
+- **Hive / Isar** (optional) - NoSQL local database
+- **SQLite** (optional) - Relational local database
 
 ---
 
-## Guidelines Index
+## Future Considerations
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+If backend API integration is needed in the future, this section should be updated to include:
+
+| Guide | What to Document |
+|-------|------------------|
+| [Directory Structure](./directory-structure.md) | API client, interceptors, data sources |
+| [Database Guidelines](./database-guidelines.md) | Local persistence patterns (Hive/SQLite) |
+| [Error Handling](./error-handling.md) | Network errors, offline handling |
+| [Quality Guidelines](./quality-guidelines.md) | API testing, mocking strategies |
+| [Logging Guidelines](./logging-guidelines.md) | API request/response logging |
 
 ---
 
-## How to Fill These Guidelines
+## Current Data Layer
 
-For each guideline file:
+For local data persistence patterns, refer to:
 
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+- `lib/core/storage/` - Local storage abstractions
+- `lib/features/<feature>/data/datasources/` - Feature-specific data sources
 
 ---
 

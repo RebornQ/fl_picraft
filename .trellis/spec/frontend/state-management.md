@@ -6,46 +6,230 @@
 
 ## Overview
 
-<!--
-Document your project's state management conventions here.
+This project uses **Riverpod** for state management, following Clean Architecture principles.
 
-Questions to answer:
-- What state management solution do you use?
-- How is local vs global state decided?
-- How do you handle server state?
-- What are the patterns for derived state?
--->
-
-(To be filled by the team)
+State layers:
+- **UI State** → Widgets (ephemeral, local to widget)
+- **Application State** → Riverpod providers (shared across widgets)
+- **Domain State** → Entities (business data)
+- **Data State** → Models/DTOs (persistence/API)
 
 ---
 
 ## State Categories
 
-<!-- Local state, global state, server state, URL state -->
+### Local Widget State
 
-(To be filled by the team)
+Use `StatefulWidget` for ephemeral state that:
+- Doesn't need to persist
+- Doesn't need to be shared
+- Is only relevant to one widget
+
+```dart
+class ExpandableCard extends StatefulWidget {
+  @override
+  State<ExpandableCard> createState() => _ExpandableCardState();
+}
+
+class _ExpandableCardState extends State<ExpandableCard> {
+  bool _isExpanded = false;  // Local state
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      expanded: _isExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() => _isExpanded = expanded);
+      },
+    );
+  }
+}
+```
+
+### Application State (Riverpod)
+
+Use Riverpod providers for state that:
+- Is shared across multiple screens/widgets
+- Needs to persist during app lifecycle
+- Involves async operations
+
+```dart
+// Shared cart state
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>((ref) {
+  return CartNotifier();
+});
+
+// Accessible from any widget
+class CartBadge extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    return Badge(count: cart.itemCount);
+  }
+}
+```
+
+### Domain State (Entities)
+
+Immutable business entities in `domain/entities/`:
+
+```dart
+// features/cart/domain/entities/cart_item.dart
+class CartItem {
+  const CartItem({
+    required this.id,
+    required this.productId,
+    required this.quantity,
+    required this.price,
+  });
+
+  final String id;
+  final String productId;
+  final int quantity;
+  final double price;
+
+  // Immutable copyWith for updates
+  CartItem copyWith({
+    String? id,
+    String? productId,
+    int? quantity,
+    double? price,
+  }) {
+    return CartItem(
+      id: id ?? this.id,
+      productId: productId ?? this.productId,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+    );
+  }
+}
+```
 
 ---
 
 ## When to Use Global State
 
-<!-- Criteria for promoting state to global -->
+### Promote to Global (Riverpod) When:
 
-(To be filled by the team)
+1. **Cross-screen access**: Data needed in multiple screens
+2. **Persistence needed**: State survives navigation
+3. **Async operations**: Loading/error states
+4. **Business logic**: Validation, transformation
+
+### Keep Local When:
+
+1. **Single widget**: Only used in one place
+2. **Ephemeral**: Animation state, form input focus
+3. **Simple**: Boolean flags, counters
+
+### Decision Flow
+
+```
+Is state shared across widgets?
+├── Yes → Riverpod provider
+└── No
+    └── Does it need to survive rebuilds?
+        ├── Yes → Riverpod provider
+        └── No → Local StatefulWidget state
+```
 
 ---
 
-## Server State
+## State Patterns
 
-<!-- How server data is cached and synchronized -->
+### Loading/Error/Data Pattern
 
-(To be filled by the team)
+Use `AsyncValue` or sealed classes:
+
+```dart
+// Using Riverpod AsyncValue
+final productsProvider = FutureProvider<List<Product>>((ref) async {
+  final repository = ref.read(productRepositoryProvider);
+  return repository.getProducts();
+});
+
+// In widget
+class ProductList extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsAsync = ref.watch(productsProvider);
+
+    return productsAsync.when(
+      data: (products) => ListView(children: products),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, stack) => ErrorWidget(message: err.toString()),
+    );
+  }
+}
+```
+
+### Using Freezed for State
+
+```dart
+// features/auth/presentation/providers/auth_state.dart
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'auth_state.freerozen.dart';
+
+@freezed
+class AuthState with _$AuthState {
+  const factory AuthState.initial() = AuthInitial;
+  const factory AuthState.loading() = AuthLoading;
+  const factory AuthState.authenticated(User user) = AuthAuthenticated;
+  const factory AuthState.unauthenticated() = AuthUnauthenticated;
+  const factory AuthState.error(String message) = AuthError;
+}
+```
 
 ---
 
 ## Common Mistakes
 
-<!-- State management mistakes your team has made -->
+### ❌ Don't
 
-(To be filled by the team)
+```dart
+// Mutating state directly
+ref.read(userProvider).name = 'New Name';  // ❌
+
+// Using global variables
+User? currentUser;  // ❌
+
+// Storing widgets in state
+final widgetProvider = StateProvider<Widget>((ref) => Container());  // ❌
+
+// Deeply nested state
+class AppState {
+  final AuthState auth;
+  final UserState user;
+  final SettingsState settings;
+  final CartState cart;
+}
+```
+
+### ✅ Do
+
+```dart
+// Create new state instance
+ref.read(userProvider.notifier).updateName('New Name');  // ✅
+
+// Use providers for global state
+final currentUserProvider = StateProvider<User?>((ref) => null);  // ✅
+
+// Store data, not widgets
+final currentPageProvider = StateProvider<int>((ref) => 0);  // ✅
+
+// Separate providers by feature
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(...);
+final cartProvider = StateNotifierProvider<CartNotifier, CartState>(...);
+```
+
+---
+
+## Best Practices
+
+1. **Single source of truth**: Each piece of state has one owner
+2. **Immutable state**: Always create new instances for updates
+3. **Keep state minimal**: Only store what's needed
+4. **Derive when possible**: Use `Provider` for computed values
+5. **Dispose properly**: Use `.autoDispose` for cleanup
+6. **Test state in isolation**: Test providers independently of widgets
