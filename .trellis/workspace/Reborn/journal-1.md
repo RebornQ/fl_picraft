@@ -38,3 +38,37 @@ Populated .trellis/spec/frontend/ with Flutter project conventions (directory-st
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Project Init: Dependencies & Platform Permissions Bootstrap
+
+**Date**: 2026-05-09
+**Task**: Project Init: Dependencies & Platform Permissions Bootstrap
+**Branch**: `main`
+
+### Summary
+
+Bootstrapped fl_picraft pubspec deps (riverpod, go_router, image, image_picker, file_picker, super_drag_and_drop, super_clipboard, reorderables, path_provider, gal, share_plus + dev tooling) and configured iOS/Android/macOS permissions/entitlements for image-pick + save flows. All AC pass: pub get clean, analyze clean, format clean, both Debug and Release entitlements mirrored. Captured surfaced gotchas into .trellis/spec/frontend/dependencies-and-platforms.md (Riverpod 2.x lock, riverpod_annotation must be runtime dep, Android 13+ permission split, iOS three-key Photo Library requirement, macOS dual entitlements file requirement).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e7a59aa` | (see git log) |
+| `5e393bb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
