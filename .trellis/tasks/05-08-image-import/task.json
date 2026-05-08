@@ -3,7 +3,7 @@
   "name": "image-import",
   "title": "Image Import Module",
   "description": "Implement 4 import sources: gallery picker, camera capture, clipboard paste, drag-drop file",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

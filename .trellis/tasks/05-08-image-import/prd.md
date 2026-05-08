@@ -12,8 +12,10 @@ Provide a unified image import surface usable by both Long Stitch and Grid Split
 |--------|-----------|---------|
 | Gallery (multi-select) | All | `image_picker` (mobile/web) + `file_picker` (desktop) |
 | Camera capture | iOS / Android | `image_picker` |
-| Clipboard paste | All | `super_clipboard` or `pasteboard` |
-| Drag-drop file | macOS / Windows / Linux / Web | `super_drag_and_drop` or `desktop_drop` |
+| Clipboard paste | All | `super_clipboard` (super_native_extensions suite) |
+| Drag-drop file | macOS / Windows / Linux / Web | `super_drag_and_drop` (super_native_extensions suite) |
+
+**Library decision (2026-05-09)**: chose the `super_*` suite over `pasteboard` / `desktop_drop` for cross-platform consistency, unified API, and richer image-type support. Both libraries share the `super_native_extensions` runtime, so platform setup is done once.
 
 ### Internal model
 

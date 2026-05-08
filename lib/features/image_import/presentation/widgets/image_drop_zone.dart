@@ -1,0 +1,70 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+
+import '../providers/image_import_provider.dart';
+
+/// Wraps a [child] in a `DropRegion` that funnels dropped images into
+/// the [imageImportControllerProvider].
+///
+/// This widget exists because `super_drag_and_drop`'s `DropRegion` must
+/// live in the widget tree — there's no way to express "drag-drop input"
+/// purely from a data source. By owning the wiring here we still keep
+/// the actual byte-extraction logic in
+/// `data/datasources/drag_drop_datasource.dart`; the widget only knows
+/// the data source's `evaluateDropOver` / `extractDroppedImages` API.
+///
+/// On platforms that don't support drag-drop (mobile),
+/// `super_drag_and_drop`'s `DropRegion` simply never receives events,
+/// so the widget is harmless to wrap unconditionally.
+class ImageDropZone extends ConsumerWidget {
+  const ImageDropZone({
+    super.key,
+    required this.child,
+    this.hitTestBehavior = HitTestBehavior.opaque,
+    this.onDragOver,
+    this.onDragLeave,
+  });
+
+  /// The content to wrap. Often a `Stack` containing the editor's
+  /// canvas and an overlay highlight that listens to [onDragOver].
+  final Widget child;
+
+  /// Hit-test behavior for the underlying [DropRegion]. Default
+  /// matches super_drag_and_drop's example.
+  final HitTestBehavior hitTestBehavior;
+
+  /// Optional hover-state callback. Fires `true` while a valid image
+  /// drag is over the region, `false` when it leaves or completes.
+  final ValueChanged<bool>? onDragOver;
+
+  /// Convenience alias for `onDragOver(false)` so callers can express
+  /// "the dragee left without dropping" semantically.
+  final VoidCallback? onDragLeave;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final dataSource = ref.watch(dragDropDataSourceProvider);
+
+    return DropRegion(
+      formats: dataSource.acceptedFormats,
+      hitTestBehavior: hitTestBehavior,
+      onDropOver: (event) {
+        final operation = dataSource.evaluateDropOver(event);
+        onDragOver?.call(operation != DropOperation.none);
+        return operation;
+      },
+      onDropLeave: (_) {
+        onDragOver?.call(false);
+        onDragLeave?.call();
+      },
+      onPerformDrop: (event) async {
+        onDragOver?.call(false);
+        final raw = await dataSource.extractDroppedImages(event);
+        if (raw.isEmpty) return;
+        await ref.read(imageImportControllerProvider.notifier).addFromDrop(raw);
+      },
+      child: child,
+    );
+  }
+}
