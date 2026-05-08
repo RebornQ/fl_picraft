@@ -141,3 +141,41 @@ Bootstrapped the real Flutter app shell over the default counter template: Provi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: Long Stitch Feature: vertical/horizontal + movie subtitle modes
+
+**Date**: 2026-05-09
+**Task**: Long Stitch Feature: vertical/horizontal + movie subtitle modes
+**Branch**: `main`
+
+### Summary
+
+Shipped both Long Stitch subtasks end-to-end: vertical/horizontal stitch editor (new lib/features/long_stitch/ with data/domain/presentation, off-isolate compute() renderer, reuses existing image-import flow, 12 new files + 2 test files) and movie-subtitle layered-overlay mode (flag-overlay on StitchMode.vertical with subtitleOnlyMode + subtitleBandHeight on the existing state class, all consumers route through computeStitchLayout for uniform flag check). Captured two new specs: reorderable list key stability gotcha (use ObjectKey or stable id, not position-embedded keys) in component-guidelines.md, and the flag-overlay vs new-enum-variant decision pattern in type-safety.md. 50/50 tests pass, analyze clean.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `aef4c63` | (see git log) |
+| `5a12208` | (see git log) |
+| `c538135` | (see git log) |
+| `0b32ba1` | (see git log) |
+| `c2e7cf1` | (see git log) |
+| `602ffcc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

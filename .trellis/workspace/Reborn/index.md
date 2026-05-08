@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-05-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~143 | Active |
+| `journal-1.md` | ~181 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-05-09 | Long Stitch Feature: vertical/horizontal + movie subtitle modes | `aef4c63`, `5a12208`, `c538135`, `0b32ba1`, `c2e7cf1`, `602ffcc` | `main` |
 | 4 | 2026-05-09 | Image Import 模块完成 + spec 模式提取 | `f7318aa`, `f5084cc` | `main` |
 | 3 | 2026-05-09 | Base Architecture: GoRouter + MD3 theme + BottomNav + HomeScreen | `f687762`, `e839d52`, `fc09322` | `main` |
 | 2 | 2026-05-09 | Project Init: Dependencies & Platform Permissions Bootstrap | `e7a59aa`, `5e393bb` | `main` |
