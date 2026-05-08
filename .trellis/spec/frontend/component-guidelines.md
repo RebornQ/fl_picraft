@@ -339,6 +339,54 @@ Row(
 axis?" If the answer is "the parent scroll view", you need `IntrinsicHeight`
 (or to bound it explicitly with `SizedBox`).
 
+### Gotcha: Reorderable list keys must be stable across position changes
+
+**Symptom**: Drag-reorder works for the first move, then subsequent drags
+"snap back", attach to the wrong item, or visibly stutter. Sometimes the
+dragged card swaps content with a sibling instead of moving cleanly.
+
+**Cause**: The reorder tracker (`ReorderableListView`,
+`reorderables/ReorderableRow`, `ReorderableSliverList`, etc.) identifies
+each child by its `key` to follow it across rebuilds during the drag. If
+the key embeds the **position** in the list — e.g. `ValueKey('$path#$index')`
+or `Key('$index')` — the key changes the moment the item moves, and the
+tracker loses its anchor.
+
+**Fix**: key by **identity**, not position.
+
+```dart
+// ❌ WRONG — key changes when index changes
+ReorderableRow(
+  children: [
+    for (var i = 0; i < items.length; i++)
+      Card(key: ValueKey('${items[i].path}#$i'), child: ...),
+  ],
+  onReorder: ...,
+)
+
+// ✅ CORRECT — key tracks the underlying object
+ReorderableRow(
+  children: [
+    for (final item in items)
+      Card(key: ObjectKey(item), child: ...),
+  ],
+  onReorder: ...,
+)
+
+// ✅ ALSO CORRECT — when items have a stable unique id
+Card(key: ValueKey(item.id), child: ...)
+```
+
+`ObjectKey(item)` works because the list shuffles **references** on reorder
+— the same `ImportedImage`/model instance moves to a new index but keeps
+identity, so the tracker can follow it.
+
+**Prevention**: Whenever you write a `key` for a child of a reorderable /
+animated-list / `AnimatedSwitcher` widget, ask: "does this key change when
+the item moves?" If yes, switch to `ObjectKey` or a domain-stable id. Path-
+or content-based keys are also unsafe when two items can legitimately have
+the same content (e.g. two imports of the same file path).
+
 ### ❌ Don't
 
 ```dart
