@@ -3,7 +3,7 @@
   "name": "movie-subtitle",
   "title": "Movie Subtitle Mode",
   "description": "Layered overlay stitching: first image full + subsequent images bottom subtitle band only (50-500px slider, default 120px)",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
