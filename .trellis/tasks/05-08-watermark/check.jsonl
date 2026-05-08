@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, accessibility checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack reference"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify watermark code under export feature"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify WatermarkConfig leaf provider"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify WatermarkAnchor enum and immutable config"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify composition in domain, UI only edits config"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify single applyWatermark function reused everywhere"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify §5.5 水印功能 implemented"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_4_导出页面/code.html", "reason": "Verify watermark section matches mockup (lines 170-205)"}
+{"file": ".trellis/tasks/05-08-watermark/prd.md", "reason": "Subtask acceptance criteria"}

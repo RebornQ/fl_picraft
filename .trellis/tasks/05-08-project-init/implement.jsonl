@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack overview — needed to validate dependency choices"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Confirms Clean Architecture target layout that deps must support"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint and analysis_options conventions"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Null-safety expectations affect package compatibility"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Avoid pulling deps already supplied by Flutter SDK"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — particularly §6 建议技术栈"}
+{"file": "pubspec.yaml", "reason": "Existing pubspec to extend (read-only spec context, edits happen during implement)"}
+{"file": "analysis_options.yaml", "reason": "Existing lint config to keep aligned"}

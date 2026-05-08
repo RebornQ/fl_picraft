@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Extends lib/features/export/"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Position picker (3x3 grid), opacity slider, text input"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "WatermarkConfig notifier patterns"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "WatermarkConfig as a leaf provider"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "WatermarkAnchor enum, immutable config class"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Single applyWatermark function used across export paths"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Composition in domain, UI just edits config"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §5.5 水印功能"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_4_导出页面/code.html", "reason": "Watermark section (lines 170-205): toggle, text input, 3x3 anchor picker, opacity slider"}

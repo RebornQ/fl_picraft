@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Extends lib/features/grid_split/"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Grid type selector cards, bento parameter cards"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "GridEditor notifier patterns"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "GridEditorState with type/spacing/radius fields"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "GridType sealed enum"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Generalize the cell-rect math so it works for all 11 types"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Crop logic in domain, presentation only renders state"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §4.1 普通宫格切图 with all 11 types"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_3_宫格切图/code.html", "reason": "Grid type selector (lines 156-202), preview overlay (lines 119-141), parameter cards (lines 204-220)"}

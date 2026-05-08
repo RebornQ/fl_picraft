@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, accessibility, code review checklist for verification"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens — confirm code matches"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify file paths align with Clean Architecture layout"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify null safety, sealed classes, no dynamic leaks"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify no layer violations across data/domain/presentation"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Spot duplicated logic that should be extracted"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify acceptance criteria from product spec"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html", "reason": "Verify Home + BottomNav match the design"}
+{"file": ".trellis/tasks/05-08-foundation/prd.md", "reason": "Parent-level acceptance criteria"}

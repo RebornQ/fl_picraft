@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack overview"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Place import code under lib/features/image_import/ with data/domain/presentation layers"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget conventions if any UI surface (picker buttons) is added"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "AsyncNotifier pattern for the import provider"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "AsyncValue<List<ImportedImage>> exposure pattern"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Sealed result types for import success/failure"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Centralize import logic — features must not call image_picker directly"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Image_picker / file_picker calls belong in data/datasources, not presentation"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §5.1 Image Import table, §5.2 limits"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html", "reason": "Import buttons triggered from Home cards (lines 117-134)"}

@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, perf checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack reference"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify long_stitch layered structure"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify StitchEditor notifier shape"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify StitchMode enum and value class"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify scaling math in domain, not widgets"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify vertical/horizontal share scaling helper"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify §3.1 竖向, §3.2 横向, §5.3 输出调整 implemented"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_2_长图拼接/code.html", "reason": "Verify segmented control + parameter sheet match design"}
+{"file": ".trellis/tasks/05-08-vertical-horizontal/prd.md", "reason": "Subtask acceptance criteria"}

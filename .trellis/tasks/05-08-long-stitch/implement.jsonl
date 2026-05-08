@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Place stitching code under lib/features/long_stitch/ with the layered structure"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Editor screen, image-list card, segmented control widget patterns"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Editor Riverpod notifier patterns shared by both subtasks"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Single editor state class shared between vertical/horizontal/movie-subtitle"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Sealed StitchMode enum and value-class state"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse the same editor shell across modes; reuse image-import provider"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Heavy image processing belongs in domain/usecases, not presentation"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §3 长图拼接 with all three modes"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_2_长图拼接/code.html", "reason": "Editor UI: image list, preview canvas, mode controls, subtitle slider"}
+{"file": ".trellis/tasks/05-08-vertical-horizontal/prd.md", "reason": "Subtask: vertical and horizontal stitch modes"}
+{"file": ".trellis/tasks/05-08-movie-subtitle/prd.md", "reason": "Subtask: movie subtitle mode with band overlay"}

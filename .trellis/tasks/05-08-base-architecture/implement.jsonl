@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens for MD3 theme construction"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Where app/router.dart, app/theme/, core/widgets/ should live"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget conventions for HomeScreen, BottomNavBar, FeatureCard"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Riverpod patterns for ProviderScope wiring"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Choosing provider types for navigation/theme state"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Sealed routes / typed state classes"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse Flutter built-in widgets before custom ones"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Avoid leaking presentation concerns into core/"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §2 Pages & Navigation defines route map"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html", "reason": "Source for MD3 color tokens (lines 14-63), Home layout, BottomNav structure (lines 167-194)"}

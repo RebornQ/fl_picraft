@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Place under lib/features/export/ with data/domain/presentation"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Format toggle, slider, position picker, save CTA patterns"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "ExportController notifier patterns"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "ExportState shared by watermark and multi-platform subtasks"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "ExportFormat enum, sealed SaveResult types"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Single export pipeline consumes both stitch and grid outputs"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Platform-specific save in data/datasources, not presentation"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §5.4 导出, §5.5 水印"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_4_导出页面/code.html", "reason": "Export screen UI: format/quality/watermark layout"}
+{"file": ".trellis/tasks/05-08-watermark/prd.md", "reason": "Subtask: text watermark composition"}
+{"file": ".trellis/tasks/05-08-export-multiplatform/prd.md", "reason": "Subtask: encoding and platform save"}

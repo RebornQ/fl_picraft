@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, code review checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Confirm MD3 tokens and design language"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify app/router, app/theme, core/widgets paths"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget patterns: const, keys, semantic labels"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify ProviderScope wiring is correct"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Sealed routes, typed state classes"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify no presentation leaks into core/"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Did we wrap Flutter built-ins unnecessarily?"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify route map matches §2 Pages & Navigation"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html", "reason": "Verify Home screen matches the mockup"}
+{"file": ".trellis/tasks/05-08-base-architecture/prd.md", "reason": "Subtask acceptance criteria"}

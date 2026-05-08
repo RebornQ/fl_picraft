@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, accessibility checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack reference"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify image_import lives under features/ with proper layers"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify AsyncValue exposure pattern"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify ImportedImage immutability and sealed result types"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify image_picker / file_picker calls confined to data/datasources"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify no feature directly imports image_picker"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify §5.1 import sources, §5.2 20-image limit"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html", "reason": "Confirm Home import buttons trigger the right source"}
+{"file": ".trellis/tasks/05-08-image-import/prd.md", "reason": "Acceptance criteria for the task"}

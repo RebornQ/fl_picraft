@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Extends lib/features/long_stitch/ structure"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Slider widget patterns, conditional UI panels"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Extending StitchEditor notifier with subtitle fields"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "How to extend an existing notifier without breaking siblings"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Boolean + numeric state additions"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse the band-cropping helper for similar future modes"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Layered rendering math lives in domain"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §3.3 电影台词模式 with diagram and parameters"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_2_长图拼接/code.html", "reason": "Subtitle toggle (lines 205-211), height slider (lines 213-223), preview simulation (lines 174-192)"}

@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack and design tokens"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Place under lib/features/long_stitch/ with data/domain/presentation"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Reusable widget patterns for sliders, segmented controls"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "StitchEditor Riverpod notifier conventions"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Single source-of-truth notifier across modes"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "StitchMode sealed enum, immutable state class"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Vertical and horizontal share the same scaling math — extract a helper"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Canvas rendering belongs in domain/usecases, not in widgets"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth — §3.1 竖向, §3.2 横向, §5.3 输出调整"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_2_长图拼接/code.html", "reason": "Mode segmented control (lines 200-203), parameter sheet"}

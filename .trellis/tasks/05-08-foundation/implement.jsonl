@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec entry: tech stack, design tokens, common commands"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Clean Architecture + Feature-First layout for app/core/features placement"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget patterns and Material Design 3 conventions for the Home/BottomNav UI"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Riverpod provider patterns required when wiring ProviderScope and feature providers"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "When to use StateNotifier vs StateProvider — relevant for parent's overall plan"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Null safety and sealed-class conventions used across the app shell"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse-before-create checklist before scaffolding new files"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Avoid layer violations when wiring app/core/features"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Source of truth for the full product requirements"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html", "reason": "Home screen UI reference — colors, layout, BottomNav structure"}
+{"file": ".trellis/tasks/05-08-project-init/prd.md", "reason": "Subtask: pubspec dependencies and platform manifests"}
+{"file": ".trellis/tasks/05-08-base-architecture/prd.md", "reason": "Subtask: GoRouter + theme + ProviderScope + Home screen"}

@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, code review checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack reference"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify long_stitch feature follows layered structure"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify single editor state shared across modes"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify StitchMode enum and immutable state class"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify rendering math in domain, not in widgets"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify shared editor shell is reused"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify §3 长图拼接 across all three modes"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_2_长图拼接/code.html", "reason": "Verify editor matches mockup"}
+{"file": ".trellis/tasks/05-08-long-stitch/prd.md", "reason": "Parent-level acceptance criteria"}

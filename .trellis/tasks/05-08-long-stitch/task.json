@@ -1,0 +1,29 @@
+{
+  "id": "long-stitch",
+  "name": "long-stitch",
+  "title": "Long Stitch Feature",
+  "description": "Vertical/horizontal/movie-subtitle stitching modes, layered overlay, subtitle height slider",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-08",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-08-vertical-horizontal",
+    "05-08-movie-subtitle"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
