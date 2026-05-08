@@ -20,6 +20,7 @@ This directory contains guidelines for Flutter development following Clean Archi
 | [State Management](./state-management.md) | Riverpod patterns, when to use providers | ✅ Complete |
 | [Quality Guidelines](./quality-guidelines.md) | Linting, testing, code review | ✅ Complete |
 | [Type Safety](./type-safety.md) | Dart null safety, sealed classes, generics | ✅ Complete |
+| [Dependencies & Platforms](./dependencies-and-platforms.md) | pubspec, Android/iOS/macOS manifests | ✅ Complete |
 
 ---
 
