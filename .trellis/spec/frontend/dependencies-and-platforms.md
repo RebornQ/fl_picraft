@@ -31,6 +31,7 @@ work. Do not silently swap to alternatives.
 | State management | `flutter_riverpod` ^2.x | `riverpod` 3.x | 3.x is published but transitive constraints in `share_plus` / `super_clipboard` keep us on 2.x — see "Lock Riverpod to 2.x" below |
 | File pick / save dialog (desktop + web) | `file_picker` | `file_selector` | `file_picker` exposes the save dialog on macOS / Windows / Linux which `file_selector` lacks |
 | Routing | `go_router` ^14.x | `auto_route`, hand-rolled `Navigator` | Declarative + deep-link-friendly per CLAUDE.md target architecture |
+| Typography (Inter) | `google_fonts` ^8.x | Manual `pubspec.yaml` font assets | Same Inter face on every platform with no per-platform asset shipping; `google_fonts.interTextTheme` integrates directly with `ThemeData.textTheme` |
 
 > When `pub outdated` reports a newer-major version, **read the transitive
 > graph first**. Upgrading one major often forces a cascade — leave the
@@ -185,6 +186,43 @@ write to disk and the user sees an empty save dialog.
 added for sandbox file access should be byte-identical between Debug and
 Release.
 
+### macOS: Deployment-target floor
+
+**Required**: The project's macOS deployment target is **11.0** (Big Sur).
+Some plugins ship with a hard minimum; the highest currently in our graph
+is `gal` (≥ 11.0), so 11.0 is the floor we must keep until something forces
+it higher.
+
+**Files that MUST be edited together** when changing the floor:
+
+| File | What to edit |
+|------|--------------|
+| `macos/Podfile` | `platform :osx, '11.0'` (top of file) |
+| `macos/Runner.xcodeproj/project.pbxproj` | Every `MACOSX_DEPLOYMENT_TARGET = ...;` (Debug + Release + Profile, both Runner-target and project-level — usually 3+ occurrences) |
+| `macos/Flutter/AppFrameworkInfo.plist` | `MinimumOSVersion` key, **only if the file exists** (modern Flutter macOS templates don't ship it; the iOS template does) |
+
+Use `grep` first to enumerate every spot before editing:
+
+```bash
+grep -RIn "MACOSX_DEPLOYMENT_TARGET" macos/
+grep -RIn "platform :osx" macos/
+grep -RIn "MinimumOSVersion" macos/
+```
+
+**Common Mistake**: Editing only `macos/Podfile` and leaving
+`project.pbxproj` at `10.15`. `pod install` then succeeds, but the build
+still fails with `The plugin "gal" requires a higher minimum macOS
+deployment version than your application is targeting` — Xcode's per-target
+`MACOSX_DEPLOYMENT_TARGET` overrides the Podfile's `platform :osx` whenever
+they differ. Both must move together.
+
+**Validation**:
+- `cd macos && pod install` succeeds (no "deployment version" error).
+- All three `MACOSX_DEPLOYMENT_TARGET` occurrences in `project.pbxproj`
+  match the Podfile value.
+- `flutter build macos --debug` reaches link without the gal-deployment
+  error.
+
 ### Desktop / Web: Verification only
 
 | Platform | Manifest edits | Verification |
@@ -205,6 +243,7 @@ Release.
 | `riverpod_annotation` in `dev_dependencies:` | "Package not found" in release build | Move to `dependencies:` |
 | Unconstrained Riverpod 3.x upgrade | Runtime "type X is not a subtype of Y" from any provider | Pin back to `^2.6.x` |
 | Hand-pinned `targetSdk = 34` | Flutter SDK bump silently regresses to 34, blocking new APIs | Restore `flutter.targetSdkVersion` |
+| `MACOSX_DEPLOYMENT_TARGET` lower than a plugin's floor (e.g. `gal` ≥ 11.0) | `pod install` or `flutter build macos` errors with `The plugin "X" requires a higher minimum macOS deployment version` | Bump Podfile **and** every `MACOSX_DEPLOYMENT_TARGET` in `project.pbxproj` to the plugin floor |
 
 ---
 

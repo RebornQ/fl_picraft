@@ -117,15 +117,123 @@ final headlineStyle = textTheme.headlineMedium;
 final bodyStyle = textTheme.bodyMedium;
 ```
 
-### Design Tokens (from DESIGN.md)
+### Design Tokens (from UI design HTML mocks)
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| Primary | `#6750a4` | CTA buttons, key interactive elements |
-| Secondary | `#625b71` | Chips, secondary actions |
-| Tertiary | `#7d5260` | Highlights, badges |
-| Neutral | `#79747e` | Backgrounds, surfaces |
-| Font Family | Inter | All text |
+The current production palette lives in `lib/app/theme/app_colors.dart`,
+lifted from `docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html`
+(lines 14–63).
+
+| Token | Light value | Usage |
+|-------|-------------|-------|
+| `primary` | `#4F378A` | CTAs, active nav, primary feature card |
+| `secondary` | `#625B71` | Secondary text/icons |
+| `tertiary` | `#633B48` | Accents (tips badge) |
+| `background` / `surface` | `#FEF7FF` | Body bg, cards |
+| `surface-container-low` | `#F9F1FD` | Feature cards |
+| `outline-variant` | `#CBC4D2` | Borders |
+| `error` | `#BA1A1A` | Destructive actions |
+| Font Family | Inter (via `google_fonts.interTextTheme`) | All text |
+
+> Hex literals are forbidden outside `app_colors.dart`. See
+> "Convention: MD3 token sourcing" below.
+
+---
+
+## App Shell & Theming Conventions
+
+The conventions in this section were captured from the
+`05-08-base-architecture` task. They define how the root app, theme, and
+top-level layout fit together so every feature screen is wired the same way.
+
+### Convention: MD3 token sourcing
+
+**What**: Every raw hex value lives in exactly one place —
+`lib/app/theme/app_colors.dart`. Widgets read colors via
+`Theme.of(context).colorScheme.<role>` (or `Theme.of(context).textTheme...`).
+Designer-supplied HTML/Figma tokens get lifted here once and never copied
+again.
+
+**Why**: Centralizing the palette is the only way the dark theme, future
+brand re-skins, and "is this the same purple?" reviews can stay coherent.
+Hex literals scattered across feature files always drift.
+
+**How to apply**:
+- New design token from a mock → add to `app_colors.dart` with a comment
+  citing the mock file + line range.
+- Need the token in a widget → resolve via `colorScheme.primary` /
+  `colorScheme.surfaceContainerLow` etc.; never `const Color(0xFF...)` in
+  `lib/features/**` or `lib/core/widgets/**`.
+- New role doesn't exist on `ColorScheme` → extend the theme via
+  `extensions:` on `ThemeData`, don't pass raw `Color` props down the tree.
+
+### Convention: Asymmetric light/dark theme strategy
+
+**What**: While the design system only ships **light** tokens, the project
+hand-curates the light `ColorScheme` from those tokens and seed-generates the
+dark `ColorScheme` via `ColorScheme.fromSeed(seedColor: AppColors.primary,
+brightness: Brightness.dark)`. `ThemeMode.system` is the default.
+
+**Why**: The UI source-of-truth (`docs/UI Design/.../code.html`) only
+specifies the light palette. Hand-rolling a dark palette without designer
+input would pick arbitrary values that the next design refresh has to redo.
+Seeding gives a coherent dark mode immediately and stays cheap to throw away
+when real dark tokens land.
+
+**How to apply**:
+- Don't add hand-tuned dark hex tokens until the design system covers them —
+  let the seed do the work.
+- When the design system ships dark tokens, replace `AppTheme.dark()` with a
+  hand-curated `ColorScheme` mirroring the light builder, and remove the
+  seed call.
+- New components must rely on `colorScheme` roles (not raw `AppColors.*`)
+  so they stay correct under both themes automatically.
+
+### Convention: Flat routing + per-screen `AppScaffold`
+
+**What**: `GoRouter` exposes top-level routes as a flat list (no
+`ShellRoute`). Each top-level screen wraps its body in `AppScaffold`, which
+owns the `BottomNavBar`. `BottomNavBar` derives the active tab from
+`GoRouterState.uri.toString()` rather than holding its own selected-index
+state.
+
+**Why**: Flat routes keep deep-link behavior obvious and let the
+`05-08-*` feature tasks swap real screens in for placeholders one file at a
+time. A `ShellRoute` would couple all top-level screens through a shared
+widget tree; we don't need the cross-tab state preservation that `ShellRoute`
+buys, and the coupling makes per-feature ownership messier.
+
+**How to apply**:
+- New top-level route → add to `lib/app/router.dart` AND wire its screen to
+  return `AppScaffold(body: ...)`.
+- Need a screen WITHOUT the bottom nav (modal flow, full-screen editor) →
+  return `Scaffold` directly; do not invent a `hideBottomNav` flag on
+  `AppScaffold`.
+- Active-tab logic stays in `BottomNavBar` (reading the router) — never pass
+  a "selected index" prop down from screens.
+
+### Convention: Placeholder screens for in-progress features
+
+**What**: When a route is registered before its owning feature task lands,
+the screen body MUST use the shared
+`PlaceholderBody(title:, description:, icon:)` widget from
+`lib/core/widgets/placeholder_body.dart`. The screen file still lives in its
+real future location (`lib/features/<feature>/presentation/screens/...`), so
+when the real implementation arrives only one file changes.
+
+**Why**: Earlier we duplicated four `Center > Column > Icon + Title +
+Description` placeholder bodies in four different screen files. The
+duplication was easy to miss at PR time and made restyling the placeholder
+look-and-feel a four-file change. One shared widget keeps placeholders
+visually consistent and makes the eventual swap-in trivial.
+
+**How to apply**:
+- Adding a new placeholder route → instantiate `PlaceholderBody` directly in
+  the screen `build`. Don't recreate the layout inline.
+- Replacing a placeholder with the real screen → delete the
+  `PlaceholderBody` line and write the real body in the same file. No
+  changes needed to the router.
+
+
 
 ### Spacing
 
@@ -197,6 +305,39 @@ Padding(
 ---
 
 ## Common Mistakes
+
+### Gotcha: `Row(crossAxisAlignment: stretch)` inside an unbounded scrollable
+
+**Symptom**: Runtime error `BoxConstraints forces an infinite height` (or
+`infinite width`) coming from a `Row` or `Column` whose children request
+`stretch` alignment.
+
+**Cause**: A `Row` with `crossAxisAlignment: CrossAxisAlignment.stretch`
+needs a finite cross-axis extent (height for `Row`, width for `Column`). When
+the parent is a `ListView`, `SingleChildScrollView`, or any other widget
+that hands down unbounded constraints on that axis, the `stretch` resolves
+to infinity and Flutter throws.
+
+**Fix**:
+```dart
+// Wrap in IntrinsicHeight when the children should match the tallest sibling
+IntrinsicHeight(
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [/* ... */],
+  ),
+)
+
+// OR drop stretch and pick a real alignment
+Row(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [/* ... */],
+)
+```
+
+**Prevention**: When you reach for `stretch`, ask "what bounds the cross
+axis?" If the answer is "the parent scroll view", you need `IntrinsicHeight`
+(or to bound it explicitly with `SizedBox`).
 
 ### ❌ Don't
 

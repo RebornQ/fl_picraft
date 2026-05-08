@@ -37,12 +37,18 @@ This directory contains guidelines for Flutter development following Clean Archi
 
 ### Key Design Tokens
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| Primary | `#6750a4` | CTAs, key elements |
-| Secondary | `#625b71` | Secondary actions |
-| Tertiary | `#7d5260` | Accents, badges |
-| Neutral | `#79747e` | Backgrounds |
+> Authoritative source: `lib/app/theme/app_colors.dart` (lifted from
+> `docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_1_首页/code.html`).
+> Do not duplicate the table elsewhere — see
+> [Component Guidelines → Design Tokens](./component-guidelines.md#design-tokens-from-ui-design-html-mocks).
+
+| Token | Light value | Usage |
+|-------|-------------|-------|
+| Primary | `#4F378A` | CTAs, active nav, primary feature card |
+| Secondary | `#625B71` | Secondary text/icons |
+| Tertiary | `#633B48` | Accents, badges (tips) |
+| Surface / Background | `#FEF7FF` | Body bg, cards |
+| Surface-container-low | `#F9F1FD` | Feature cards |
 
 ### Common Commands
 
