@@ -216,6 +216,87 @@ class Failure<T> extends Result<T> {
 
 ---
 
+## Design Decisions
+
+### Decision: Flag-on-existing-variant vs new enum variant
+
+**Context**: An enum already models a finite set of modes/states (e.g.
+`StitchMode { vertical, horizontal }`). A new feature (e.g. "movie subtitle"
+overlay) needs to alter the rendering pipeline. Two ways to model it:
+
+- **Option A — Add a third variant**: `StitchMode { vertical, horizontal,
+  movieSubtitle }`. Every exhaustive switch on `StitchMode` compile-errors
+  at every site that needs an update — strong compile-time safety.
+- **Option B — Add a flag on the existing state class**: keep
+  `StitchMode { vertical, horizontal }`, add `bool subtitleOnlyMode` +
+  `double subtitleBandHeight` to the state class, gate behavior with
+  `mode == vertical && subtitleOnlyMode && images.length > 1`.
+
+**Decision**: Pick Option A (new variant) when the new behavior is a
+peer mode the user picks alongside the others; pick Option B (flag) when
+the new behavior is a **modifier** layered on top of an existing mode.
+
+**Concrete signals that point to flag-overlay (Option B)**:
+1. The PRD / UI mock represents the new behavior as a separate switch /
+   toggle, not a new segment on the mode picker
+2. The new behavior depends on another mode being active (e.g. "only
+   makes sense when in vertical mode")
+3. The new behavior should be **sticky** across mode changes (toggle
+   position persists when the user swaps modes and returns)
+4. There are simple edge-case rules that disable the behavior
+   (e.g. "hide when image count < 2", "ignore in horizontal mode")
+5. The state class already reserved fields for the future behavior,
+   indicating the original designer intended a flag
+
+**Concrete signals that point to new variant (Option A)**:
+1. The new mode is mutually exclusive with all existing modes at the
+   user's mental level (a third radio button, not a toggle)
+2. Every site that switches on the enum needs different behavior for
+   the new mode (no "one site dispatches all" simplification possible)
+3. You want compile-time guarantees that no future site accidentally
+   silently treats the new mode as one of the old ones
+
+**How to mitigate Option B's loss of compile-time safety**: route every
+mode-dependent dispatch through a single domain function (e.g.
+`computeStitchLayout`) that bakes the flag check in **before** the
+`switch (mode)`. Then every consumer (preview widget, isolate renderer,
+exporter) reads from that one dispatch point — there's no risk of a
+caller forgetting to check the flag because they never see it.
+
+**Example**:
+
+```dart
+// Option B done well: single dispatch site
+StitchLayout computeStitchLayout({
+  required List<Size> sizes,
+  required StitchMode mode,
+  required double spacing,
+  required StitchBorder border,
+  bool subtitleOnlyMode = false,
+  double subtitleBandHeight = kDefaultSubtitleBandHeight,
+}) {
+  if (mode == StitchMode.vertical &&
+      subtitleOnlyMode &&
+      sizes.length >= 2) {
+    return _layoutMovieSubtitle(sizes, subtitleBandHeight, border);
+  }
+  return switch (mode) {
+    StitchMode.vertical => _layoutVertical(sizes, spacing, border),
+    StitchMode.horizontal => _layoutHorizontal(sizes, spacing, border),
+  };
+}
+```
+
+All consumers (`StitchImageRenderer`, `_PreviewSurface`, future export)
+call `computeStitchLayout` — there is no second site that switches on
+mode without the flag check.
+
+**Anti-pattern**: scattering `if (subtitleOnlyMode) { ... }` checks at
+multiple call sites. That is the situation Option B is rightfully
+criticised for, and where Option A's compile-time safety wins.
+
+---
+
 ## Forbidden Patterns
 
 ### ❌ Don't
