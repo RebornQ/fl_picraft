@@ -69,6 +69,7 @@ dependencies:
 
   # Optional share sheet on save success.
   share_plus: ^10.1.2
+  google_fonts: ^8.1.0
 
 dev_dependencies:
   flutter_test:
