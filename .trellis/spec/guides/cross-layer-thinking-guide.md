@@ -77,11 +77,14 @@ Before implementation:
 - [ ] Identified all layer boundaries
 - [ ] Defined format at each boundary
 - [ ] Decided where validation happens
+- [ ] If wrapping a Flutter / Dart plugin: planned a library-agnostic DTO so plugin types stay in `data/datasources/` (see `frontend/directory-structure.md` → "Pattern: Data-source DTO isolation")
+- [ ] If a feature is unavailable on some platforms: planned the **three-layer defense** (UI hide + repository typed failure + datasource throw — see `frontend/directory-structure.md` → "Pattern: Platform-aware datasource dispatch")
 
 After implementation:
 - [ ] Tested with edge cases (null, empty, invalid)
 - [ ] Verified error handling at each boundary
 - [ ] Checked data survives round-trip
+- [ ] Verified no plugin imports leak past `data/datasources/` (grep the repository / domain / presentation files for plugin package names)
 
 ---
 

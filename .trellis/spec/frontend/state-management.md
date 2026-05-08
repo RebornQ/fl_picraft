@@ -181,6 +181,53 @@ class AuthState with _$AuthState {
 }
 ```
 
+### Pattern: Preserve previous data during `AsyncLoading`
+
+**Problem**: When an `AsyncNotifier` re-runs (refresh, append, retry), the
+naive transition is `state = const AsyncLoading()`. This sets `valueOrNull`
+to `null` for the duration of the in-flight request, so any widget that
+reads the current data flickers to its empty/loading branch — even though
+the previous data is still valid.
+
+**Solution**: Use `AsyncLoading.copyWithPrevious(state)` to keep
+`valueOrNull` populated while `isLoading` is `true`. Widgets can show a
+non-blocking spinner over the existing list rather than blanking out.
+
+**Wrong**:
+```dart
+Future<void> appendImport() async {
+  state = const AsyncLoading();          // ← previous list disappears
+  final result = await _repo.run();
+  state = AsyncData(result);
+}
+```
+
+**Correct**:
+```dart
+Future<void> appendImport() async {
+  state = const AsyncLoading<List<ImportedImage>>()
+      .copyWithPrevious(state);          // ← keeps the previous list visible
+  final result = await _repo.run();
+  state = AsyncData(result);
+}
+```
+
+**Why**: Riverpod's `AsyncValue` has dedicated machinery for "loading on
+top of existing data" exactly to avoid the blank-flash problem. Use it
+whenever a re-run is expected to *augment* or *replace* an existing list,
+not bootstrap an empty one. The first build (`build()` returning the
+initial empty value) should still use plain `const AsyncLoading()` since
+there is no previous data to preserve.
+
+**When to use**:
+- Append-style updates (paginated lists, import sessions, infinite scroll)
+- Refresh triggered by user action (pull-to-refresh on a populated list)
+- Retry after a transient failure when the last good value is still relevant
+
+**When NOT to use**:
+- Initial load (`build()` returns the first value)
+- Operations that *invalidate* the previous data (logout, project switch)
+
 ---
 
 ## Common Mistakes
