@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 3
+- **Total Sessions**: 4
 - **Last Active**: 2026-05-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~109 | Active |
+| `journal-1.md` | ~143 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 4 | 2026-05-09 | Image Import 模块完成 + spec 模式提取 | `f7318aa`, `f5084cc` | `main` |
 | 3 | 2026-05-09 | Base Architecture: GoRouter + MD3 theme + BottomNav + HomeScreen | `f687762`, `e839d52`, `fc09322` | `main` |
 | 2 | 2026-05-09 | Project Init: Dependencies & Platform Permissions Bootstrap | `e7a59aa`, `5e393bb` | `main` |
 | 1 | 2026-05-07 | Bootstrap Guidelines - populate frontend spec | `31fdc84` | `main` |

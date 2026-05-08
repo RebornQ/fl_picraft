@@ -107,3 +107,37 @@ Bootstrapped the real Flutter app shell over the default counter template: Provi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: Image Import 模块完成 + spec 模式提取
+
+**Date**: 2026-05-09
+**Task**: Image Import 模块完成 + spec 模式提取
+**Branch**: `main`
+
+### Summary
+
+归档 Foundation 父任务后启动 Image Import (P1)。trellis-implement 子代理基于 prd.md 与 spec 实现完整模块：4 种导入源（gallery / camera / clipboard / drag-drop）× 6 平台，统一标准化为 ImportedImage，含 RawImageBytes DTO 隔离插件类型、20 张硬上限、>=2MB off-isolate 解码、camera 三层防御。trellis-check 自修 1 处文档 bug；主会话再修 3 个快胜项（满 20 短路 picker、AsyncLoading.copyWithPrevious 防闪空、删 _FirstOrNull 死代码扩展）。29/29 测试通过、analyze 0 issues。Phase 3.3 提取 3 个高复用模式入 spec：Data-source DTO isolation、Platform-aware datasource dispatch（含三层防御）、Preserve previous data during AsyncLoading。最终归档 05-08-image-import。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f7318aa` | (see git log) |
+| `f5084cc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
