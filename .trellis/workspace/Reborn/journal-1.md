@@ -72,3 +72,38 @@ Bootstrapped fl_picraft pubspec deps (riverpod, go_router, image, image_picker, 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Base Architecture: GoRouter + MD3 theme + BottomNav + HomeScreen
+
+**Date**: 2026-05-09
+**Task**: Base Architecture: GoRouter + MD3 theme + BottomNav + HomeScreen
+**Branch**: `main`
+
+### Summary
+
+Bootstrapped the real Flutter app shell over the default counter template: ProviderScope at root, MaterialApp.router with GoRouter (5 flat top-level routes), MD3 light theme hand-curated from UI design tokens (#4F378A primary), seed-generated dark theme, AppScaffold + MD3 NavigationBar (4 tabs), HomeScreen with feature cards / tips banner / recent works grid, and shared PlaceholderBody for in-progress feature stubs. Fixed macOS deployment target from 10.15 to 11.0 (Podfile + project.pbxproj all 3 occurrences) so gal plugin's pod install succeeds. Captured 4 new conventions in component-guidelines.md (MD3 token sourcing, asymmetric light/dark theme strategy, flat routing + per-screen AppScaffold, placeholder screens) plus IntrinsicHeight gotcha; added google_fonts to approved package table and a new macOS deployment-target floor section in dependencies-and-platforms.md; synced design tokens table in frontend/index.md to the production palette. flutter analyze clean, flutter test passing.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f687762` | (see git log) |
+| `e839d52` | (see git log) |
+| `fc09322` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
