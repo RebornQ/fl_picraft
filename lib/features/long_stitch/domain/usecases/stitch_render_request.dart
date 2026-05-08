@@ -18,6 +18,8 @@ class StitchRenderRequest {
     required this.cornerRadius,
     required this.format,
     required this.jpegQuality,
+    required this.subtitleOnlyMode,
+    required this.subtitleBandHeight,
   });
 
   final List<Uint8List> imageBytes;
@@ -28,6 +30,12 @@ class StitchRenderRequest {
   final double cornerRadius;
   final StitchExportFormat format;
   final int jpegQuality;
+
+  /// Movie-subtitle flag-overlay (PRD §3.3). When `true` AND [mode] is
+  /// vertical AND there are ≥2 images, the renderer crops each
+  /// non-first image down to its bottom [subtitleBandHeight] band.
+  final bool subtitleOnlyMode;
+  final double subtitleBandHeight;
 
   /// Convenience: build from the editor state. The export module
   /// (`05-08-export-watermark`) will swap [format] / [jpegQuality] in
@@ -46,6 +54,8 @@ class StitchRenderRequest {
       cornerRadius: state.cornerRadius,
       format: format,
       jpegQuality: jpegQuality,
+      subtitleOnlyMode: state.subtitleOnlyMode,
+      subtitleBandHeight: state.subtitleBandHeight,
     );
   }
 

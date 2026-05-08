@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -63,6 +65,8 @@ class _PreviewSurface extends StatelessWidget {
       mode: state.mode,
       spacing: state.spacing,
       borderWidth: state.border.width,
+      subtitleOnlyMode: state.subtitleOnlyMode,
+      subtitleBandHeight: state.subtitleBandHeight,
     );
     if (layout.canvasWidth == 0 || layout.canvasHeight == 0) {
       return const SizedBox.shrink();
@@ -102,10 +106,12 @@ class _PreviewSurface extends StatelessWidget {
               top: layout.imageRects[i].y.toDouble(),
               width: layout.imageRects[i].width.toDouble(),
               height: layout.imageRects[i].height.toDouble(),
-              child: Image.memory(
-                state.images[i].bytes,
-                fit: BoxFit.fill,
-                gaplessPlayback: true,
+              child: _maybeCropBottomBand(
+                bytes: state.images[i].bytes,
+                srcCrop: layout.srcCrops?[i],
+                sourceWidth: state.images[i].width,
+                sourceHeight: state.images[i].height,
+                placementWidth: layout.imageRects[i].width,
               ),
             ),
         ],
@@ -141,4 +147,44 @@ class _PreviewSurface extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Renders [bytes] into a tile of the assembled canvas. When [srcCrop]
+/// is `null`, the full image is stretched to the placement rect (plain
+/// vertical / horizontal). When supplied (movie-subtitle mode), only
+/// the bottom band of the source is drawn — implemented by sizing the
+/// `Image.memory` to the **un-cropped** scaled height and clipping it
+/// inside the placement rect, anchored to the bottom via
+/// [OverflowBox].
+Widget _maybeCropBottomBand({
+  required Uint8List bytes,
+  required StitchRect? srcCrop,
+  required int sourceWidth,
+  required int sourceHeight,
+  required int placementWidth,
+}) {
+  if (srcCrop == null || srcCrop.width <= 0 || srcCrop.height <= 0) {
+    return Image.memory(bytes, fit: BoxFit.fill, gaplessPlayback: true);
+  }
+  if (sourceWidth <= 0 || sourceHeight <= 0 || placementWidth <= 0) {
+    return const SizedBox.shrink();
+  }
+  // Width-normalize the source to the placement width; the resulting
+  // height usually exceeds the band height — OverflowBox lets it
+  // overflow upward while ClipRect crops the overflow.
+  final scaledHeight = sourceHeight * placementWidth / sourceWidth;
+  return ClipRect(
+    child: OverflowBox(
+      alignment: Alignment.bottomCenter,
+      minHeight: 0,
+      maxHeight: double.infinity,
+      minWidth: 0,
+      maxWidth: double.infinity,
+      child: SizedBox(
+        width: placementWidth.toDouble(),
+        height: scaledHeight,
+        child: Image.memory(bytes, fit: BoxFit.fill, gaplessPlayback: true),
+      ),
+    ),
+  );
 }

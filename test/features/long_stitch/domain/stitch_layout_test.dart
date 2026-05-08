@@ -135,4 +135,154 @@ void main() {
       expect(StitchMode.horizontal.displayLabel, '横向');
     },
   );
+
+  group('computeStitchLayout — movie-subtitle mode (PRD §3.3)', () {
+    test(
+      'first image full + subsequent images contribute bottom band only',
+      () {
+        // Three 100x300 images, band = 60. Width-normalize → all 100 wide.
+        // First image's scaled height = 300 (full). Each subsequent image
+        // contributes a 60px band. Canvas H = 300 + 60 + 60 = 420.
+        final layout = computeStitchLayout(
+          sizes: const [
+            StitchImageSize(width: 100, height: 300),
+            StitchImageSize(width: 100, height: 300),
+            StitchImageSize(width: 100, height: 300),
+          ],
+          mode: StitchMode.vertical,
+          spacing: 0,
+          borderWidth: 0,
+          subtitleOnlyMode: true,
+          subtitleBandHeight: 60,
+        );
+
+        expect(layout.canvasWidth, 100);
+        expect(layout.canvasHeight, 420);
+        expect(layout.imageRects, hasLength(3));
+        // First placed full at (0, 0).
+        expect(layout.imageRects[0].y, 0);
+        expect(layout.imageRects[0].height, 300);
+        // Subsequent images: band height 60, abutting.
+        expect(layout.imageRects[1].y, 300);
+        expect(layout.imageRects[1].height, 60);
+        expect(layout.imageRects[2].y, 360);
+        expect(layout.imageRects[2].height, 60);
+
+        // Source crops: null for first, bottom band of source for rest.
+        expect(layout.srcCrops, isNotNull);
+        expect(layout.srcCrops![0], isNull);
+        // Each non-first source is 100x300 in source coords. The
+        // dest band 60 maps back to a 60-pixel src crop (since the
+        // source width matches the target width — no scaling).
+        expect(layout.srcCrops![1]!.x, 0);
+        expect(layout.srcCrops![1]!.width, 100);
+        expect(layout.srcCrops![1]!.height, 60);
+        expect(layout.srcCrops![1]!.y, 240); // 300 - 60
+      },
+    );
+
+    test('image height < band height uses the full image (PRD edge case)', () {
+      // Second image is shorter than the band. The layout should
+      // place it at its scaled height, not stretch it.
+      final layout = computeStitchLayout(
+        sizes: const [
+          StitchImageSize(width: 100, height: 300),
+          StitchImageSize(width: 100, height: 40), // < 60 band
+        ],
+        mode: StitchMode.vertical,
+        spacing: 0,
+        borderWidth: 0,
+        subtitleOnlyMode: true,
+        subtitleBandHeight: 60,
+      );
+
+      expect(layout.canvasWidth, 100);
+      expect(layout.canvasHeight, 340); // 300 + 40
+      expect(layout.imageRects[1].height, 40);
+      // The whole short image is used (srcCrop spans full source).
+      expect(layout.srcCrops![1]!.y, 0);
+      expect(layout.srcCrops![1]!.height, 40);
+    });
+
+    test('width-normalization scales the band crop to source pixels', () {
+      // First image 200x400 → targetWidth = 200.
+      // Second image 100x400 (narrower) gets width-scaled to 200 → height
+      // becomes 800. Band 100 (in scaled coords) maps to source-band 50.
+      final layout = computeStitchLayout(
+        sizes: const [
+          StitchImageSize(width: 200, height: 400),
+          StitchImageSize(width: 100, height: 400),
+        ],
+        mode: StitchMode.vertical,
+        spacing: 0,
+        borderWidth: 0,
+        subtitleOnlyMode: true,
+        subtitleBandHeight: 100,
+      );
+
+      expect(layout.canvasWidth, 200);
+      expect(layout.canvasHeight, 500); // 400 + 100
+      expect(layout.imageRects[1].height, 100);
+      expect(layout.srcCrops![1]!.width, 100);
+      // 100 (band) * 400 (srcH) / 800 (scaledH) = 50.
+      expect(layout.srcCrops![1]!.height, 50);
+      expect(layout.srcCrops![1]!.y, 350); // 400 - 50
+    });
+
+    test('single image with subtitle on degrades to plain vertical', () {
+      // PRD edge case: nothing to overlay → plain vertical.
+      final layout = computeStitchLayout(
+        sizes: const [StitchImageSize(width: 100, height: 200)],
+        mode: StitchMode.vertical,
+        spacing: 0,
+        borderWidth: 0,
+        subtitleOnlyMode: true,
+        subtitleBandHeight: 80,
+      );
+
+      expect(layout.canvasWidth, 100);
+      expect(layout.canvasHeight, 200);
+      expect(layout.srcCrops, isNull); // no movie-subtitle path taken
+    });
+
+    test('horizontal + subtitle flag → flag ignored', () {
+      // PRD edge case: subtitle mode only applies vertically.
+      final layout = computeStitchLayout(
+        sizes: const [
+          StitchImageSize(width: 100, height: 100),
+          StitchImageSize(width: 100, height: 100),
+        ],
+        mode: StitchMode.horizontal,
+        spacing: 0,
+        borderWidth: 0,
+        subtitleOnlyMode: true,
+        subtitleBandHeight: 50,
+      );
+
+      expect(layout.canvasHeight, 100);
+      expect(layout.canvasWidth, 200);
+      expect(layout.srcCrops, isNull);
+    });
+
+    test('border insets the subtitle layout', () {
+      final layout = computeStitchLayout(
+        sizes: const [
+          StitchImageSize(width: 100, height: 200),
+          StitchImageSize(width: 100, height: 200),
+        ],
+        mode: StitchMode.vertical,
+        spacing: 0,
+        borderWidth: 5,
+        subtitleOnlyMode: true,
+        subtitleBandHeight: 50,
+      );
+
+      // First image full (200) + band (50) + 2*border (10) = 260
+      expect(layout.canvasWidth, 110);
+      expect(layout.canvasHeight, 260);
+      expect(layout.imageRects[0].x, 5);
+      expect(layout.imageRects[0].y, 5);
+      expect(layout.imageRects[1].y, 205); // 5 + 200
+    });
+  });
 }

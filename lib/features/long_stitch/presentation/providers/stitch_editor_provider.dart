@@ -67,6 +67,28 @@ class StitchEditorController extends Notifier<StitchEditorState> {
     state = state.copyWith(cornerRadius: clamped);
   }
 
+  // ---- movie-subtitle (PRD §3.3) ----------------------------------------
+
+  /// Toggle the movie-subtitle flag-overlay. The flag is a no-op while
+  /// [StitchEditorState.mode] is horizontal or while the editor holds
+  /// fewer than 2 images (rendering degrades to plain vertical), but
+  /// the field is still persisted so the toggle stays sticky across
+  /// mode switches and image-list edits.
+  void setSubtitleOnlyMode(bool enabled) {
+    if (state.subtitleOnlyMode == enabled) return;
+    state = state.copyWith(subtitleOnlyMode: enabled);
+  }
+
+  /// Update the bottom subtitle band height (in scaled-canvas pixels).
+  /// Clamped to [kMinSubtitleBandHeight] – [kMaxSubtitleBandHeight].
+  void setSubtitleBandHeight(double px) {
+    final clamped = px
+        .clamp(kMinSubtitleBandHeight, kMaxSubtitleBandHeight)
+        .toDouble();
+    if (state.subtitleBandHeight == clamped) return;
+    state = state.copyWith(subtitleBandHeight: clamped);
+  }
+
   // ---- image list management --------------------------------------------
 
   /// Drop the image at [index]. No-op if out of range.

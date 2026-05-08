@@ -75,6 +75,8 @@ Uint8List _renderInIsolate(StitchRenderRequest request) {
     mode: request.mode,
     spacing: request.spacing,
     borderWidth: request.borderWidth,
+    subtitleOnlyMode: request.subtitleOnlyMode,
+    subtitleBandHeight: request.subtitleBandHeight,
   );
 
   if (layout.canvasWidth == 0 || layout.canvasHeight == 0) {
@@ -93,10 +95,24 @@ Uint8List _renderInIsolate(StitchRenderRequest request) {
   for (var i = 0; i < decoded.length; i++) {
     final src = decoded[i];
     final rect = layout.imageRects[i];
-    final scaled = (src.width == rect.width && src.height == rect.height)
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    // Movie-subtitle mode supplies a per-image source crop for indices
+    // ≥1; null falls through to "use the full source".
+    final srcCrop = layout.srcCrops?[i];
+    final cropped = (srcCrop == null)
         ? src
-        : img.copyResize(
+        : img.copyCrop(
             src,
+            x: srcCrop.x,
+            y: srcCrop.y,
+            width: math.max(1, srcCrop.width),
+            height: math.max(1, srcCrop.height),
+          );
+    final scaled =
+        (cropped.width == rect.width && cropped.height == rect.height)
+        ? cropped
+        : img.copyResize(
+            cropped,
             width: rect.width,
             height: rect.height,
             interpolation: img.Interpolation.cubic,

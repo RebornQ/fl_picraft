@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/stitch_editor_state.dart';
+import '../../domain/entities/stitch_mode.dart';
 import '../providers/stitch_editor_provider.dart';
 import 'stitch_mode_segmented.dart';
 
@@ -9,8 +10,14 @@ import 'stitch_mode_segmented.dart';
 /// (`_2_长图拼接/code.html` lines ~196–260):
 ///
 /// * Mode segmented control (vertical / horizontal)
-/// * "仅保留字幕" toggle (rendered but disabled — owned by the
-///   sibling `05-08-movie-subtitle` task)
+/// * "仅保留字幕" toggle — wires the movie-subtitle flag-overlay
+///   (PRD §3.3). Visible only when the active mode is vertical;
+///   `onChanged` is `null` (Material auto-greys the switch) when the
+///   editor holds fewer than 2 images, since the algorithm degrades to
+///   plain vertical anyway.
+/// * "字幕高度" slider — visible only when subtitle mode is actually
+///   active (toggle on AND vertical AND ≥2 images), per the PRD edge
+///   cases.
 /// * Spacing / border-width / corner-radius sliders
 /// * Border color picker (compact, 6 swatches)
 class StitchControlsSheet extends ConsumerWidget {
@@ -32,6 +39,10 @@ class StitchControlsSheet extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
+    final subtitleApplicable = state.mode == StitchMode.vertical;
+    final subtitleEffective =
+        subtitleApplicable && state.subtitleOnlyMode && state.imageCount >= 2;
+
     return Material(
       elevation: 8,
       color: colorScheme.surface,
@@ -45,24 +56,40 @@ class StitchControlsSheet extends ConsumerWidget {
           children: [
             StitchModeSegmented(value: state.mode, onChanged: notifier.setMode),
             const SizedBox(height: 12),
-            // Subtitle toggle — visible but inert; owned by the
-            // movie-subtitle subtask which will wire `onChanged` later.
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '仅保留字幕',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+            // Subtitle toggle — hidden when horizontal mode is active
+            // (PRD: "When horizontal mode active, the toggle is hidden").
+            if (subtitleApplicable)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '仅保留字幕',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-                Switch(
-                  value: state.subtitleOnlyMode,
-                  onChanged: null, // reserved for movie-subtitle subtask
-                ),
-              ],
-            ),
+                  Switch(
+                    value: state.subtitleOnlyMode,
+                    // Disabled (greyed out) when fewer than 2 images
+                    // because the algorithm has nothing to overlay.
+                    onChanged: state.imageCount >= 2
+                        ? (v) => _onToggleSubtitle(context, notifier, state, v)
+                        : null,
+                  ),
+                ],
+              ),
+            // Band-height slider — only meaningful while subtitle mode
+            // is actually rendering bands.
+            if (subtitleEffective)
+              _SliderRow(
+                label: '字幕高度',
+                value: state.subtitleBandHeight,
+                min: kMinSubtitleBandHeight,
+                max: kMaxSubtitleBandHeight,
+                valueText: '${state.subtitleBandHeight.round()} px',
+                onChanged: notifier.setSubtitleBandHeight,
+              ),
             const Divider(height: 24),
             _SliderRow(
               label: '图片间距',
@@ -114,6 +141,39 @@ class StitchControlsSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Toggle handler that also surfaces the PRD's "image height < band
+  /// height" warning via snackbar when the user enables subtitle mode
+  /// on a list whose images are too short to fully fill the requested
+  /// band.
+  void _onToggleSubtitle(
+    BuildContext context,
+    StitchEditorController notifier,
+    StitchEditorState state,
+    bool enabled,
+  ) {
+    notifier.setSubtitleOnlyMode(enabled);
+    if (!enabled) return;
+
+    final bandPx = state.subtitleBandHeight;
+    final firstW = state.images.first.width;
+    if (firstW <= 0) return;
+    var anyTruncated = false;
+    for (var i = 1; i < state.images.length; i++) {
+      final img = state.images[i];
+      if (img.width <= 0) continue;
+      final scaledHeight = img.height * firstW / img.width;
+      if (scaledHeight < bandPx) {
+        anyTruncated = true;
+        break;
+      }
+    }
+    if (anyTruncated) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(const SnackBar(content: Text('部分图片高度小于字幕条高度，将使用其完整高度')));
+    }
   }
 }
 
