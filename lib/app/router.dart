@@ -4,7 +4,7 @@ import '../features/export/presentation/screens/export_screen.dart';
 import '../features/grid/presentation/screens/grid_editor_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
-import '../features/stitch/presentation/screens/stitch_editor_screen.dart';
+import '../features/long_stitch/presentation/screens/stitch_editor_screen.dart';
 
 /// Application-wide [GoRouter] configuration.
 ///
