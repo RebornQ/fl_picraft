@@ -3,7 +3,7 @@
   "name": "watermark",
   "title": "Watermark Feature",
   "description": "Text watermark with position (4 corners + center), opacity 10-100%, font size adjustable",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

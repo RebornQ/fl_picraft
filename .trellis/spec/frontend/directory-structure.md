@@ -217,6 +217,92 @@ user. All three together let UI hide the button, give the repository a
 typed failure for snackbar UX, and still crash loudly during dev if a
 new caller is added that doesn't check `isSupported`.
 
+### Pattern: Isolate-safe rasterizer in `data/`
+
+**Problem**: Image composition steps in the export pipeline (watermark
+overlay, format encode, thumbnail downscale) are CPU-heavy and must run
+off the main isolate via `compute()` to keep the UI responsive. But
+`dart:ui` text/canvas APIs (`TextPainter`, `Canvas.drawParagraph`,
+`PictureRecorder`) only function on the main isolate — calling them from
+`compute()` either throws or returns blank output.
+
+**Solution**: Keep any `data/` function that is callable from `compute()`
+**free of `dart:ui` imports**. Use pure-Dart libraries (the `image`
+package's `Image` + `drawString` + `encodePng`/`encodeJpg`) so the same
+function runs on either isolate.
+
+| Layer | Allowed image APIs | Forbidden when isolate-callable |
+|-------|--------------------|----------------------------------|
+| `domain/` | None (pure logic only — geometry, config) | Everything `dart:ui`-shaped |
+| `data/` (isolate-callable) | `package:image` (pure Dart), raw `Uint8List` | `dart:ui` `TextPainter`, `Canvas`, `PictureRecorder`, `MediaQuery`-derived sizes |
+| `presentation/` | Anything (`CustomPainter`, `RepaintBoundary`, `dart:ui`) | — (main isolate by definition) |
+
+**Wrong**:
+```dart
+// data/watermark_renderer.dart — looks fine, blows up under compute()
+import 'dart:ui' as ui;
+
+Future<Uint8List> applyWatermark(Uint8List src, WatermarkConfig cfg) async {
+  final image = await decodeImageFromList(src);          // dart:ui
+  final recorder = ui.PictureRecorder();                 // dart:ui
+  final canvas = ui.Canvas(recorder);
+  final tp = TextPainter(text: TextSpan(text: cfg.text))..layout();
+  tp.paint(canvas, computeAnchor(cfg.anchor, ...));      // throws in isolate
+  // ...
+}
+
+// caller
+final bytes = await compute(applyWatermark, request);    // hangs / errors
+```
+
+**Correct**:
+```dart
+// data/watermark_renderer.dart — pure Dart, isolate-safe
+import 'package:image/image.dart' as img;
+
+Future<Uint8List> applyWatermark(Uint8List src, WatermarkConfig cfg) async {
+  if (!cfg.hasVisibleWatermark) return src;              // short-circuit
+  final decoded = img.decodeImage(src);                  // pure Dart
+  if (decoded == null) return src;
+
+  final font = _pickFont(cfg.fontSize);                  // bitmap font
+  final (x, y) = computeAnchor(
+    cfg.anchor,
+    canvas: (decoded.width, decoded.height),
+    text: img.measureString(font, cfg.text),
+  );
+  img.drawString(decoded, cfg.text, font: font, x: x, y: y,
+                 color: img.ColorRgba8(255, 255, 255, (cfg.opacity * 255).round()));
+  return Uint8List.fromList(
+    _preservesFormat(src) == ImageFormat.png ? img.encodePng(decoded) : img.encodeJpg(decoded),
+  );
+}
+
+// caller
+final bytes = await compute(_applyWatermarkEntry, request);  // works
+```
+
+**Trade-off — bitmap font glyph coverage**: The `image` package ships
+`arial14` / `arial24` / `arial48` which are **ASCII-only**. Non-ASCII
+(CJK, emoji) characters silently fall through to blank space. Three
+mitigations, in order of cost:
+
+1. **Document the limitation** at the public-API doc comment (current
+   approach for watermark — see `lib/features/export/data/watermark_renderer.dart`).
+2. **Pre-compile a custom bitmap font** with Unicode coverage via
+   `image`'s `BitmapFont.fromZip` and ship it as an asset.
+3. **Split the path**: keep an isolate-safe pure-Dart implementation
+   for ASCII and route Unicode inputs through a main-isolate `dart:ui`
+   renderer (slower, but full coverage). Only worth it when Unicode
+   watermarks are a product requirement, not a nice-to-have.
+
+**Validation**: For any new `data/` rasterizer,
+1. `grep -n "package:flutter\|dart:ui" lib/features/<f>/data/` returns
+   no hits in files marked `// isolate-callable`.
+2. Add a test that calls the function via `await compute(fn, input)` —
+   not just `await fn(input)`. Many `dart:ui` failures only surface on
+   the isolate path.
+
 ---
 
 ## Naming Conventions
