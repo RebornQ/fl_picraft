@@ -1,0 +1,29 @@
+{
+  "id": "export-watermark",
+  "name": "export-watermark",
+  "title": "Export & Watermark",
+  "description": "PNG/JPG export with quality slider, multi-platform save, text watermark with position/opacity/size",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-08",
+  "completedAt": "2026-05-14",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-08-watermark",
+    "05-08-export-multiplatform"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

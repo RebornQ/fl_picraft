@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, code review checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack reference"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify export feature follows layered structure"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify shared ExportState across watermark and multi-platform"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify ExportFormat enum and SaveResult sealed types"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify platform save in data/datasources only"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify single export pipeline consumes both stitch and grid outputs"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify §5.4 导出 + §5.5 水印 implemented"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_4_导出页面/code.html", "reason": "Verify export screen matches mockup"}
+{"file": ".trellis/tasks/05-08-export-watermark/prd.md", "reason": "Parent-level acceptance criteria"}
