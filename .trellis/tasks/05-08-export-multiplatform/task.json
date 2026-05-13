@@ -3,7 +3,7 @@
   "name": "export-multiplatform",
   "title": "Multi-Platform Export",
   "description": "PNG/JPG format, JPG quality 1-100% slider, save to gallery (mobile) / file system (desktop/web)",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

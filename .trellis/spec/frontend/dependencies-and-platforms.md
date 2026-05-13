@@ -29,7 +29,8 @@ work. Do not silently swap to alternatives.
 | Drag-and-drop (desktop + mobile + web) | `super_drag_and_drop` | `desktop_drop` | `super_drag_and_drop` covers all six platforms with one API; `desktop_drop` only handles desktop |
 | Clipboard image paste | `super_clipboard` | `clipboard` (string-only) | Paste flow needs binary image read; pairs cleanly with `super_drag_and_drop` (shared native side) |
 | State management | `flutter_riverpod` ^2.x | `riverpod` 3.x | 3.x is published but transitive constraints in `share_plus` / `super_clipboard` keep us on 2.x — see "Lock Riverpod to 2.x" below |
-| File pick / save dialog (desktop + web) | `file_picker` | `file_selector` | `file_picker` exposes the save dialog on macOS / Windows / Linux which `file_selector` lacks |
+| File pick + desktop save dialog | `file_picker` (desktop only for save) | `file_selector` | `file_picker` exposes `saveFile()` on macOS / Windows / Linux. **Web is NOT supported** — see "Web blob download" below |
+| Web file download | `package:web` Blob + anchor (conditional import) | `file_picker.saveFile()` on web | `file_picker` 8.3.x lacks a web `saveFile` impl — calling it on web silently returns null. Use a `package:web` adapter behind a conditional import. |
 | Routing | `go_router` ^14.x | `auto_route`, hand-rolled `Navigator` | Declarative + deep-link-friendly per CLAUDE.md target architecture |
 | Typography (Inter) | `google_fonts` ^8.x | Manual `pubspec.yaml` font assets | Same Inter face on every platform with no per-platform asset shipping; `google_fonts.interTextTheme` integrates directly with `ThemeData.textTheme` |
 
@@ -160,6 +161,30 @@ beta user exports an image.
 mentions the app name and purpose (Apple App Store reviewers reject vague
 copy like "We need access to your photos").
 
+### `gal`: Album-name and filename conventions
+
+Two conventions when calling `gal.putImageBytes(...)`:
+
+1. **Empty-string album ≠ null album**. Passing `album: ''` creates a real
+   album with an empty name in Photos / Gallery. Always normalize empty
+   strings to `null` before the call:
+   ```dart
+   final normalizedAlbum =
+       (album == null || album.isEmpty) ? null : album;
+   await Gal.putImageBytes(bytes, album: normalizedAlbum, name: filename);
+   ```
+2. **Strip the file extension from `name`**. `gal` infers the format from
+   the bytes and appends its own extension; passing `name: 'foo.jpg'`
+   produces `foo.jpg.jpg` on Android. Pass the base name only:
+   ```dart
+   final base = filename.replaceAll(RegExp(r'\.(png|jpg|jpeg)$'), '');
+   await Gal.putImageBytes(bytes, album: normalizedAlbum, name: base);
+   ```
+
+**Why it matters**: The first creates user-visible junk in Photos; the
+second produces double-extension filenames that show up in the file picker
+the next time the user imports.
+
 ### macOS: Edit BOTH entitlements files
 
 **Critical Gotcha**: macOS sandbox entitlements live in two files —
@@ -231,6 +256,66 @@ they differ. Both must move together.
 | Linux | None | `flutter build linux` succeeds; same plugin check |
 | Web | Optional Inter font preload in `web/index.html` | `flutter build web` succeeds; `image_picker` web fallback works |
 
+### Web: File save uses `package:web` Blob — NOT `file_picker.saveFile()`
+
+**Required**: To trigger a browser download of in-memory bytes on the web
+platform, use a `package:web` adapter (Blob + object URL + `<a>.click()`)
+behind a **conditional import**. Do **not** call `file_picker.saveFile()` on
+web — its web implementation does not exist as of 8.3.x and silently returns
+`null`, surfacing to the user as "save did nothing".
+
+**Required dependency** (declared in `pubspec.yaml`):
+```yaml
+dependencies:
+  web: ^1.1.0   # only needed because data/datasources/*_web.dart imports it directly
+```
+
+**Required structure**: conditional import so non-web builds get a stub
+that throws `UnsupportedError`, while web builds get the real `package:web`
+implementation. This keeps `dart:js_interop` / `package:web` out of every
+non-web compile graph.
+
+```dart
+// data/datasources/web_blob_download_datasource.dart   ← public entry
+import 'web_blob_download_stub.dart'
+    if (dart.library.js_interop) 'web_blob_download_web.dart';
+
+// data/datasources/web_blob_download_stub.dart         ← non-web build
+Future<void> downloadBlob(Uint8List bytes, String filename, String mime) {
+  throw UnsupportedError('Web blob download unavailable on this platform.');
+}
+
+// data/datasources/web_blob_download_web.dart          ← web build only
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
+
+Future<void> downloadBlob(Uint8List bytes, String filename, String mime) async {
+  final blob = web.Blob(
+    [bytes.toJS].toJS,
+    web.BlobPropertyBag(type: mime),
+  );
+  final url = web.URL.createObjectURL(blob);
+  final anchor = web.HTMLAnchorElement()
+    ..href = url
+    ..download = filename;
+  anchor.click();
+  web.URL.revokeObjectURL(url);   // ← MUST revoke or the blob leaks
+}
+```
+
+**Common Mistake**: Forgetting `URL.revokeObjectURL(url)` after `.click()`.
+The browser holds the blob in memory until either the URL is revoked or the
+tab is closed. Large exports (e.g. 20-image grid) compound quickly.
+
+**Validation**:
+- `grep -RIn "file_picker" lib/features/<feature>/data/datasources/` shows
+  no `saveFile()` call (file_picker is fine for desktop save dialog, but
+  the web path must NOT route through it).
+- `URL.revokeObjectURL` is paired with every `URL.createObjectURL` in any
+  `*_web.dart` datasource.
+- The non-web stub throws `UnsupportedError` — never returns a fake
+  success.
+
 ---
 
 ## Validation & Error Matrix
@@ -244,6 +329,10 @@ they differ. Both must move together.
 | Unconstrained Riverpod 3.x upgrade | Runtime "type X is not a subtype of Y" from any provider | Pin back to `^2.6.x` |
 | Hand-pinned `targetSdk = 34` | Flutter SDK bump silently regresses to 34, blocking new APIs | Restore `flutter.targetSdkVersion` |
 | `MACOSX_DEPLOYMENT_TARGET` lower than a plugin's floor (e.g. `gal` ≥ 11.0) | `pod install` or `flutter build macos` errors with `The plugin "X" requires a higher minimum macOS deployment version` | Bump Podfile **and** every `MACOSX_DEPLOYMENT_TARGET` in `project.pbxproj` to the plugin floor |
+| `file_picker.saveFile()` called on web | Returns `null` silently; user sees "save did nothing" with no error | Route web through a `package:web` Blob adapter (conditional import) |
+| `URL.createObjectURL` without matching `revokeObjectURL` | Blob bytes leak in browser memory until tab closes; large exports compound | Revoke immediately after `<a>.click()` |
+| `gal.putImageBytes(..., album: '')` | Creates a real album named "" in Photos / Gallery | Normalize empty strings to `null` before the call |
+| `gal.putImageBytes(..., name: 'foo.jpg')` | Saves file as `foo.jpg.jpg` on Android (gal appends extension itself) | Strip the file extension before passing `name` |
 
 ---
 
