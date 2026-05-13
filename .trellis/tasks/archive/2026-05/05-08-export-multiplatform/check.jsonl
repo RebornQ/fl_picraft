@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint, test, perf, platform compatibility checklist"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack reference"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify export data/datasources for platform save"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify ExportState shape"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify ExportFormat / SaveResult / ExportSource types"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify platform channel calls in data/datasources only"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify encode/save logic factored out for testing"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Thinking guides index"}
+{"file": "docs/PRD/fl_picraft_prd_177bbaaa.plan.md", "reason": "Verify §5.4 导出 + §7 platform compatibility"}
+{"file": "docs/UI Design/Fl_PiCraft_stitch_prd_ui_generator/_4_导出页面/code.html", "reason": "Verify format/quality controls match mockup"}
+{"file": ".trellis/tasks/05-08-export-multiplatform/prd.md", "reason": "Subtask acceptance criteria"}
