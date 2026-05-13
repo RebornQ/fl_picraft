@@ -179,3 +179,36 @@ Shipped both Long Stitch subtasks end-to-end: vertical/horizontal stitch editor 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 6: Watermark feature: isolate-safe text composition
+
+**Date**: 2026-05-14
+**Task**: Watermark feature: isolate-safe text composition
+**Branch**: `main`
+
+### Summary
+
+Implemented 05-08-watermark subtask: domain entities (anchor/font/config), pure-Dart computeAnchor usecase, isolate-safe applyWatermark rasterizer using image package, Riverpod leaf provider, WatermarkCard widget with toggle/text/3x3 picker/opacity slider. 31 new tests (anchor math, config rules, rasterizer short-circuit/snapshot/shrink, widget interactions); flutter analyze clean, 81/81 tests green. Captured new spec pattern in frontend/directory-structure.md — 'Isolate-safe rasterizer in data/' — encoding the dart:ui-vs-compute() constraint that drove the image-package choice over TextPainter; cross-layer guide updated with a checklist pointer.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2106d93` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
