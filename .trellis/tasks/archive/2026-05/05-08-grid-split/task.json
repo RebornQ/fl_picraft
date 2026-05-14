@@ -1,0 +1,29 @@
+{
+  "id": "grid-split",
+  "name": "grid-split",
+  "title": "Grid Split Feature",
+  "description": "Regular grid split (1x2 to 4x4) and 3x3 nine-grid social mode with center cell replacement",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-08",
+  "completedAt": "2026-05-14",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-08-regular-grid",
+    "05-08-nine-grid-social"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
