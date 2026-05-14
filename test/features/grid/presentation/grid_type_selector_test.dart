@@ -86,4 +86,62 @@ void main() {
 
     expect(find.text('宫格类型'), findsOneWidget);
   });
+
+  testWidgets('lockedTo dims non-locked cards and ignores taps on them', (
+    tester,
+  ) async {
+    GridType? lastValue;
+    await tester.pumpWidget(
+      wrap(
+        GridTypeSelector(
+          value: GridType.g3x3,
+          lockedTo: GridType.g3x3,
+          onChanged: (t) => lastValue = t,
+        ),
+      ),
+    );
+
+    // Tap on 1x2 — should be ignored.
+    await tester.tap(find.byKey(const ValueKey('grid-type-g1x2')));
+    await tester.pumpAndSettle();
+    expect(lastValue, isNull);
+
+    // 1x2 card is wrapped in an Opacity widget — its opacity is < 1.
+    final opacities = tester
+        .widgetList<Opacity>(
+          find.descendant(
+            of: find.byKey(const ValueKey('grid-type-g1x2')),
+            matching: find.byType(Opacity),
+          ),
+        )
+        .toList();
+    expect(opacities, isNotEmpty);
+    expect(opacities.first.opacity, lessThan(1));
+  });
+
+  testWidgets('lockedTo target card still emits onChanged on tap', (
+    tester,
+  ) async {
+    GridType? lastValue;
+    await tester.pumpWidget(
+      wrap(
+        GridTypeSelector(
+          value: GridType.g3x3,
+          lockedTo: GridType.g3x3,
+          onChanged: (t) => lastValue = t,
+        ),
+      ),
+    );
+
+    // Scroll so g3x3 is visible, then tap. The active card has
+    // `elevation: 2` which means Material's hit-test still works as
+    // long as the widget is mounted and not clipped.
+    final listView = find.byType(Scrollable).first;
+    final card = find.byKey(const ValueKey('grid-type-g3x3'));
+    await tester.scrollUntilVisible(card, 50, scrollable: listView);
+    await tester.pumpAndSettle();
+    await tester.tap(card, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(lastValue, GridType.g3x3);
+  });
 }

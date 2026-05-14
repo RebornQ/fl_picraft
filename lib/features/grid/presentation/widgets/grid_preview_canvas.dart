@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,12 @@ import '../../domain/entities/grid_editor_state.dart';
 import '../../domain/entities/grid_type.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../providers/grid_editor_provider.dart';
+import 'center_cell_overlay.dart';
+
+/// Index of the center cell inside [GridLayout.rects] for a 3x3 grid
+/// (row-major, 0-based). Kept here so the preview-side branching reads
+/// intentional — matches `kCenterCellIndex` in the renderer.
+const int _kCenterCellIndex = 4;
 
 /// Live preview matching the central canvas in `_3_宫格切图/code.html`
 /// lines 119–141.
@@ -84,12 +92,23 @@ class _PreviewSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final source = state.source!;
+    final isSocial =
+        state.nineGridSocialMode && state.gridType == GridType.g3x3;
 
-    // Compute the layout in source coordinates so the overlay
-    // matches what the renderer will produce exactly.
+    // PRD §4.2 step 1: when the social mode is on, the renderer centre-
+    // crops the source to its shortest-side square before splitting.
+    // Mirror that here so the grid overlay reads in the same coordinate
+    // space as the export. For the regular grid mode we keep the full
+    // source dimensions (matching the renderer's untouched path).
+    final shortSide = math.min(source.width, source.height);
+    final effectiveWidth = isSocial ? shortSide : source.width;
+    final effectiveHeight = isSocial ? shortSide : source.height;
+
+    // Compute the layout in (effective) source coordinates so the
+    // overlay matches what the renderer will produce exactly.
     final layout = computeGridLayout(
-      sourceWidth: source.width,
-      sourceHeight: source.height,
+      sourceWidth: effectiveWidth,
+      sourceHeight: effectiveHeight,
       type: state.gridType,
       spacing: state.spacing,
     );
@@ -97,14 +116,25 @@ class _PreviewSurface extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
-        final scaleX = source.width == 0 ? 0.0 : size.width / source.width;
-        final scaleY = source.height == 0 ? 0.0 : size.height / source.height;
+        final scaleX = effectiveWidth == 0 ? 0.0 : size.width / effectiveWidth;
+        final scaleY = effectiveHeight == 0
+            ? 0.0
+            : size.height / effectiveHeight;
+
+        final showCenterOverlay =
+            isSocial && layout.rects.length > _kCenterCellIndex;
 
         return Stack(
           fit: StackFit.expand,
           children: [
             Image.memory(
               source.bytes,
+              // BoxFit.cover on a square canvas centre-crops a non-
+              // square source to the shortest-side square — which
+              // matches the renderer's social-mode crop. For non-social
+              // (free-aspect) the overlay computes against the full
+              // source so cells map back to the visible region the
+              // user already sees via cover.
               fit: BoxFit.cover,
               gaplessPlayback: true,
             ),
@@ -122,9 +152,55 @@ class _PreviewSurface extends StatelessWidget {
                 ),
               ),
             ),
+            if (showCenterOverlay)
+              _PositionedCenterOverlay(
+                cellRect: layout.rects[_kCenterCellIndex],
+                scaleX: scaleX,
+                scaleY: scaleY,
+              ),
           ],
         );
       },
+    );
+  }
+}
+
+/// Anchors the interactive [CenterCellOverlay] to the 5th cell's
+/// rendered position in the preview canvas (after the BoxFit.cover
+/// scaling).
+class _PositionedCenterOverlay extends StatelessWidget {
+  const _PositionedCenterOverlay({
+    required this.cellRect,
+    required this.scaleX,
+    required this.scaleY,
+  });
+
+  final GridRect cellRect;
+  final double scaleX;
+  final double scaleY;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = cellRect.x * scaleX;
+    final top = cellRect.y * scaleY;
+    final width = cellRect.width * scaleX;
+    final height = cellRect.height * scaleY;
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      // Pass both the rendered (widget-pixel) and the underlying
+      // source-pixel cell dimensions so the overlay's gesture handler
+      // can convert widget-pixel drag deltas into the source-pixel
+      // offset units that the controller and renderer both speak.
+      child: CenterCellOverlay(
+        cellWidth: width,
+        cellHeight: height,
+        sourceCellWidth: cellRect.width.toDouble(),
+        sourceCellHeight: cellRect.height.toDouble(),
+      ),
     );
   }
 }

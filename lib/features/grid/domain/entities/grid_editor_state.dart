@@ -1,4 +1,5 @@
 import '../../../image_import/domain/entities/imported_image.dart';
+import '../usecases/compute_center_transform.dart';
 import 'grid_type.dart';
 
 /// Slider bounds surfaced to the UI. Centralizing keeps the parameter
@@ -15,10 +16,10 @@ const int kMinSourceDimensionForGrid = 100;
 
 /// Snapshot of every parameter the grid-split editor exposes.
 ///
-/// Immutable; mutate via [copyWith]. Carries a reserved
-/// [nineGridSocialMode] flag so the sibling `05-08-nine-grid-social`
-/// task can layer its center-cell replacement on top without forking
-/// the state class.
+/// Immutable; mutate via [copyWith]. The [nineGridSocialMode] flag plus
+/// the [centerImage] / [centerScale] / [centerOffset] triplet drive the
+/// sibling `05-08-nine-grid-social` subtask's center-cell-replacement
+/// UX — they are inert (zero-effect) while social mode is off.
 class GridEditorState {
   const GridEditorState({
     required this.source,
@@ -26,16 +27,23 @@ class GridEditorState {
     required this.spacing,
     required this.cornerRadius,
     required this.nineGridSocialMode,
+    required this.centerImage,
+    required this.centerScale,
+    required this.centerOffset,
   });
 
   /// Default initial state. No source image, 3x3 grid, spacing 0,
-  /// radius [kDefaultGridCornerRadius], social mode off.
+  /// radius [kDefaultGridCornerRadius], social mode off, no center
+  /// replacement.
   factory GridEditorState.initial() => const GridEditorState(
     source: null,
     gridType: GridType.g3x3,
     spacing: 0,
     cornerRadius: kDefaultGridCornerRadius,
     nineGridSocialMode: false,
+    centerImage: null,
+    centerScale: kDefaultCenterScale,
+    centerOffset: kCenterOffsetZero,
   );
 
   /// The source image being split. `null` until the user imports an
@@ -51,13 +59,32 @@ class GridEditorState {
   /// Corner radius applied to every cell. 0–[kMaxGridCornerRadius].
   final double cornerRadius;
 
-  /// Reserved for the sibling `05-08-nine-grid-social` subtask. When
-  /// `false` (default) the field has no effect; the social subtask
-  /// will gate its center-cell-replacement UI on this flag and force
-  /// [gridType] to 3x3 when active.
+  /// When `true` the editor locks [gridType] to 3x3 and exposes the
+  /// center-cell-replacement UI (PRD §4.2 九宫格朋友圈切图).
   final bool nineGridSocialMode;
 
+  /// User-picked replacement image for the center cell. `null` until
+  /// the user invokes the picker. Ignored when [nineGridSocialMode] is
+  /// `false`.
+  final ImportedImage? centerImage;
+
+  /// User-controlled scale factor for [centerImage]. Bounded by
+  /// [kMinCenterScale] / [kMaxCenterScale]; the controller clamps it
+  /// further when an image's aspect ratio would expose transparent
+  /// area at 0.5x.
+  final double centerScale;
+
+  /// User-controlled pan offset for [centerImage], in source-image
+  /// pixels measured in cell-local coordinates. Centered = `(0, 0)`.
+  final CenterOffset centerOffset;
+
   bool get hasSource => source != null;
+  bool get hasCenterImage => centerImage != null;
+
+  /// `true` when the social toggle is on **and** a replacement image
+  /// has been picked. Convenience for the renderer / preview.
+  bool get isSocialModeActiveWithReplacement =>
+      nineGridSocialMode && centerImage != null;
 
   /// `true` when the source image is below the minimum recommended
   /// dimension on either axis — UI surfaces a warning copy.
@@ -75,6 +102,10 @@ class GridEditorState {
     double? spacing,
     double? cornerRadius,
     bool? nineGridSocialMode,
+    ImportedImage? centerImage,
+    bool clearCenterImage = false,
+    double? centerScale,
+    CenterOffset? centerOffset,
   }) {
     return GridEditorState(
       source: clearSource ? null : (source ?? this.source),
@@ -82,6 +113,9 @@ class GridEditorState {
       spacing: spacing ?? this.spacing,
       cornerRadius: cornerRadius ?? this.cornerRadius,
       nineGridSocialMode: nineGridSocialMode ?? this.nineGridSocialMode,
+      centerImage: clearCenterImage ? null : (centerImage ?? this.centerImage),
+      centerScale: centerScale ?? this.centerScale,
+      centerOffset: centerOffset ?? this.centerOffset,
     );
   }
 
@@ -93,10 +127,21 @@ class GridEditorState {
         other.gridType == gridType &&
         other.spacing == spacing &&
         other.cornerRadius == cornerRadius &&
-        other.nineGridSocialMode == nineGridSocialMode;
+        other.nineGridSocialMode == nineGridSocialMode &&
+        other.centerImage == centerImage &&
+        other.centerScale == centerScale &&
+        other.centerOffset == centerOffset;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(source, gridType, spacing, cornerRadius, nineGridSocialMode);
+  int get hashCode => Object.hash(
+    source,
+    gridType,
+    spacing,
+    cornerRadius,
+    nineGridSocialMode,
+    centerImage,
+    centerScale,
+    centerOffset,
+  );
 }

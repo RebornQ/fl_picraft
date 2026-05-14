@@ -10,6 +10,7 @@ import '../../../export/domain/entities/save_result.dart';
 import '../../../export/presentation/providers/export_controller.dart';
 import '../../../export/presentation/providers/watermark_config_provider.dart';
 import '../../../image_import/presentation/widgets/image_drop_zone.dart';
+import '../../domain/entities/grid_type.dart';
 import '../providers/grid_editor_provider.dart';
 import '../widgets/grid_parameter_cards.dart';
 import '../widgets/grid_preview_canvas.dart';
@@ -90,6 +91,7 @@ class GridEditorScreen extends ConsumerWidget {
             GridTypeSelector(
               value: state.gridType,
               onChanged: notifier.setGridType,
+              lockedTo: state.nineGridSocialMode ? GridType.g3x3 : null,
             ),
             const SizedBox(height: 16),
             const GridParameterCards(),
