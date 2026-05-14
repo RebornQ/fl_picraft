@@ -47,6 +47,8 @@ app.*.map.json
 # AI Agent ignored files
 .claude/settings.local.json
 .mcp.json
+.ace-tool/
 
 # 临时
 docs
+.claude/commands/sw
