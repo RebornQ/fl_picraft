@@ -3,7 +3,7 @@
   "name": "regular-grid",
   "title": "Regular Grid Split",
   "description": "11 grid types (1x2/2x1/1x3/3x1/1x4/4x1/2x2/2x3/3x2/3x3/4x4) with grid line preview and per-cell export",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
