@@ -245,3 +245,37 @@ Implemented 05-08-watermark subtask: domain entities (anchor/font/config), pure-
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Regular Grid Split: 11 types + spec pattern
+
+**Date**: 2026-05-14
+**Task**: Regular Grid Split: 11 types + spec pattern
+**Branch**: `main`
+
+### Summary
+
+Implemented the Regular Grid Split feature under lib/features/grid/ with 11 grid types (1x2 through 4x4), live preview overlay, per-cell PNG export wired to the existing ExportRepository, and 4 test files (155/155 green). Dispatched trellis-implement then trellis-check; check caught a Clean Architecture leak (IconData on a GridType enum in domain/) and moved the icon mapping to a presentation/-side extension. Captured the lesson as a new 'Framework-free domain entities' Pattern in frontend/directory-structure.md plus a checklist line in cross-layer-thinking-guide.md. Generic computeGridLayout(rows, cols) and a reserved nineGridSocialMode field leave the sibling 05-08-nine-grid-social task ready to plug in.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4fdd209` | (see git log) |
+| `aadf200` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
