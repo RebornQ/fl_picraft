@@ -279,3 +279,38 @@ Implemented the Regular Grid Split feature under lib/features/grid/ with 11 grid
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: Nine-grid social mode: implement, check, spec capture
+
+**Date**: 2026-05-14
+**Task**: Nine-grid social mode: implement, check, spec capture
+**Branch**: `main`
+
+### Summary
+
+Implemented 3x3 social grid with center-cell image replacement (pinch+pan). Reused regular-grid layout and image-import repository via side-channel pattern; canonical centerOffset unit is source pixels with widget-boundary conversion. trellis-check caught two non-trivial bugs (preview-vs-export unit mismatch; missing PRD step-1 square-crop) and self-fixed both. Captured three spec updates: cross-layer unit semantics, ScaleUpdateDetails.focalPointDelta gotcha, side-channel repository reuse. 219/219 tests green, analyze clean. Archived nine-grid-social + parent grid-split.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2b65af6` | (see git log) |
+| `2bd9584` | (see git log) |
+| `9ea709b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

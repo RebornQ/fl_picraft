@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 8
+- **Total Sessions**: 9
 - **Last Active**: 2026-05-14
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~281 | Active |
+| `journal-1.md` | ~316 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 9 | 2026-05-14 | Nine-grid social mode: implement, check, spec capture | `2b65af6`, `2bd9584`, `9ea709b` | `main` |
 | 8 | 2026-05-14 | Regular Grid Split: 11 types + spec pattern | `4fdd209`, `aadf200` | `main` |
 | 7 | 2026-05-14 | Multi-Platform Export 实现与父任务收尾 | `bf47d21` | `main` |
 | 6 | 2026-05-14 | Watermark feature: isolate-safe text composition | `2106d93` | `main` |
