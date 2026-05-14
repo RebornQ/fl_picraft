@@ -305,6 +305,89 @@ mitigations, in order of cost:
 
 ---
 
+## Domain-Layer Patterns
+
+These patterns keep `domain/` framework-free — no Flutter imports, no
+`dart:ui`, no `package:image`. Domain stays pure Dart so business logic
+remains testable in isolation and reusable across any UI shell (CLI tool,
+isolate code, headless tests).
+
+### Pattern: Framework-free domain entities and enums
+
+**Problem**: It is tempting to attach UI helpers directly to a
+`domain/entities/` enum or class — e.g. `GridType.icon` returning a
+Material `IconData`, or a `Status` enum exposing a Flutter `Color`. The
+enum gets read in the widget tree, so it feels natural to "co-locate" the
+icon mapping next to the value. But once
+`lib/features/<f>/domain/entities/<entity>.dart` imports
+`package:flutter/material.dart`:
+
+- `domain/` is no longer testable as pure Dart — every test pulls Flutter
+- The layer boundary collapses: presentation code can be written against
+  the entity's UI helpers, hiding that those helpers are actually UI
+  concerns that belong elsewhere
+- The entity can no longer be reused by a non-Flutter consumer (CLI tool,
+  isolate worker, server-side composer)
+
+**Solution**: Keep `domain/` 100% framework-free. Map domain values to UI
+artifacts via an **extension defined in `presentation/`**, never on the
+entity itself.
+
+| Layer | Allowed imports on entities/enums | Forbidden |
+|-------|------------------------------------|-----------|
+| `domain/entities/` | `dart:core`, other `domain/` files | `package:flutter/*`, `dart:ui`, `package:image/*`, any plugin |
+| `presentation/widgets/` (UI helpers) | Flutter, `domain/` entities | — |
+
+**Wrong**:
+```dart
+// lib/features/grid/domain/entities/grid_type.dart
+import 'package:flutter/material.dart';  // ← UI leaks into domain
+
+enum GridType { x1_2, x2_1, /* ... */ }
+
+extension GridTypeInfo on GridType {
+  int get rows => switch (this) { GridType.x1_2 => 1, /* ... */ };
+  int get cols => switch (this) { GridType.x1_2 => 2, /* ... */ };
+  IconData get icon => switch (this) {                  // ← Flutter type in domain
+    GridType.x1_2 => Icons.view_agenda_outlined,
+    /* ... */
+  };
+}
+```
+
+**Correct**:
+```dart
+// lib/features/grid/domain/entities/grid_type.dart  — pure Dart
+enum GridType { x1_2, x2_1, /* ... */ }
+
+extension GridTypeInfo on GridType {
+  int get rows => switch (this) { GridType.x1_2 => 1, /* ... */ };
+  int get cols => switch (this) { GridType.x1_2 => 2, /* ... */ };
+  String get displayLabel => '$rows × $cols';
+}
+
+// lib/features/grid/presentation/widgets/grid_type_icons.dart
+// UI mapping lives in presentation, not on the enum
+import 'package:flutter/material.dart';
+import '../../domain/entities/grid_type.dart';
+
+extension GridTypeIcon on GridType {
+  IconData get icon => switch (this) {
+    GridType.x1_2 => Icons.view_agenda_outlined,
+    /* ... */
+  };
+}
+```
+
+**Validation**: For any `domain/entities/` (or `domain/usecases/`) file,
+
+1. `grep -rn "package:flutter\|dart:ui\|package:image" lib/features/<f>/domain/`
+   returns no hits.
+2. The file compiles and tests run under a non-Flutter context (only
+   `dart:core` plus other `domain/` imports resolved).
+
+---
+
 ## Naming Conventions
 
 ### Files

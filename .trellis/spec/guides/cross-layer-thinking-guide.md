@@ -80,6 +80,7 @@ Before implementation:
 - [ ] If wrapping a Flutter / Dart plugin: planned a library-agnostic DTO so plugin types stay in `data/datasources/` (see `frontend/directory-structure.md` → "Pattern: Data-source DTO isolation")
 - [ ] If a feature is unavailable on some platforms: planned the **three-layer defense** (UI hide + repository typed failure + datasource throw — see `frontend/directory-structure.md` → "Pattern: Platform-aware datasource dispatch")
 - [ ] If writing a CPU-heavy image / encode function in `data/` that callers will run via `compute()`: confirmed the function imports **no `dart:ui`** (see `frontend/directory-structure.md` → "Pattern: Isolate-safe rasterizer in `data/`")
+- [ ] If exposing UI helpers (`IconData`, `Color`, `TextStyle`, ...) for a `domain/` entity or enum: planned a **`presentation/`-side extension** so `domain/` stays framework-free (see `frontend/directory-structure.md` → "Pattern: Framework-free domain entities and enums")
 
 After implementation:
 - [ ] Tested with edge cases (null, empty, invalid)
