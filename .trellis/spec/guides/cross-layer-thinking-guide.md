@@ -68,6 +68,40 @@ For each boundary:
 
 **Good**: Each layer only knows its neighbors
 
+### Mistake 4: Implicit unit semantics for shared numeric values
+
+**Bad**: A shared field like `centerOffset` is treated as **source-image
+pixels** in the renderer / controller but as **widget pixels** in the
+preview overlay and gesture detector. When the preview canvas size ≠
+source image size (the typical case), the preview shows one offset and
+the export produces another — preview ≠ export bug, even though every
+layer "looks correct" in isolation.
+
+**Symptoms**: Pinch-and-drag tracks the finger in preview but the
+exported PNG is offset by a different amount; a "1px" preview adjustment
+shifts the export by N pixels; reproducing in tests works only if you
+happen to size the preview surface identically to the source.
+
+**Good**: Pick **one canonical unit** at the domain layer (typically
+source pixels, or a normalized `0..1` value). Convert at every boundary
+that crosses a coordinate system, and document the unit in the field's
+doc-comment. The renderer's coordinate space is usually canonical for
+WYSIWYG previews — make every other layer convert to it.
+
+```dart
+/// User-controlled pan of the replacement image, in **source-image
+/// pixels**. The preview overlay must convert this to widget pixels via
+/// (sourceCellSize / widgetCellSize) before applying it to Positioned;
+/// the gesture detector must convert widget-pixel focal-point deltas
+/// back to source pixels before storing.
+final CenterOffset centerOffset;
+```
+
+**Prevention**: When the same value flows through both a rasterizer and
+a Flutter widget, ask "is the widget rendering area the same size as
+the source pixels this value describes?" If no — and it usually isn't —
+add a conversion at the widget boundary, not at every read site.
+
 ---
 
 ## Checklist for Cross-Layer Features
@@ -81,6 +115,7 @@ Before implementation:
 - [ ] If a feature is unavailable on some platforms: planned the **three-layer defense** (UI hide + repository typed failure + datasource throw — see `frontend/directory-structure.md` → "Pattern: Platform-aware datasource dispatch")
 - [ ] If writing a CPU-heavy image / encode function in `data/` that callers will run via `compute()`: confirmed the function imports **no `dart:ui`** (see `frontend/directory-structure.md` → "Pattern: Isolate-safe rasterizer in `data/`")
 - [ ] If exposing UI helpers (`IconData`, `Color`, `TextStyle`, ...) for a `domain/` entity or enum: planned a **`presentation/`-side extension** so `domain/` stays framework-free (see `frontend/directory-structure.md` → "Pattern: Framework-free domain entities and enums")
+- [ ] If a shared numeric value (offset, size, scale) flows through a rasterizer **and** a Flutter widget: documented the canonical unit (source pixels / widget pixels / normalized) in the field's doc-comment, and identified every boundary that must convert. The preview overlay and the renderer must agree, or preview ≠ export.
 
 After implementation:
 - [ ] Tested with edge cases (null, empty, invalid)

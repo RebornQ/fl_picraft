@@ -387,6 +387,51 @@ the item moves?" If yes, switch to `ObjectKey` or a domain-stable id. Path-
 or content-based keys are also unsafe when two items can legitimately have
 the same content (e.g. two imports of the same file path).
 
+### Gotcha: `ScaleUpdateDetails.focalPointDelta` is per-event, not since-start
+
+**Symptom**: A pinch-and-drag overlay tracks the finger on the first
+frame, then "snaps back" or stops following on multi-frame drags. Fast
+gestures only seem to apply the last frame's movement; the overlay
+appears to lag behind the finger or jump to wrong positions.
+
+**Cause**: `ScaleUpdateDetails.focalPointDelta` is the **per-event**
+delta (movement since the previous `onUpdate` call), **not** the
+cumulative delta since `onStart`. If you capture `_startOffset` in
+`onScaleStart` and then write `_offset = _startOffset + details.focalPointDelta`
+in `onScaleUpdate`, every frame overwrites `_offset` with `_startOffset +
+<just this frame's tiny movement>`, so only the last frame contributes.
+`ScaleUpdateDetails.scale`, in contrast, is **already** since-start (the
+canonical pinch ratio), which makes the asymmetry easy to miss.
+
+**Fix**: Derive pan from `localFocalPoint - startLocalFocalPoint`:
+
+```dart
+Offset? _startLocalFocalPoint;
+Offset _startOffset = Offset.zero;
+
+void onScaleStart(ScaleStartDetails d) {
+  _startOffset = currentOffset;
+  _startLocalFocalPoint = d.localFocalPoint; // capture start
+}
+
+void onScaleUpdate(ScaleUpdateDetails d) {
+  // ❌ WRONG — focalPointDelta is per-event
+  // setOffset(_startOffset + d.focalPointDelta);
+
+  // ✅ CORRECT — since-start cumulative
+  final pan = d.localFocalPoint - _startLocalFocalPoint!;
+  setOffset(_startOffset + pan);
+
+  // scale is already since-start, pairs naturally
+  setScale(_startScale * d.scale);
+}
+```
+
+**Prevention**: Default to `localFocalPoint - startLocalFocalPoint` for
+pan. Only reach for `focalPointDelta` when you genuinely want a
+per-frame velocity / impulse (rare — usually for inertial physics, not
+for direct manipulation).
+
 ### ❌ Don't
 
 ```dart
