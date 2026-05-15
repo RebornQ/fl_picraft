@@ -314,3 +314,37 @@ Implemented 3x3 social grid with center-cell image replacement (pinch+pan). Reus
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: Polish & Multi-Platform Readiness — 8 rounds across export unification, responsive, a11y, dark mode, perf
+
+**Date**: 2026-05-16
+**Task**: Polish & Multi-Platform Readiness — 8 rounds across export unification, responsive, a11y, dark mode, perf
+**Branch**: `main`
+
+### Summary
+
+polish-platform-test 任务的 8 轮迭代收尾。Round 1 quick wins（清理 stub / 注释 / 空回调）→ Round 2a grid/stitch 导出统一到 /export 屏（ExportSource sealed + ExportSourceKind enum dispatch）→ Round 2b 错误文案中文化（lib/core/errors/user_facing_messages.dart + 14 callsite）→ Round 2c 响应式（Material 3 WindowSizeClass + 4 主屏 sheet/panel 双形态）→ Round 2d 暗色 alphaBlend + a11y meetsGuideline 测试 + import failure snackbar → Round 3 perf benchmark harness + Timeline markers。最终 274 test pass + 5 benchmark + analyze clean。Spec 提炼出 2 新建（responsive-layout / error-handling）+ 6 修改。剩余 PRD 验收（真机性能 + 6 平台兼容）通过 manual-test-plan.md 等用户手动执行。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1748862` | (see git log) |
+| `a4904d3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
