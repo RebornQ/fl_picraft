@@ -116,41 +116,48 @@ class _BentoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          height: 128,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(icon, size: 28, color: foreground),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: textTheme.labelSmall?.copyWith(
-                      color: foreground.withValues(alpha: 0.8),
-                      fontWeight: FontWeight.w500,
+    return Semantics(
+      button: true,
+      // Read out the parameter the card adjusts plus its current value
+      // so screen-reader users can confirm the active setting without
+      // opening the slider sheet.
+      label: '$label，当前 $value',
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            height: 128,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, size: 28, color: foreground),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: foreground.withValues(alpha: 0.8),
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  Text(
-                    value,
-                    style: textTheme.titleMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.bold,
+                    Text(
+                      value,
+                      style: textTheme.titleMedium?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

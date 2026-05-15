@@ -1,38 +1,44 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/datasources/gallery_saver_datasource.dart';
 import '../../domain/entities/save_result.dart';
 import '../providers/export_controller.dart';
+import '../providers/export_dispatch.dart';
 
 /// Full-width primary save CTA at the bottom of the export panel.
 ///
 /// Mirrors the mockup's "保存至相册" button
-/// (`_4_导出页面/code.html` line 207). The copy switches to "保存到本地"
-/// on desktop / web where the destination is a file, not the Photos
-/// app.
+/// (`_4_导出页面/code.html` line 207). The idle copy is sourced from
+/// [exportSaveButtonLabelProvider] so it adapts to the active source
+/// (e.g. "保存 9 张至相册" when grid mode has 9 cells lined up).
 ///
 /// The button:
 /// * Disables itself while a save is in flight
 /// ([ExportState.isSaving]).
+/// * Disables itself when the active editor has nothing to export
+/// (see [canExportProvider]).
 /// * Calls [ExportController.save] and renders the returned
-/// [SaveResult] as a snackbar (success → green-ish "已保存到 …",
+/// [SaveResult] as a snackbar (success → "已保存 …",
 /// cancel → silent, failure → error snackbar).
 class SaveActionButton extends ConsumerWidget {
   const SaveActionButton({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(exportControllerProvider);
+    final isSaving = ref.watch(
+      exportControllerProvider.select((s) => s.isSaving),
+    );
+    final canExport = ref.watch(canExportProvider);
+    final idleLabel = ref.watch(exportSaveButtonLabelProvider);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isSaving = state.isSaving;
+
+    final enabled = !isSaving && canExport;
 
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
-        onPressed: isSaving ? null : () => _onSavePressed(context, ref),
+        onPressed: enabled ? () => _onSavePressed(context, ref) : null,
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -54,7 +60,7 @@ class SaveActionButton extends ConsumerWidget {
                 ),
               )
             : const Icon(Icons.save_outlined),
-        label: Text(_buttonLabel(isSaving)),
+        label: Text(isSaving ? '保存中…' : idleLabel),
       ),
     );
   }
@@ -67,14 +73,6 @@ class SaveActionButton extends ConsumerWidget {
     if (snackBar != null) {
       messenger.showSnackBar(snackBar);
     }
-  }
-
-  /// Format-specific copy. Mobile reads "保存至相册", desktop/web
-  /// reads "保存到本地".
-  String _buttonLabel(bool isSaving) {
-    if (isSaving) return '保存中…';
-    if (GallerySaverDataSource.isSupported) return '保存至相册';
-    return '保存到本地';
   }
 
   /// Returns `null` for [SaveCancelled] so cancelling the dialog
@@ -92,9 +90,6 @@ class SaveActionButton extends ConsumerWidget {
       case SaveCancelled():
         return null;
       case SaveFailure(:final message):
-        if (kDebugMode) {
-          debugPrint('Export save failed: $message');
-        }
         return SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,

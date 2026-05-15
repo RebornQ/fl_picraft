@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/errors/user_facing_messages.dart';
 import '../../domain/entities/save_result.dart';
 // Conditional import: the IO impl is selected on every non-web
 // target; the web stub throws (web should route through the blob
@@ -53,7 +54,7 @@ class FileDialogSaveDataSource {
       await writeFileBytes(path, bytes);
       return SaveSuccess(location: path);
     } catch (e) {
-      return SaveFailure('Save failed: $e');
+      return SaveFailure(saveFailureMessage(e));
     }
   }
 }

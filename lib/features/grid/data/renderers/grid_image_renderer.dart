@@ -1,3 +1,4 @@
+import 'dart:developer' show Timeline;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -68,6 +69,11 @@ const int kCenterCellIndex = 4;
 
 /// Top-level (i.e. non-closure) render function so it can be the
 /// entry point for [compute].
+///
+/// Wraps the per-cell loop in `Timeline.startSync('grid.cell-render')`
+/// and each cell's PNG encode in `Timeline.startSync('grid.encode')` so
+/// DevTools' performance overlay shows where time goes when a grid
+/// export feels slow.
 List<Uint8List> _renderInIsolate(GridRenderRequest request) {
   final decoded = img.decodeImage(request.sourceBytes);
   if (decoded == null) {
@@ -100,38 +106,53 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
   }
 
   final cells = <Uint8List>[];
-  for (var i = 0; i < layout.rects.length; i++) {
-    final rect = layout.rects[i];
-    if (rect.width <= 0 || rect.height <= 0) {
-      // Degenerate cell (spacing ate the whole axis) — emit a 1x1
-      // transparent placeholder so the output count still matches
-      // the grid size.
-      final blank = img.Image(width: 1, height: 1, numChannels: 4);
-      cells.add(Uint8List.fromList(img.encodePng(blank)));
-      continue;
+  Timeline.startSync('grid.cell-render');
+  try {
+    for (var i = 0; i < layout.rects.length; i++) {
+      final rect = layout.rects[i];
+      if (rect.width <= 0 || rect.height <= 0) {
+        // Degenerate cell (spacing ate the whole axis) — emit a 1x1
+        // transparent placeholder so the output count still matches
+        // the grid size.
+        final blank = img.Image(width: 1, height: 1, numChannels: 4);
+        Timeline.startSync('grid.encode');
+        try {
+          cells.add(Uint8List.fromList(img.encodePng(blank)));
+        } finally {
+          Timeline.finishSync();
+        }
+        continue;
+      }
+      img.Image cell;
+      if (centerImage != null && i == kCenterCellIndex) {
+        cell = _composeCenterCell(
+          center: centerImage,
+          cellWidth: rect.width,
+          cellHeight: rect.height,
+          scale: request.centerScale,
+          offset: request.centerOffset,
+        );
+      } else {
+        cell = img.copyCrop(
+          source,
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        );
+      }
+      if (radius > 0) {
+        _applyRoundedCorners(cell, radius: radius);
+      }
+      Timeline.startSync('grid.encode');
+      try {
+        cells.add(Uint8List.fromList(img.encodePng(cell)));
+      } finally {
+        Timeline.finishSync();
+      }
     }
-    img.Image cell;
-    if (centerImage != null && i == kCenterCellIndex) {
-      cell = _composeCenterCell(
-        center: centerImage,
-        cellWidth: rect.width,
-        cellHeight: rect.height,
-        scale: request.centerScale,
-        offset: request.centerOffset,
-      );
-    } else {
-      cell = img.copyCrop(
-        source,
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-      );
-    }
-    if (radius > 0) {
-      _applyRoundedCorners(cell, radius: radius);
-    }
-    cells.add(Uint8List.fromList(img.encodePng(cell)));
+  } finally {
+    Timeline.finishSync();
   }
   return cells;
 }

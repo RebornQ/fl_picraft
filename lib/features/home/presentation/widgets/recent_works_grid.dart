@@ -1,25 +1,34 @@
 import 'package:flutter/material.dart';
 
-/// 3-column grid of recent works thumbnails used on the Home screen.
+/// Responsive grid of recent works thumbnails used on the Home screen.
 ///
 /// Currently renders [count] placeholder tiles; once the works library is
 /// implemented this will be wired to a Riverpod provider exposing real
-/// thumbnails.
+/// thumbnails. The Home screen drives [crossAxisCount] from
+/// `windowSizeClassOf(context)` so tablet / desktop windows fit more
+/// thumbnails per row.
 class RecentWorksGrid extends StatelessWidget {
-  const RecentWorksGrid({super.key, this.count = 3});
+  const RecentWorksGrid({super.key, this.count, this.crossAxisCount = 3});
 
-  final int count;
+  /// Number of placeholder tiles to render. Defaults to a multiple of
+  /// [crossAxisCount] so rows stay aligned at any size class.
+  final int? count;
+
+  /// How many tiles per row. Driven by the parent screen's responsive
+  /// breakpoint logic.
+  final int crossAxisCount;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final tileCount = count ?? crossAxisCount;
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: count,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
+      itemCount: tileCount,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
         childAspectRatio: 1,

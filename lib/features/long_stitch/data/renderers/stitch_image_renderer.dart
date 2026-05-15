@@ -1,3 +1,4 @@
+import 'dart:developer' show Timeline;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -55,107 +56,128 @@ class StitchImageRenderer {
 
 /// Top-level (i.e. non-closure) render function so it can be the
 /// entry point for [compute].
+///
+/// Wraps each phase in `Timeline.startSync` / `finishSync` so DevTools'
+/// performance overlay shows three nested bars (`stitch.decode`,
+/// `stitch.compose`, `stitch.encode`) — turning the "where do the
+/// 5 seconds go" question into a one-glance answer.
 Uint8List _renderInIsolate(StitchRenderRequest request) {
+  Timeline.startSync('stitch.decode');
   final decoded = <img.Image>[];
-  for (final bytes in request.imageBytes) {
-    final image = img.decodeImage(bytes);
-    if (image == null) {
-      throw StateError(
-        'StitchImageRenderer: failed to decode one of the input images.',
+  try {
+    for (final bytes in request.imageBytes) {
+      final image = img.decodeImage(bytes);
+      if (image == null) {
+        throw StateError(
+          'StitchImageRenderer: failed to decode one of the input images.',
+        );
+      }
+      decoded.add(image);
+    }
+  } finally {
+    Timeline.finishSync();
+  }
+
+  Timeline.startSync('stitch.compose');
+  late final img.Image canvas;
+  try {
+    final layout = computeStitchLayout(
+      sizes: [
+        for (final d in decoded)
+          StitchImageSize(width: d.width, height: d.height),
+      ],
+      mode: request.mode,
+      spacing: request.spacing,
+      borderWidth: request.borderWidth,
+      subtitleOnlyMode: request.subtitleOnlyMode,
+      subtitleBandHeight: request.subtitleBandHeight,
+    );
+
+    if (layout.canvasWidth == 0 || layout.canvasHeight == 0) {
+      throw StateError('StitchImageRenderer: degenerate canvas size.');
+    }
+
+    // White background so JPEG encodes opaquely; corner-radius cropping
+    // re-introduces alpha pixels later.
+    canvas = img.Image(
+      width: layout.canvasWidth,
+      height: layout.canvasHeight,
+      numChannels: 4,
+    );
+    img.fill(canvas, color: img.ColorRgba8(255, 255, 255, 255));
+
+    for (var i = 0; i < decoded.length; i++) {
+      final src = decoded[i];
+      final rect = layout.imageRects[i];
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      // Movie-subtitle mode supplies a per-image source crop for indices
+      // ≥1; null falls through to "use the full source".
+      final srcCrop = layout.srcCrops?[i];
+      final cropped = (srcCrop == null)
+          ? src
+          : img.copyCrop(
+              src,
+              x: srcCrop.x,
+              y: srcCrop.y,
+              width: math.max(1, srcCrop.width),
+              height: math.max(1, srcCrop.height),
+            );
+      final scaled =
+          (cropped.width == rect.width && cropped.height == rect.height)
+          ? cropped
+          : img.copyResize(
+              cropped,
+              width: rect.width,
+              height: rect.height,
+              interpolation: img.Interpolation.cubic,
+            );
+      img.compositeImage(
+        canvas,
+        scaled,
+        dstX: rect.x,
+        dstY: rect.y,
+        dstW: rect.width,
+        dstH: rect.height,
+        blend: img.BlendMode.alpha,
       );
     }
-    decoded.add(image);
-  }
 
-  final layout = computeStitchLayout(
-    sizes: [
-      for (final d in decoded)
-        StitchImageSize(width: d.width, height: d.height),
-    ],
-    mode: request.mode,
-    spacing: request.spacing,
-    borderWidth: request.borderWidth,
-    subtitleOnlyMode: request.subtitleOnlyMode,
-    subtitleBandHeight: request.subtitleBandHeight,
-  );
-
-  if (layout.canvasWidth == 0 || layout.canvasHeight == 0) {
-    throw StateError('StitchImageRenderer: degenerate canvas size.');
-  }
-
-  // White background so JPEG encodes opaquely; corner-radius cropping
-  // re-introduces alpha pixels later.
-  final canvas = img.Image(
-    width: layout.canvasWidth,
-    height: layout.canvasHeight,
-    numChannels: 4,
-  );
-  img.fill(canvas, color: img.ColorRgba8(255, 255, 255, 255));
-
-  for (var i = 0; i < decoded.length; i++) {
-    final src = decoded[i];
-    final rect = layout.imageRects[i];
-    if (rect.width <= 0 || rect.height <= 0) continue;
-    // Movie-subtitle mode supplies a per-image source crop for indices
-    // ≥1; null falls through to "use the full source".
-    final srcCrop = layout.srcCrops?[i];
-    final cropped = (srcCrop == null)
-        ? src
-        : img.copyCrop(
-            src,
-            x: srcCrop.x,
-            y: srcCrop.y,
-            width: math.max(1, srcCrop.width),
-            height: math.max(1, srcCrop.height),
-          );
-    final scaled =
-        (cropped.width == rect.width && cropped.height == rect.height)
-        ? cropped
-        : img.copyResize(
-            cropped,
-            width: rect.width,
-            height: rect.height,
-            interpolation: img.Interpolation.cubic,
-          );
-    img.compositeImage(
-      canvas,
-      scaled,
-      dstX: rect.x,
-      dstY: rect.y,
-      dstW: rect.width,
-      dstH: rect.height,
-      blend: img.BlendMode.alpha,
-    );
-  }
-
-  if (request.borderWidth > 0) {
-    _drawOuterBorder(
-      canvas,
-      thickness: request.borderWidth.round(),
-      argb: request.borderColorArgb,
-    );
-  }
-
-  if (request.cornerRadius > 0) {
-    _applyRoundedCorners(canvas, radius: request.cornerRadius.round());
-  }
-
-  switch (request.format) {
-    case StitchExportFormat.png:
-      return Uint8List.fromList(img.encodePng(canvas));
-    case StitchExportFormat.jpeg:
-      // JPG can't carry alpha. Flatten onto white so the corner-radius
-      // cutouts don't leak black.
-      final flat = img.Image(
-        width: canvas.width,
-        height: canvas.height,
-        numChannels: 3,
+    if (request.borderWidth > 0) {
+      _drawOuterBorder(
+        canvas,
+        thickness: request.borderWidth.round(),
+        argb: request.borderColorArgb,
       );
-      img.fill(flat, color: img.ColorRgb8(255, 255, 255));
-      img.compositeImage(flat, canvas);
-      return Uint8List.fromList(
-        img.encodeJpg(flat, quality: request.jpegQuality.clamp(1, 100)),
-      );
+    }
+
+    if (request.cornerRadius > 0) {
+      _applyRoundedCorners(canvas, radius: request.cornerRadius.round());
+    }
+  } finally {
+    Timeline.finishSync();
+  }
+
+  Timeline.startSync('stitch.encode');
+  try {
+    switch (request.format) {
+      case StitchExportFormat.png:
+        return Uint8List.fromList(img.encodePng(canvas));
+      case StitchExportFormat.jpeg:
+        // JPG can't carry alpha. Flatten onto white so the corner-radius
+        // cutouts don't leak black.
+        final flat = img.Image(
+          width: canvas.width,
+          height: canvas.height,
+          numChannels: 3,
+        );
+        img.fill(flat, color: img.ColorRgb8(255, 255, 255));
+        img.compositeImage(flat, canvas);
+        return Uint8List.fromList(
+          img.encodeJpg(flat, quality: request.jpegQuality.clamp(1, 100)),
+        );
+    }
+  } finally {
+    Timeline.finishSync();
   }
 }
 

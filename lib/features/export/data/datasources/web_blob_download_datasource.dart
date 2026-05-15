@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/errors/user_facing_messages.dart';
 import '../../domain/entities/save_result.dart';
 // Conditional import: web build pulls in the real `package:web` impl;
 // every other build resolves to the stub (which throws).
@@ -40,7 +41,7 @@ class WebBlobDownloadDataSource {
       await downloadBlob(bytes, fileName, mimeType);
       return const SaveSuccess(location: 'Downloads');
     } catch (e) {
-      return SaveFailure('Download failed: $e');
+      return SaveFailure(saveFailureMessage(e));
     }
   }
 }

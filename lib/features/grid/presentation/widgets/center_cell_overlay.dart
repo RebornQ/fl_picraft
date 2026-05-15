@@ -95,28 +95,34 @@ class _CenterCellOverlayState extends ConsumerState<CenterCellOverlay> {
       return _CenterCtaButton(onTap: notifier.pickCenterImage);
     }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onScaleStart: (details) {
-        _gestureStartScale = state.centerScale;
-        _gestureStartOffset = state.centerOffset;
-        _gestureStartFocalPoint = details.localFocalPoint;
-      },
-      onScaleUpdate: (details) => _onScaleUpdate(details, centerImage),
-      onScaleEnd: (_) {
-        _gestureStartScale = null;
-        _gestureStartOffset = null;
-        _gestureStartFocalPoint = null;
-      },
+    return Semantics(
+      label: '中心格图片，双指缩放或拖动调整',
+      hint: '长按以打开图片操作菜单',
+      onLongPressHint: '打开图片菜单',
       onLongPress: () => _showImageMenu(context, notifier),
-      child: ClipRect(
-        child: _CenterImageRender(
-          image: centerImage,
-          cellWidth: widget.cellWidth,
-          cellHeight: widget.cellHeight,
-          widgetPerSource: _widgetPerSource,
-          userScale: state.centerScale,
-          offset: state.centerOffset,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onScaleStart: (details) {
+          _gestureStartScale = state.centerScale;
+          _gestureStartOffset = state.centerOffset;
+          _gestureStartFocalPoint = details.localFocalPoint;
+        },
+        onScaleUpdate: (details) => _onScaleUpdate(details, centerImage),
+        onScaleEnd: (_) {
+          _gestureStartScale = null;
+          _gestureStartOffset = null;
+          _gestureStartFocalPoint = null;
+        },
+        onLongPress: () => _showImageMenu(context, notifier),
+        child: ClipRect(
+          child: _CenterImageRender(
+            image: centerImage,
+            cellWidth: widget.cellWidth,
+            cellHeight: widget.cellHeight,
+            widgetPerSource: _widgetPerSource,
+            userScale: state.centerScale,
+            offset: state.centerOffset,
+          ),
         ),
       ),
     );
@@ -209,25 +215,29 @@ class _CenterCtaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.black.withValues(alpha: 0.2),
-      child: InkWell(
-        onTap: onTap,
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.add_a_photo, color: Colors.white, size: 32),
-              SizedBox(height: 6),
-              Text(
-                '替换图片',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+    return Semantics(
+      button: true,
+      label: '替换中心格图片',
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.2),
+        child: InkWell(
+          onTap: onTap,
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_a_photo, color: Colors.white, size: 32),
+                SizedBox(height: 6),
+                Text(
+                  '替换图片',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -1,32 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/breakpoints.dart';
+import '../../../../core/errors/user_facing_messages.dart';
 import '../../../../core/widgets/app_scaffold.dart';
-import '../../../export/domain/entities/export_format.dart';
-import '../../../export/domain/entities/export_quality.dart';
-import '../../../export/domain/entities/export_request.dart';
-import '../../../export/domain/entities/export_source.dart';
-import '../../../export/domain/entities/save_result.dart';
-import '../../../export/presentation/providers/export_controller.dart';
-import '../../../export/presentation/providers/watermark_config_provider.dart';
+import '../../../export/presentation/providers/export_dispatch.dart';
+import '../../../image_import/domain/entities/imported_image.dart';
+import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../../image_import/presentation/widgets/image_drop_zone.dart';
-import '../../domain/entities/grid_type.dart';
 import '../providers/grid_editor_provider.dart';
-import '../widgets/grid_parameter_cards.dart';
+import '../widgets/grid_controls_panel.dart';
 import '../widgets/grid_preview_canvas.dart';
-import '../widgets/grid_type_selector.dart';
+
+/// Width of the docked controls panel on expanded / large windows.
+///
+/// Matches the analogous stitch editor panel so the two editors keep a
+/// consistent side-panel rhythm on tablet / desktop windows.
+const double _kGridControlsPanelWidth = 380;
 
 /// Grid-split editor screen.
 ///
-/// Layout (top → bottom, matching `_3_宫格切图/code.html`):
+/// Layout on compact / medium widths (matching `_3_宫格切图/code.html`):
 /// 1. AppBar with back + title + import action
 /// 2. Square preview canvas with grid overlay
-/// 3. Grid type selector (11 cards, horizontal scroll)
-/// 4. Bento parameter cards (spacing, corner radius)
-/// 5. FAB to export every cell as a PNG
+/// 3. Optional source-size warning
+/// 4. Nine-grid-social toggle, grid type selector, bento parameter
+///    cards (all grouped inside [GridControlsPanel])
+/// 5. FAB to launch the unified `/export` screen
 ///
 /// The body is wrapped in [ImageDropZone] so desktop / web users can
-/// drag-drop a new source image at any point.
+/// drag-drop a new source image at any point. The FAB sets
+/// [currentExportSourceKindProvider] to [ExportSourceKind.grid] before
+/// navigating so the export controller dispatches its render pipeline
+/// to [GridEditorController.renderCells].
+///
+/// Responsive behavior (driven by [windowSizeClassOf]):
+///
+/// | size class | layout |
+/// |------------|--------|
+/// | compact (<600 dp) | single column: preview → warning → controls panel, stacked in a [ListView] |
+/// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the canvas tappable |
+/// | expanded (840–1200 dp) | two-column [Row]: preview (+ optional warning) on the left, [GridControlsPanel] docked on the right at [_kGridControlsPanelWidth] |
+/// | large (≥1200 dp) | same as expanded, with the body capped at [Breakpoints.maxContentWidth] via [Center] + [ConstrainedBox] |
 class GridEditorScreen extends ConsumerWidget {
   const GridEditorScreen({super.key});
 
@@ -34,8 +50,22 @@ class GridEditorScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(gridEditorControllerProvider);
     final notifier = ref.read(gridEditorControllerProvider.notifier);
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+
+    // Surface image-import failures (same rationale as the stitch
+    // editor — see `stitch_editor_screen.dart`). Both editors wrap
+    // their bodies in [ImageDropZone], which is how drag-drop failures
+    // also flow through `imageImportControllerProvider`.
+    ref.listen<AsyncValue<List<ImportedImage>>>(imageImportControllerProvider, (
+      previous,
+      next,
+    ) {
+      if (next is! AsyncError) return;
+      if (!context.mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger?.showSnackBar(
+        SnackBar(content: Text(importFailureMessage(next.error))),
+      );
+    });
 
     return AppScaffold(
       appBar: AppBar(
@@ -67,89 +97,95 @@ class GridEditorScreen extends ConsumerWidget {
             )
           : null,
       child: ImageDropZone(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-          children: [
-            const GridPreviewCanvas(),
-            if (state.sourceTooSmall) ...[
-              const SizedBox(height: 12),
-              _SourceSizeWarning(
-                colorScheme: colorScheme,
-                textTheme: textTheme,
-              ),
-            ],
-            const SizedBox(height: 16),
-            // Nine-grid-social mode toggle is rendered as a reserved
-            // row so the sibling task can extend it without disturbing
-            // the layout. It is non-interactive in this task (the
-            // social subtask owns the center-cell replacement UX).
-            _NineGridSocialRow(
-              enabled: state.nineGridSocialMode,
-              onChanged: notifier.setNineGridSocialMode,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: Breakpoints.maxContentWidth,
             ),
-            const SizedBox(height: 16),
-            GridTypeSelector(
-              value: state.gridType,
-              onChanged: notifier.setGridType,
-              lockedTo: state.nineGridSocialMode ? GridType.g3x3 : null,
-            ),
-            const SizedBox(height: 16),
-            const GridParameterCards(),
-          ],
+            child: const _GridEditorBody(),
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _onExportPressed(BuildContext context, WidgetRef ref) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final state = ref.read(gridEditorControllerProvider);
-    if (!state.hasSource) return;
-
-    messenger.showSnackBar(const SnackBar(content: Text('正在生成宫格子图...')));
-    try {
-      final cells = await ref
-          .read(gridEditorControllerProvider.notifier)
-          .renderCells();
-      final repository = ref.read(exportRepositoryProvider);
-      final request = ExportRequest(
-        source: GridExportSource(cells),
-        format: ExportFormat.png,
-        quality: kMaxExportQuality,
-        watermark: ref.read(watermarkConfigProvider),
-      );
-      final result = await repository.exportAndSave(request);
-      if (!context.mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(_snackBarFor(result, context, cells.length));
-    } catch (e) {
-      if (!context.mounted) return;
-      messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('导出失败：$e')));
-    }
+  void _onExportPressed(BuildContext context, WidgetRef ref) {
+    // Mark the export session as "grid-sourced" before navigating so
+    // ExportController.save() dispatches its render pipeline to
+    // GridEditorController.renderCells instead of the stitch path.
+    ref.read(currentExportSourceKindProvider.notifier).state =
+        ExportSourceKind.grid;
+    context.go('/export');
   }
+}
 
-  SnackBar _snackBarFor(SaveResult result, BuildContext context, int total) {
+class _GridEditorBody extends ConsumerWidget {
+  const _GridEditorBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sourceTooSmall = ref.watch(
+      gridEditorControllerProvider.select((s) => s.sourceTooSmall),
+    );
     final colorScheme = Theme.of(context).colorScheme;
-    switch (result) {
-      case SaveSuccess(:final location, :final count):
-        final where = location ?? '本地';
-        return SnackBar(
-          content: Text('已保存 $count/$total 张到 $where'),
-          behavior: SnackBarBehavior.floating,
-        );
-      case SaveCancelled():
-        return const SnackBar(
-          content: Text('已取消导出'),
-          behavior: SnackBarBehavior.floating,
-        );
-      case SaveFailure(:final message):
-        return SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: colorScheme.errorContainer,
-        );
+    final textTheme = Theme.of(context).textTheme;
+    final sizeClass = windowSizeClassOf(context);
+    final useSidePanel =
+        sizeClass == WindowSizeClass.expanded ||
+        sizeClass == WindowSizeClass.large;
+
+    if (useSidePanel) {
+      // Two-column layout: canvas (+ optional warning) on the left,
+      // GridControlsPanel docked on the right. FAB clearance is not
+      // strictly needed at this width (the FAB floats over the canvas
+      // column), but we keep a comfortable bottom inset so the user
+      // can scroll past the parameter cards.
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const GridPreviewCanvas(),
+                    if (sourceTooSmall) ...[
+                      const SizedBox(height: 12),
+                      _SourceSizeWarning(
+                        colorScheme: colorScheme,
+                        textTheme: textTheme,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            const SizedBox(
+              width: _kGridControlsPanelWidth,
+              child: SingleChildScrollView(child: GridControlsPanel()),
+            ),
+          ],
+        ),
+      );
     }
+
+    return ListView(
+      // Bottom 96 dp clears the floating action button on compact /
+      // medium widths.
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      children: [
+        const GridPreviewCanvas(),
+        if (sourceTooSmall) ...[
+          const SizedBox(height: 12),
+          _SourceSizeWarning(colorScheme: colorScheme, textTheme: textTheme),
+        ],
+        const SizedBox(height: 16),
+        const GridControlsPanel(),
+      ],
+    );
   }
 }
 
@@ -164,12 +200,25 @@ class _SourceSizeWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Compose the warning tint on top of the surface color so the
+    // banner stays readable in dark mode. `errorContainer` already
+    // skews dark in the dark scheme, and a flat 40% alpha against the
+    // dark surface would dissolve into the page background.
+    final tintedSurface = Color.alphaBlend(
+      colorScheme.errorContainer.withValues(alpha: 0.4),
+      colorScheme.surface,
+    );
+    final tintedBorder = Color.alphaBlend(
+      colorScheme.error.withValues(alpha: 0.4),
+      colorScheme.surface,
+    );
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withValues(alpha: 0.4),
+        color: tintedSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.error.withValues(alpha: 0.4)),
+        border: Border.all(color: tintedBorder),
       ),
       child: Row(
         children: [
@@ -183,58 +232,6 @@ class _SourceSizeWarning extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Reserved row for the nine-grid-social toggle. Stays interactive so
-/// users discover the upcoming mode, but in this task it merely flips
-/// the [GridEditorState.nineGridSocialMode] flag without changing the
-/// editor behavior — the sibling `05-08-nine-grid-social` task owns
-/// the center-cell replacement UI.
-class _NineGridSocialRow extends StatelessWidget {
-  const _NineGridSocialRow({required this.enabled, required this.onChanged});
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '九宫格朋友圈模式',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '开启 3x3 布局并支持中心图片替换',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(value: enabled, onChanged: onChanged),
         ],
       ),
     );

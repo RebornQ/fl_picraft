@@ -1,0 +1,17 @@
+# Project-wide test configuration.
+#
+# Tests tagged `benchmark` are **skipped** by default so the headless
+# `flutter test` suite stays deterministic across machines. Run them
+# explicitly with both `--run-skipped` (overrides the skip below) and
+# `--tags benchmark` (so only benchmark tests run):
+#
+#     flutter test --run-skipped --tags benchmark test/benchmarks/
+#
+# Performance numbers from CI runners aren't comparable across machines
+# and would gate PRs on machine variance; benchmarks exist to record a
+# baseline for triage, not to fail builds. See
+# `.trellis/tasks/05-08-polish-platform-test/research/audit-report.md`
+# (Round 3) for the recorded baseline and rationale.
+tags:
+  benchmark:
+    skip: "Skipped by default. Run with: flutter test --run-skipped --tags benchmark test/benchmarks/"

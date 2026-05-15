@@ -14,11 +14,15 @@ class ExportState {
     required this.isSaving,
   });
 
-  /// Initial state matches the mockup defaults: JPG selected, 85%
-  /// quality, idle.
+  /// Initial state defaults to PNG (lossless) so both stitch and grid
+  /// exports preserve maximum fidelity unless the user explicitly opts
+  /// into JPG for smaller file size. Quality stays at
+  /// [kMaxExportQuality] so a one-tap switch to JPG immediately
+  /// produces the best-fidelity JPG — the slider is hidden for PNG
+  /// anyway.
   factory ExportState.initial() => const ExportState(
-    format: ExportFormat.jpg,
-    quality: kDefaultExportQuality,
+    format: ExportFormat.png,
+    quality: kMaxExportQuality,
     isSaving: false,
   );
 

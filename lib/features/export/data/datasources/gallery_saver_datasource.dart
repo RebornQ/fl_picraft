@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:gal/gal.dart';
 
+import '../../../../core/errors/user_facing_messages.dart';
 import '../../domain/entities/save_result.dart';
 
 /// Default album name on iOS / Android. PRD §5.4: "Album: 'Fl PiCraft'
@@ -59,7 +60,7 @@ class GallerySaverDataSource {
         granted = await Gal.requestAccess(toAlbum: wantsAlbum);
       }
       if (!granted) {
-        return const SaveFailure('Photos permission denied');
+        return const SaveFailure('相册权限被拒绝，请在系统设置中开启后重试');
       }
 
       await Gal.putImageBytes(
@@ -69,9 +70,11 @@ class GallerySaverDataSource {
       );
       return SaveSuccess(location: wantsAlbum ? album : 'Photos');
     } on GalException catch (e) {
-      return SaveFailure('Photos save failed: ${e.type.message}');
+      // Translate the plugin's English enum into zh-CN snackbar copy
+      // so users don't see "保存失败：access denied"-style mixed text.
+      return SaveFailure(gallerySaveFailureMessage(e));
     } catch (e) {
-      return SaveFailure('Photos save failed: $e');
+      return SaveFailure(saveFailureMessage(e));
     }
   }
 }

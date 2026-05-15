@@ -37,9 +37,14 @@ class StitchRenderRequest {
   final bool subtitleOnlyMode;
   final double subtitleBandHeight;
 
-  /// Convenience: build from the editor state. The export module
-  /// (`05-08-export-watermark`) will swap [format] / [jpegQuality] in
-  /// when it lands.
+  /// Convenience: build from the editor state.
+  ///
+  /// The stitch renderer always produces a working PNG (with optional
+  /// JPEG fallback for the legacy direct-export path); the final
+  /// user-visible format is decided by [encodeForExport] inside the
+  /// export pipeline, not here. Defaults stay PNG / quality 92 so
+  /// any caller that bypasses the export pipeline still gets a
+  /// reasonable output.
   factory StitchRenderRequest.fromState(
     StitchEditorState state, {
     StitchExportFormat format = StitchExportFormat.png,

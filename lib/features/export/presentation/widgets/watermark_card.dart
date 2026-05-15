@@ -28,20 +28,28 @@ class WatermarkCard extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Section header — title + master toggle.
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '水印',
-                style: textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurface,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
+        //
+        // MergeSemantics fuses the "水印" label with the [Switch] so
+        // screen-reader users hear "水印, switch, off" instead of just
+        // an unlabeled toggle. Without the merge the title text and
+        // Switch end up as two unrelated nodes, and the labelled-
+        // tappable-node guideline fails on the bare Switch.
+        MergeSemantics(
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '水印',
+                  style: textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ),
-            ),
-            Switch(value: config.enabled, onChanged: notifier.setEnabled),
-          ],
+              Switch(value: config.enabled, onChanged: notifier.setEnabled),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         // Inner card — dimmed when disabled to telegraph that controls

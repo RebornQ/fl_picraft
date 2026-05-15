@@ -1,5 +1,8 @@
+import 'dart:developer' show Timeline;
+
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/errors/user_facing_messages.dart';
 import '../../domain/entities/export_format.dart';
 import '../../domain/entities/export_request.dart';
 import '../../domain/entities/export_source.dart';
@@ -68,7 +71,7 @@ class ExportRepositoryImpl implements ExportRepository {
       final result = await _persist(processed, request.format, name);
       return result;
     } catch (e) {
-      return SaveFailure('Export failed: $e');
+      return SaveFailure(exportFailureMessage(e));
     }
   }
 
@@ -82,7 +85,7 @@ class ExportRepositoryImpl implements ExportRepository {
     ExportRequest request,
   ) async {
     if (cells.isEmpty) {
-      return const SaveFailure('Nothing to export');
+      return const SaveFailure('没有可导出的内容');
     }
     String? lastLocation;
     var saved = 0;
@@ -109,15 +112,24 @@ class ExportRepositoryImpl implements ExportRepository {
           case SaveFailure(:final message):
             if (saved == 0) return result;
             return SaveFailure(
-              'Saved $saved of ${cells.length} before failure: $message',
+              partialSaveFailureMessage(
+                saved: saved,
+                total: cells.length,
+                cause: message,
+              ),
             );
         }
       } catch (e) {
-        final prefix = saved == 0
-            ? 'Export failed at cell ${i + 1}'
-            : 'Saved $saved of ${cells.length} before failure at cell '
-                  '${i + 1}';
-        return SaveFailure('$prefix: $e');
+        if (saved == 0) {
+          return SaveFailure(exportFailureMessage(e));
+        }
+        return SaveFailure(
+          partialSaveFailureMessage(
+            saved: saved,
+            total: cells.length,
+            cause: e,
+          ),
+        );
       }
     }
     return SaveSuccess(location: lastLocation, count: saved);
@@ -136,39 +148,47 @@ class ExportRepositoryImpl implements ExportRepository {
   /// web → mobile → desktop. The repository's typed failure (step 2
   /// of the three-layer defense) makes the dispatch errors visible
   /// in tests even when the datasource's own guard fires later.
+  ///
+  /// Wrapped in `Timeline.startSync('export.save')` so DevTools can
+  /// distinguish "save plugin took N ms" from upstream watermark/encode
+  /// time when triaging slow exports.
   Future<SaveResult> _persist(
     Uint8List bytes,
     ExportFormat format,
     String fileName,
   ) async {
-    // Tests can short-circuit the platform dispatch with a deterministic
-    // adapter — exercises the grid loop's partial-save accounting
-    // without needing real `gal` / `file_picker` / `package:web`
-    // plugin channels.
-    final override = _persistOverride;
-    if (override != null) {
-      return override(bytes, format, fileName);
-    }
-    if (WebBlobDownloadDataSource.isSupported) {
-      return _webDownload.save(
-        bytes,
-        fileName: fileName,
-        mimeType: format.mimeType,
+    Timeline.startSync('export.save');
+    try {
+      // Tests can short-circuit the platform dispatch with a deterministic
+      // adapter — exercises the grid loop's partial-save accounting
+      // without needing real `gal` / `file_picker` / `package:web`
+      // plugin channels.
+      final override = _persistOverride;
+      if (override != null) {
+        return await override(bytes, format, fileName);
+      }
+      if (WebBlobDownloadDataSource.isSupported) {
+        return await _webDownload.save(
+          bytes,
+          fileName: fileName,
+          mimeType: format.mimeType,
+        );
+      }
+      if (GallerySaverDataSource.isSupported) {
+        // gal appends the extension itself — strip the user-facing
+        // `.png` / `.jpg` we generated for the desktop/web path.
+        final mobileName = _stripExtension(fileName);
+        return await _gallery.save(bytes, fileName: mobileName);
+      }
+      if (FileDialogSaveDataSource.isSupported) {
+        return await _fileDialog.save(bytes, fileName: fileName);
+      }
+      return SaveFailure(
+        '当前平台暂不支持保存图片（${kIsWeb ? "web" : defaultTargetPlatform}）',
       );
+    } finally {
+      Timeline.finishSync();
     }
-    if (GallerySaverDataSource.isSupported) {
-      // gal appends the extension itself — strip the user-facing
-      // `.png` / `.jpg` we generated for the desktop/web path.
-      final mobileName = _stripExtension(fileName);
-      return _gallery.save(bytes, fileName: mobileName);
-    }
-    if (FileDialogSaveDataSource.isSupported) {
-      return _fileDialog.save(bytes, fileName: fileName);
-    }
-    return SaveFailure(
-      'No save target available on platform '
-      '${kIsWeb ? "web" : defaultTargetPlatform}.',
-    );
   }
 
   static String _stripExtension(String name) {

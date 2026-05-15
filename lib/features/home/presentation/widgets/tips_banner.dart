@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 /// Tinted info banner used on the Home screen to surface a "tip of the day".
 ///
 /// Visual pattern lifted from `_1_首页/code.html` (lightbulb + tertiary
-/// container tone with low opacity).
+/// container tone with low opacity). Uses [Color.alphaBlend] to compose
+/// the tertiary tint **on top of** the surface color so the banner
+/// reads correctly in both light and dark schemes — a bare
+/// `tertiaryContainer.withValues(alpha: 0.10)` would dissolve into the
+/// dark surface and become invisible because the dark `tertiaryContainer`
+/// itself is already a dark tone.
 class TipsBanner extends StatelessWidget {
   const TipsBanner({super.key, required this.message, this.title = '小贴士'});
 
@@ -15,14 +20,21 @@ class TipsBanner extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
+    final tintedSurface = Color.alphaBlend(
+      colorScheme.tertiaryContainer.withValues(alpha: 0.10),
+      colorScheme.surface,
+    );
+    final tintedBorder = Color.alphaBlend(
+      colorScheme.tertiaryContainer.withValues(alpha: 0.30),
+      colorScheme.surface,
+    );
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.tertiaryContainer.withValues(alpha: 0.10),
+        color: tintedSurface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.tertiaryContainer.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: tintedBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

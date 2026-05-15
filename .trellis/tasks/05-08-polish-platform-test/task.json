@@ -3,7 +3,7 @@
   "name": "polish-platform-test",
   "title": "Polish & Multi-Platform Test",
   "description": "UX polish, performance tuning (20 images export under 5s), iOS/Android/Web/desktop adaptation tests",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

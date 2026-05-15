@@ -61,7 +61,7 @@ void main() {
         );
         final res = await repo.exportAndSave(req);
         expect(res, isA<SaveFailure>());
-        expect((res as SaveFailure).message, contains('Nothing to export'));
+        expect((res as SaveFailure).message, contains('没有可导出'));
       },
     );
 
@@ -169,7 +169,7 @@ void main() {
         final res = await repo.exportAndSave(gridRequest(cells));
         expect(res, isA<SaveFailure>());
         final failure = res as SaveFailure;
-        expect(failure.message, contains('Saved 1 of 3'));
+        expect(failure.message, contains('已保存 1 / 3'));
         expect(failure.message, contains('Disk full'));
       },
     );
@@ -188,7 +188,7 @@ void main() {
         expect(res, isA<SaveFailure>());
         final failure = res as SaveFailure;
         expect(failure.message, equals('Permission denied'));
-        expect(failure.message, isNot(contains('Saved')));
+        expect(failure.message, isNot(contains('已保存')));
       },
     );
 
