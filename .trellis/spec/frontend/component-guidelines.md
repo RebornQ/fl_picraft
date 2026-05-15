@@ -302,6 +302,55 @@ Padding(
    )
    ```
 
+### Pattern: Verify a11y with `meetsGuideline` widget tests
+
+**What**: For every top-level screen, add at least four widget-test assertions:
+
+```dart
+testWidgets('home screen meets a11y guidelines', (tester) async {
+  final handle = tester.ensureSemantics();
+  await tester.pumpWidget(/* wrap in ProviderScope + MaterialApp */);
+
+  await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+  await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
+  await expectLater(tester, meetsGuideline(textContrastGuideline));
+  await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+
+  handle.dispose();
+});
+```
+
+These four guidelines are Flutter's built-in checks:
+
+| Guideline | What it asserts |
+|---|---|
+| `androidTapTargetGuideline` | All tappable widgets ≥ 48×48 dp |
+| `iOSTapTargetGuideline` | All tappable widgets ≥ 44×44 dp |
+| `textContrastGuideline` | Text-vs-background contrast ratios meet WCAG AA |
+| `labeledTapTargetGuideline` | Every tappable widget has a Semantics label (so screen-readers can announce it) |
+
+**Why**: These are non-negotiable platform requirements; failing them is grounds for App Store / Play Store rejection. Catching at test time is dramatically cheaper than discovering during review or via user complaint.
+
+**Where to add**: `test/features/<feature>/presentation/<screen>_a11y_test.dart`. Currently covered: `home_screen_a11y_test.dart`, `export_screen_a11y_test.dart`. Editor screens (stitch / grid) have widget-level Semantics but no surface-level guideline test — their `tester.view.physicalSize` setup is more involved; track this as a known gap and add when needed.
+
+### Pattern: `MergeSemantics` for label + control pairs
+
+When a "title text + interactive control" pair (e.g. "Watermark" label + Switch) is visually one row, screen-readers should announce them as **one** tappable target, not two. Wrap them:
+
+```dart
+MergeSemantics(
+  child: Row(
+    children: [
+      const Text('启用水印'),
+      const Spacer(),
+      Switch(value: enabled, onChanged: onChanged),
+    ],
+  ),
+)
+```
+
+Without `MergeSemantics`, `labeledTapTargetGuideline` will fail because the Switch alone has no visible label (the text is a sibling node).
+
 ---
 
 ## Common Mistakes
@@ -431,6 +480,35 @@ void onScaleUpdate(ScaleUpdateDetails d) {
 pan. Only reach for `focalPointDelta` when you genuinely want a
 per-frame velocity / impulse (rare — usually for inertial physics, not
 for direct manipulation).
+
+### Gotcha: `withValues(alpha: x)` on tertiary surfaces breaks dark-mode contrast
+
+**Symptom**: A custom surface (e.g. `TipsBanner` tertiary container, an inline warning) looks fine in light mode but in dark mode the text becomes hard to read against the background, or the surface itself becomes nearly invisible.
+
+**Cause**: `Color.withValues(alpha: 0.10)` on top of a light scheme background produces a slightly tinted near-white surface — readable. The **same** alpha value on top of a dark scheme background produces a nearly transparent dark surface that disappears into the body. The alpha is applied at paint time without knowledge of what's behind it.
+
+**Fix**: Use `Color.alphaBlend` to bake the tint into a concrete opaque color:
+
+```dart
+// ❌ Wrong — alpha is paint-time, not theme-aware
+Container(
+  color: colorScheme.tertiary.withValues(alpha: 0.10),
+)
+
+// ✅ Correct — alphaBlend produces a concrete blended Color that
+// looks correct against both light and dark surfaces because we
+// pick the underlying surface explicitly per theme
+Container(
+  color: Color.alphaBlend(
+    colorScheme.tertiary.withValues(alpha: 0.10),
+    colorScheme.surface,
+  ),
+)
+```
+
+**Prevention**: When designing a custom container with a tint, ask "what is the canvas behind this?" If the answer involves `surface` / `surfaceContainer`, use `alphaBlend` against that exact surface role. Reserve `withValues(alpha:)` for true transparencies (gestures, overlays on top of dynamic content where the backdrop is not a theme surface).
+
+**Audit during dark-mode review**: grep for `withValues(alpha:` / `withOpacity(` inside `lib/features/**` and verify each one is either (a) a genuine transparency over dynamic content, or (b) needs an `alphaBlend` rewrite.
 
 ### ❌ Don't
 

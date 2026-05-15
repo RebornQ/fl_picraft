@@ -295,6 +295,66 @@ mode without the flag check.
 multiple call sites. That is the situation Option B is rightfully
 criticised for, and where Option A's compile-time safety wins.
 
+### Pattern: Sealed payload + enum kind for multi-source dispatch
+
+**Problem**: A controller has to handle multiple sources of the same operation. Example: the export pipeline accepts input from the **stitch** editor (a single composed image) or the **grid** editor (a list of cells with per-cell metadata). Naive solutions:
+
+- One controller per source → screen UI duplicated; settings (watermark / format / quality) live in two places
+- One controller with `bool isGrid` + `T? stitchPayload` + `U? gridPayload` → field validity becomes a runtime convention nobody enforces
+
+**Solution**: split the model into **two co-variants**:
+
+1. A `sealed class` data load (`ExportSource`) — each variant carries its own typed payload (no nullable fields)
+2. An `enum` kind (`ExportSourceKind { stitch, grid }`) — pure router discriminator, used to keep the upstream UI / button label / `canExportProvider` source-aware **without** forcing every consumer to hold the full payload
+
+Dispatch sites switch on **the enum**, then resolve the payload from the source-of-truth provider:
+
+```dart
+sealed class ExportSource {
+  const ExportSource();
+}
+final class ExportStitchSource extends ExportSource {
+  const ExportStitchSource(this.request);
+  final StitchRenderRequest request;
+}
+final class ExportGridSource extends ExportSource {
+  const ExportGridSource(this.request);
+  final GridRenderRequest request;
+}
+
+enum ExportSourceKind { stitch, grid }
+
+class ExportController extends Notifier<ExportState> {
+  Future<SaveResult> save() async {
+    final source = _buildSource();
+    if (source == null) return const SaveFailure(message: '没有可导出的图片');
+    return ref.read(exportRepositoryProvider).exportAndSave(source);
+  }
+
+  ExportSource? _buildSource() {
+    final kind = ref.read(currentExportSourceKindProvider);
+    return switch (kind) {
+      ExportSourceKind.stitch => _buildStitchSource(),
+      ExportSourceKind.grid => _buildGridSource(),
+    };
+  }
+}
+```
+
+**Why two types and not one**:
+
+- The **enum** is cheap to expose globally (a single `StateProvider<ExportSourceKind>` survives across screens and is web-refresh-safe). It tells the export screen which editor it came from without holding the heavy payload.
+- The **sealed payload** is only built at dispatch time from the live editor state. It carries all the type-safe data the renderer needs and forces every dispatch site to handle every variant.
+
+**Exhaustive switches everywhere**: every consumer of the enum (controller dispatch, save-button label provider, `canExportProvider`, back-navigation handler) uses `switch` on the enum without a `default`. Adding a third kind (e.g. `movieSubtitle`) compile-errors every site that needs an update — same compile-time safety as Option A in the previous decision.
+
+**Where this lives** (current implementations):
+- `lib/features/export/domain/entities/export_source.dart` — sealed payload
+- `lib/features/export/presentation/providers/export_dispatch.dart` — enum + derived providers
+- `lib/features/export/presentation/providers/export_controller.dart:106-121` — dispatch site
+
+**Required tests**: assert every enum variant's branch in `_buildSource()` and `canExportProvider` / `exportSaveButtonLabelProvider`; assert the sealed payload's `exportAndSave` dispatches to the right renderer. Compiler enforces exhaustiveness — tests guard the runtime wiring.
+
 ---
 
 ## Forbidden Patterns

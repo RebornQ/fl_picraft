@@ -228,6 +228,61 @@ there is no previous data to preserve.
 - Initial load (`build()` returns the first value)
 - Operations that *invalidate* the previous data (logout, project switch)
 
+### Pattern: Cross-screen handoff via Riverpod, not GoRouter `extra`
+
+**Problem**: Screen A needs to pass a value (route source kind, selected item id, filter state) to Screen B. Two ways:
+
+- GoRouter `extra`: `context.go('/b', extra: payload)` — looks idiomatic, payload travels with the navigation
+- Riverpod `StateProvider` / `Notifier`: set the value before navigating; Screen B reads it via `ref.watch`
+
+**Decision**: **Default to Riverpod** for any cross-screen state that should survive a hot reload, a web refresh, or a deep-link.
+
+**Why GoRouter `extra` is risky**:
+
+1. **`extra` is lost on web refresh**. The browser reloads the URL but the in-memory `extra` map is wiped. Screen B sees `null` and either crashes or silently falls back to a default — both bad.
+2. **`extra` is lost on deep-link**. If the user shares the URL or hits it from a notification, `extra` is empty.
+3. **`extra` is typed as `Object?`**. Every consumer has to `as MyType` cast it. Riverpod providers carry their type all the way through.
+4. **`extra` is invisible to other screens**. If a sibling widget (e.g. a bottom nav badge) needs to know "did we come from grid?", it can't ask the router — but it can `ref.watch` the provider.
+
+**How to apply** (concrete example — Round 2a of `polish-platform-test`):
+
+```dart
+// lib/features/export/presentation/providers/export_dispatch.dart
+final currentExportSourceKindProvider = StateProvider<ExportSourceKind>(
+  (_) => ExportSourceKind.stitch,
+);
+
+// stitch_editor_screen.dart — caller sets kind then navigates
+void _onExportPressed() {
+  ref.read(currentExportSourceKindProvider.notifier).state =
+      ExportSourceKind.stitch;
+  context.go('/export');
+}
+
+// grid_editor_screen.dart — same pattern, different value
+void _onExportPressed() {
+  ref.read(currentExportSourceKindProvider.notifier).state =
+      ExportSourceKind.grid;
+  context.go('/export');
+}
+
+// export_screen.dart — consumer reads typed value
+@override
+Widget build(BuildContext context, WidgetRef ref) {
+  final kind = ref.watch(currentExportSourceKindProvider);
+  // ... renders source-specific UI
+}
+```
+
+**When GoRouter `extra` is fine**: ephemeral hand-offs that genuinely should not survive a refresh — e.g. a "confirm delete" intermediate screen that loses meaning on reload. In practice, those are rare; when in doubt, use Riverpod.
+
+**Trade-offs to accept**:
+
+- The provider state is **sticky** — it stays put until someone else writes it. If the user navigates `grid → /export → home → /export` (deep-link), the second visit still shows `grid` until something resets it. This is usually the right behavior (user just left grid; they expect to see grid context). Document the policy in the provider's doc-comment.
+- Reset on logout / project switch / "new project" must be explicit (call `ref.invalidate(currentExportSourceKindProvider)`) — same as any other sticky state.
+
+**Required tests**: assert (a) caller writes the right kind before navigating; (b) consumer reads the kind from the provider, not from `GoRouterState.extra`; (c) the provider's default value is sane (whichever editor is "default" when the user deep-links into `/export` directly).
+
 ---
 
 ## Common Mistakes

@@ -102,6 +102,32 @@ a Flutter widget, ask "is the widget rendering area the same size as
 the source pixels this value describes?" If no — and it usually isn't —
 add a conversion at the widget boundary, not at every read site.
 
+### Mistake 5: Reflexively forbidding `core/` from importing plugins
+
+**Bad** (strict layering, but worse outcome): "`core/` must not import any platform plugin because plugin types belong in `data/datasources/`." So every datasource that throws a typed plugin exception (`GalException`, `PlatformException`, `FileSystemException`) embeds its own zh-CN translation strings, duplicating the same five sentences across six datasources. Updating the wording becomes a multi-file edit; consistency drifts.
+
+**Good** (layered trade-off): `core/errors/user_facing_messages.dart` may import a plugin package **only when** it provides a typed error → zh-CN translation helper that all datasources of that plugin should use uniformly. Example:
+
+```dart
+// lib/core/errors/user_facing_messages.dart
+import 'package:gal/gal.dart';  // ✅ acceptable layer breach
+
+String gallerySaveFailureMessage(GalException e) {
+  return switch (e.type) {
+    GalExceptionType.accessDenied => '保存失败：需要相册权限，请在设置中开启',
+    GalExceptionType.notEnoughSpace => '保存失败：存储空间不足',
+    GalExceptionType.notSupportedFormat => '保存失败：不支持的图片格式',
+    GalExceptionType.unexpected => '保存失败：${describeCause(e)}',
+  };
+}
+```
+
+**Why this is the right trade-off**: a single translation table is dramatically more maintainable than scattering plugin-specific strings across datasources. The cost (one `core/` file knows about `gal`) is contained: the import is in **one** file, all consumers route through it, and replacing the plugin later means updating one file.
+
+**Where the strict rule still applies**: domain entities, repository interfaces, presentation widgets — these must remain plugin-free. The relaxation is **only** for `core/errors/user_facing_messages.dart` (or similarly-purposed translation tables) where the plugin's typed error enum is the input.
+
+**See also**: `frontend/error-handling.md` → "Pattern: Plugin-specific translation tables" for the full pattern.
+
 ---
 
 ## Checklist for Cross-Layer Features

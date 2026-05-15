@@ -255,6 +255,105 @@ void main() {
 }
 ```
 
+### Pattern: Performance benchmarks via `@Tags(['benchmark'])`
+
+**What**: Place all performance benchmarks in `test/benchmarks/` and tag them with `@Tags(['benchmark'])`. Configure `dart_test.yaml` to skip the tag by default:
+
+```yaml
+# dart_test.yaml (repo root)
+tags:
+  benchmark:
+    skip: "perf benchmark — run with --run-skipped --tags benchmark"
+```
+
+This means `flutter test` (the default CI invocation) **skips** benchmarks — they're locally-driven baselines, not CI gates. To run them: `flutter test --run-skipped --tags benchmark test/benchmarks/`.
+
+**Why**:
+
+1. Performance varies wildly across host machines (CI runner vs local M-series Mac); a hard deadline would flap.
+2. Debug build benchmarks are **not** the production target — release builds are typically 2-4× faster. Benchmarks are a relative-improvement tool, not an absolute deadline gate.
+3. Splitting benchmarks from unit tests lets each run independently with appropriate thresholds.
+
+**Benchmark structure**:
+
+```dart
+@Tags(['benchmark'])
+library;
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  test('stitch 20×(1920×1080) PNG export under loose budget', () async {
+    // 1. Synthesize test inputs — don't depend on real files
+    final stopwatch = Stopwatch()..start();
+    final images = List.generate(20, (i) => _synthImage(1920, 1080, i));
+    print('synth elapsed: ${stopwatch.elapsedMilliseconds} ms');
+
+    // 2. Run the operation under test
+    stopwatch.reset();
+    final result = await renderer.render(images);
+    print('render elapsed: ${stopwatch.elapsedMilliseconds} ms');
+    print('output: ${result.length} bytes');
+
+    // 3. Assert against a LOOSE budget (much higher than PRD target)
+    //    Benchmark is a baseline tool, not a deadline gate.
+    expect(stopwatch.elapsed.inSeconds, lessThan(30));
+  });
+}
+```
+
+The PRD target (e.g. 5s) is for **release build on a real device** — verified manually per the task's `manual-test-plan.md`, not in benchmark tests. The benchmark threshold is loose (30s) so the test passes even on a slow host; what matters is the per-stage `print` output.
+
+**When to run**:
+- Locally after a renderer-layer change, to confirm no regression vs the recorded baseline
+- After a candidate optimization, to measure improvement
+- **Not** in CI by default — the tag-skip prevents flaky CI failures from host variance
+
+### Pattern: `dart:developer` Timeline markers in renderers
+
+**What**: Wrap CPU-heavy stages in `Timeline.startSync(label) ... Timeline.finishSync()` (or `Timeline.timeSync` for synchronous regions). This makes the stage show up in DevTools Timeline view, so you can see exactly where time is spent without recompiling.
+
+```dart
+import 'dart:developer' show Timeline;
+
+class StitchImageRenderer {
+  Future<Uint8List> render(StitchRenderRequest request) async {
+    Timeline.startSync('stitch.decode');
+    final decoded = await _decodeAll(request.images);
+    Timeline.finishSync();
+
+    Timeline.startSync('stitch.compose');
+    final composed = _compose(decoded, request.mode);
+    Timeline.finishSync();
+
+    Timeline.startSync('stitch.encode');
+    final bytes = _encode(composed, request.format);
+    Timeline.finishSync();
+
+    return bytes;
+  }
+}
+```
+
+**Naming convention**: `<feature>.<stage>` (e.g. `stitch.decode`, `grid.cell-render`, `export.save`). The dot-separated form groups related stages together in DevTools.
+
+**Why this is free in production**:
+
+- `dart:developer` calls are **stripped in release builds** — no runtime cost, no measurement overhead.
+- In debug / profile mode, Timeline events are recorded with very low overhead (microseconds per call).
+
+**Use `try / finally` for async safety**:
+
+```dart
+Timeline.startSync('stitch.encode');
+try {
+  return await _encodeAsync(image);
+} finally {
+  Timeline.finishSync();  // never leaks an unmatched startSync
+}
+```
+
+**Where to add markers**: the entry point of every async operation in `data/renderers/` and `data/repositories/` that takes >100 ms in the typical case. Don't pepper them everywhere — the value is in stage-level granularity (decode / compose / encode), not statement-level.
+
 ---
 
 ## Code Review Checklist
