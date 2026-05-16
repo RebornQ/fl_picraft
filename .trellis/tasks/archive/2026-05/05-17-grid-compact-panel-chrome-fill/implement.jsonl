@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本次改动反转上一轮的 'Flexible(loose) — not Expanded' Gotcha——需要扩成两种场景的「双模 Gotcha」（无 chrome 用 Flexible(loose)，有 chrome 用 Expanded），并更新 compact / medium 代码示例"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "decoration 抽 helper + 复用 colorScheme.surfaceContainerLow / outlineVariant，遵循组件规范与 theme token usage"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "compact 模式 chrome 高度断言 + 现有测试不破坏；三红线全绿"}
+{"file": ".trellis/tasks/archive/2026-05/05-17-grid-reactive-canvas-and-panel-chrome/prd.md", "reason": "上一轮 task 已经引入了 expanded/large chrome 与 kGridControlsPanelChromeKey，本任务复用同一 key + decoration，需要看到上下文衔接"}
