@@ -480,3 +480,36 @@ Brainstorm 阶段拆分出两个独立 trellis 任务：(1) rename-works-to-feat
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: Grid canvas height-first compact-mode skeleton + spec sediment
+
+**Date**: 2026-05-17
+**Task**: Grid canvas height-first compact-mode skeleton + spec sediment
+**Branch**: `main`
+
+### Summary
+
+Task 2 (grid-canvas-height-first-fit) 完整实施: compact/medium 模式 grid_editor_screen 重构为 Column + Expanded(Center(AspectRatio(1, Canvas))) + Flexible(loose, SingleChildScrollView(Panel)) 高度优先骨架；画布占据剩余高度保持 1:1 居中，控件面板独立内部滚动。GridPreviewCanvas 移除内部 AspectRatio sizing contract 迁移到调用方，expanded/large 调用处补包 AspectRatio(1) 保持现状。新增 compact 骨架测试（无外层 ListView + canvas square + panel SingleChildScrollView 祖先 + 无 widget tree 异常），放宽 compact+medium panelOrigin.dx 严格相等断言。5 files / 236 ins / 46 del；analyze 0 issues / 286 tests passed。Spec 沉淀: responsive-layout.md 新增 Pattern 'Compact-mode editor body — height-first Column skeleton' + Gotcha 'Flexible(loose) vs Expanded' + responsive behavior table 拆分 stitch/grid 两行。设计判断: Flexible(loose) 优于 Expanded 避免画布与控件之间的视觉裂缝（已在代码 inline 注释与 spec Gotcha 双重沉淀）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b3812b8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
