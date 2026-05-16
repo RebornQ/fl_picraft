@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本任务核心 spec 改动 — 必须重写 ‘Cap content with maxContentWidth’ 段落、‘side panel 380 dp’ 段落与 ‘Responsive behavior table’ 的 large 列"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "sheet ↔ panel 双形态拆分约定 — 改弹性面板宽度时保持 caller-decorates 的现有契约"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint / format / test 红线 — 新增宽窗口测试用例不得引入 warning，flutter analyze / flutter test 必须全绿"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "MD3 设计 token 与字号约定 — 删除 maxContentWidth 不能影响 token 表"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "确认 LayoutBuilder / ConstrainedBox / FittedBox 用 Flutter 原生 widget 实现，不自造 sizing helper"}
+{"file": ".trellis/tasks/05-16-editor-fill-container-width/prd.md", "reason": "本子任务 PRD — 实施前作为单一 source of truth，对照 7 条 Requirements + 8 条 AC 实现"}
+{"file": ".trellis/tasks/05-16-editor-layout-and-import-isolation/prd.md", "reason": "母任务 Decisions (D1/D2/D3) — 保证 subtask 实现不偏离父级决策"}

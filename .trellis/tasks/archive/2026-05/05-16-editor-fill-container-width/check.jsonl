@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint / format / test 红线 — flutter analyze + flutter test 必须全绿，新增宽窗口测试用例"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "复核更新后的 Cap content 段落 + 380→[380,480] 弹性面板段落 + 表格 large 列自洽"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 sheet ↔ panel 拆分契约未被破坏（panel 仍然无 chrome，sheet 仍然加 Material）"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "复核设计 token 表 / 字号约定未被布局改动牵连"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复核未自造 LayoutBuilder/FittedBox 替代品"}
+{"file": ".trellis/tasks/05-16-editor-fill-container-width/prd.md", "reason": "对照 8 项 Acceptance Criteria 逐一勾选 + Definition of Done 4 项验收"}
+{"file": ".trellis/tasks/05-16-editor-layout-and-import-isolation/prd.md", "reason": "确认母任务 D1/D2/D3 决策都在 subtask 实现里落地"}
