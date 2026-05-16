@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终验收 analyze / format / test 三红线必须全绿，并新增的 compact 模式断言要稳定通过"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "复核 compact/medium 改为 Column+Expanded 后与 spec 中「window size class + 主副内容滚动」描述自洽，expanded/large 无回归"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 GridPreviewCanvas 的 doc-comment 与新职责（不再强制 1:1 外层）一致，调用方均补全 AspectRatio"}
+{"file": ".trellis/tasks/05-16-grid-canvas-height-first-fit/prd.md", "reason": "对照本任务 AC + DoD（正方形 / 首屏可见 / 双栏无回归 / overlay 同效 / 测试通过 / 三红线）逐项 confirm"}
