@@ -579,3 +579,36 @@ Follow-up 修复上一轮 task (05-16-grid-canvas-height-first-fit) 的 Out-of-S
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: Grid side-panel surface chrome + viewport reactivity test
+
+**Date**: 2026-05-17
+**Task**: Grid side-panel surface chrome + viewport reactivity test
+**Branch**: `main`
+
+### Summary
+
+需求 1 (画布实时响应窗口拖拽): LayoutBuilder + Row(stretch) 已实现，本次仅补测试覆盖动态改 viewport 后画布尺寸跟随。需求 2 (右侧控制栏铺满容器高度): 给 expanded/large 右列加 surface 背景容器 (surfaceContainerLow + outlineVariant + 16dp 圆角 + clipAntiAlias)，从顶部贴到底部；内部 GridControlsPanel 保持 bare + 顶部对齐 + SingleChildScrollView 内部滚动。设计判断: Container vs DecoratedBox+Padding 选 Container 与 _SourceSizeWarning / NineGridSocialRow 在本 codebase 的 idiom 保持一致；SingleChildScrollView.padding 内置 16 而非外层 Padding 包裹，让滚动条贴边、内容留呼吸。导出 kGridControlsPanelChromeKey 给测试定位（文件级 const，dartdoc 注明用途，不引 package:meta @visibleForTesting）。新增 3 个测试: 动态 viewport tracking / chrome 高度铺满 row / chrome decoration 颜色断言；3 个既有测试从 find.byType(GridControlsPanel) 迁移到 find.byKey(chromeKey) 因为 chrome 是新的 side column。3 files / 243 ins / 29 del；analyze 0 issues / 291 tests passed。Spec 沉淀: 新增 'Convention: Caller decoration variants' (bare/chrome 两种 caller 模式对比 + grid (chrome) vs stitch (bare) 决策表 + 'panel 内部保持 bare' guardrail)；responsive behavior table grid_editor expanded/large 列同步。stitch_editor / GridControlsPanel / GridLayout / Painter 未改动。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ef0448c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

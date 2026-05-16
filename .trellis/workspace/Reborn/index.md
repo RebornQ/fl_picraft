@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 17
+- **Total Sessions**: 18
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~581 | Active |
+| `journal-1.md` | ~614 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 18 | 2026-05-17 | Grid side-panel surface chrome + viewport reactivity test | `ef0448c` | `main` |
 | 17 | 2026-05-17 | Extend grid canvas height-first to expanded/large windows | `af0e667` | `main` |
 | 16 | 2026-05-17 | Cleanup stale archived task paths | `0b62bf2` | `main` |
 | 15 | 2026-05-17 | Grid canvas height-first compact-mode skeleton + spec sediment | `b3812b8` | `main` |
