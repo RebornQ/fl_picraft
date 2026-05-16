@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 /// A single destination in the [AppBottomNavBar].
 class AppNavDestination {
@@ -13,16 +12,33 @@ class AppNavDestination {
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+
+  /// The branch's initial location. Kept for documentation / deep-link
+  /// tooling — the [AppBottomNavBar] itself no longer uses it for
+  /// active-index resolution. Branch selection is owned by
+  /// `StatefulNavigationShell` upstream.
   final String location;
 }
 
-/// Bottom navigation bar shared by the four top-level routes.
+/// Bottom navigation bar shared by the four top-level branches.
 ///
-/// Uses Material 3 [NavigationBar]. The current selection is derived from
-/// [GoRouterState.uri] so that hot-reload and deep-links keep it in sync.
+/// Uses Material 3 [NavigationBar]. The selected index and tap callback
+/// are injected by the surrounding `AppShell` so that the bar is purely
+/// presentational and the bar widget itself does **not** rebuild on tab
+/// changes (only its `selectedIndex` updates).
 class AppBottomNavBar extends StatelessWidget {
-  const AppBottomNavBar({super.key});
+  const AppBottomNavBar({
+    super.key,
+    required this.currentIndex,
+    required this.onDestinationSelected,
+  });
 
+  final int currentIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  /// Destinations in branch order. The index matches the
+  /// `StatefulShellBranch` order declared in `lib/app/router.dart` —
+  /// keep the two in sync when adding / reordering tabs.
   static const List<AppNavDestination> destinations = [
     AppNavDestination(
       label: '作品库',
@@ -50,31 +66,11 @@ class AppBottomNavBar extends StatelessWidget {
     ),
   ];
 
-  int _indexFor(String location) {
-    for (var i = 0; i < destinations.length; i++) {
-      final dest = destinations[i].location;
-      if (dest == '/') {
-        if (location == '/') return i;
-      } else if (location == dest || location.startsWith('$dest/')) {
-        return i;
-      }
-    }
-    return 0;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    final selectedIndex = _indexFor(location);
-
     return NavigationBar(
-      selectedIndex: selectedIndex,
-      onDestinationSelected: (index) {
-        final target = destinations[index].location;
-        if (target != location) {
-          context.go(target);
-        }
-      },
+      selectedIndex: currentIndex,
+      onDestinationSelected: onDestinationSelected,
       destinations: [
         for (final d in destinations)
           NavigationDestination(

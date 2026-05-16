@@ -188,28 +188,86 @@ when real dark tokens land.
 - New components must rely on `colorScheme` roles (not raw `AppColors.*`)
   so they stay correct under both themes automatically.
 
-### Convention: Flat routing + per-screen `AppScaffold`
+### Convention: StatefulShellRoute + per-branch screen + Android back-key contract
 
-**What**: `GoRouter` exposes top-level routes as a flat list (no
-`ShellRoute`). Each top-level screen wraps its body in `AppScaffold`, which
-owns the `BottomNavBar`. `BottomNavBar` derives the active tab from
-`GoRouterState.uri.toString()` rather than holding its own selected-index
-state.
+**What**: `GoRouter` exposes the four top-level tabs through
+`StatefulShellRoute.indexedStack` rooted at `AppShell`
+(`lib/core/widgets/app_shell.dart`). Each branch owns its own
+`StatefulShellBranch` + `Navigator` stack. The shell hosts the
+`Scaffold` + `AppBottomNavBar`; **tab screens themselves return a bare
+`Scaffold` body without a `bottomNavigationBar`** (the shell supplies
+that). Modal flows like `/export` register as sibling top-level routes
+**outside** the shell so they cover the bottom nav.
 
-**Why**: Flat routes keep deep-link behavior obvious and let the
-`05-08-*` feature tasks swap real screens in for placeholders one file at a
-time. A `ShellRoute` would couple all top-level screens through a shared
-widget tree; we don't need the cross-tab state preservation that `ShellRoute`
-buys, and the coupling makes per-feature ownership messier.
+`AppBottomNavBar` no longer reads `GoRouterState.uri`; the shell passes
+`navigationShell.currentIndex` + an `onDestinationSelected` callback
+down. Re-tapping the active tab is a no-op (per the
+05-16-bottom-nav-switch-optimization task; "reset / scroll-to-top on
+re-tap" is reserved for a future task).
+
+**Why**: Reverses the earlier "flat routing + per-screen AppScaffold"
+decision once real usage exposed the cost — the long-stitch editor
+losing its loaded images / parameters when the user briefly visited
+another tab was the breaking case. The shell topology gives us
+free cross-tab state preservation (Riverpod notifiers + scroll
+positions + in-flight imports all survive), prevents the
+`NavigationBar` itself from being rebuilt on every tab change, and
+keeps an idiomatic Material 3 NavigationBar feel (instant switch, no
+transition animation). Deep-link behavior is unchanged because each
+branch's first route is still a top-level path (`/`, `/stitch`,
+`/grid`, `/settings`).
+
+**Android back-key contract** (owned by `AppShell.PopScope`):
+
+1. If the current branch's nested `Navigator` can pop → that
+   Navigator handles the pop locally and the shell's `PopScope`
+   never fires (system back is dispatched to the deepest active
+   Navigator first; only when the branch is at its root does the
+   pop bubble outward).
+2. Else if `navigationShell.currentIndex != 0` →
+   `navigationShell.goBranch(0)` (swap back to the home branch instead
+   of exiting the app).
+3. Else → `SystemNavigator.pop()` (Android-only; no-op on iOS /
+   desktop / web, which fall through to OS-default behavior).
 
 **How to apply**:
-- New top-level route → add to `lib/app/router.dart` AND wire its screen to
-  return `AppScaffold(body: ...)`.
-- Need a screen WITHOUT the bottom nav (modal flow, full-screen editor) →
-  return `Scaffold` directly; do not invent a `hideBottomNav` flag on
-  `AppScaffold`.
-- Active-tab logic stays in `BottomNavBar` (reading the router) — never pass
-  a "selected index" prop down from screens.
+- New top-level tab → add a `StatefulShellBranch` (with its own
+  `GlobalKey<NavigatorState>`) in `lib/app/router.dart` AND add a
+  matching `AppNavDestination` entry to `AppBottomNavBar.destinations`
+  in branch order. The screen returns a bare `Scaffold` (with its own
+  `AppBar` / `FloatingActionButton` as needed) — never a
+  `bottomNavigationBar`, that belongs to the shell.
+- Need a screen WITHOUT the bottom nav (modal flow, full-screen
+  editor) → register it as a sibling root-level `GoRoute` with
+  `parentNavigatorKey: _rootNavigatorKey` so it covers the shell.
+  Don't invent a `hideBottomNav` flag on the shell.
+- Cross-screen state handoff into a modal route → write a Riverpod
+  provider before `context.go('/modal')` (see
+  `state-management.md` → "Cross-screen handoff via Riverpod, not
+  GoRouter `extra`"). The provider survives the navigation because
+  `ProviderScope` sits above the router.
+- Each branch screen owns its own `Scaffold(appBar:, body:, floatingActionButton:)`.
+  Wrap the body in `SafeArea` if it touches the bottom edge (the
+  shell's bottom nav already insets the body, but the top may still
+  reach the system status bar through translucent app bars).
+- Branch index ↔ `AppNavDestination` order is load-bearing — keep
+  `AppBottomNavBar.destinations` and `appRouter`'s branch list in
+  lock-step.
+
+**Trade-offs to accept**:
+- The shell topology couples all four branches through a shared
+  `StatefulNavigationShell` widget. Per-feature ownership stays clean
+  because each branch's GoRoute + screen still live entirely under
+  `lib/features/<feature>/presentation/screens/`; only `router.dart`
+  references multiple features.
+- `Navigator.canPop(context)` inside a tab's root screen returns
+  `false` (the branch is at its root). Screens that conditionally
+  render a back button on canPop will simply omit it on the tab root
+  — that's the right behavior (a tab root is not "back-able"; use the
+  bottom nav instead).
+- Web browser back-button behavior follows GoRouter's default URL
+  history (PopScope doesn't intercept it). Out-of-scope for the
+  05-16-bottom-nav-switch-optimization task.
 
 ### Convention: Placeholder screens for in-progress features
 

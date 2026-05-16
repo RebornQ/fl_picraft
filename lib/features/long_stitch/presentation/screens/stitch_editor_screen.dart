@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/errors/user_facing_messages.dart';
-import '../../../../core/widgets/app_scaffold.dart';
 import '../../../export/presentation/providers/export_dispatch.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
@@ -35,6 +34,10 @@ const double _kStitchControlsPanelWidth = 380;
 /// the app bar marks the session as stitch-sourced (via
 /// [currentExportSourceKindProvider]) and routes to the unified
 /// `/export` screen.
+///
+/// The bottom nav and surrounding `Scaffold` chrome are owned by the
+/// surrounding `AppShell`; this screen returns only its own `Scaffold`
+/// (for `AppBar` + body) without a `bottomNavigationBar`.
 ///
 /// Responsive behavior (driven by [windowSizeClassOf]):
 ///
@@ -72,7 +75,7 @@ class StitchEditorScreen extends ConsumerWidget {
       );
     });
 
-    return AppScaffold(
+    return Scaffold(
       appBar: AppBar(
         title: const Text(
           'Fl PiCraft',
@@ -95,13 +98,15 @@ class StitchEditorScreen extends ConsumerWidget {
           ),
         ],
       ),
-      child: ImageDropZone(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: Breakpoints.maxContentWidth,
+      body: SafeArea(
+        child: ImageDropZone(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: Breakpoints.maxContentWidth,
+              ),
+              child: const _StitchEditorBody(),
             ),
-            child: const _StitchEditorBody(),
           ),
         ),
       ),

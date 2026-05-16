@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/errors/user_facing_messages.dart';
-import '../../../../core/widgets/app_scaffold.dart';
 import '../../../export/presentation/providers/export_dispatch.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
@@ -34,6 +33,10 @@ const double _kGridControlsPanelWidth = 380;
 /// [currentExportSourceKindProvider] to [ExportSourceKind.grid] before
 /// navigating so the export controller dispatches its render pipeline
 /// to [GridEditorController.renderCells].
+///
+/// The bottom nav and surrounding `Scaffold` chrome are owned by the
+/// surrounding `AppShell`; this screen returns only its own `Scaffold`
+/// (for `AppBar` + body + FAB) without a `bottomNavigationBar`.
 ///
 /// Responsive behavior (driven by [windowSizeClassOf]):
 ///
@@ -67,7 +70,7 @@ class GridEditorScreen extends ConsumerWidget {
       );
     });
 
-    return AppScaffold(
+    return Scaffold(
       appBar: AppBar(
         leading: Navigator.canPop(context)
             ? IconButton(
@@ -96,13 +99,15 @@ class GridEditorScreen extends ConsumerWidget {
               label: const Text('导出'),
             )
           : null,
-      child: ImageDropZone(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: Breakpoints.maxContentWidth,
+      body: SafeArea(
+        child: ImageDropZone(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: Breakpoints.maxContentWidth,
+              ),
+              child: const _GridEditorBody(),
             ),
-            child: const _GridEditorBody(),
           ),
         ),
       ),

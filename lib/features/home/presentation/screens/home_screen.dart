@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/breakpoints.dart';
-import '../../../../core/widgets/app_scaffold.dart';
 import '../widgets/feature_card.dart';
 import '../widgets/recent_works_grid.dart';
 import '../widgets/tips_banner.dart';
@@ -25,18 +24,23 @@ import '../widgets/tips_banner.dart';
 /// On all size classes the body is capped at [Breakpoints.maxContentWidth]
 /// via a [ConstrainedBox] + [Center] so the page does not stretch to fill
 /// ultra-wide monitors.
+///
+/// The bottom nav and `Scaffold` chrome are owned by the surrounding
+/// `AppShell`; this screen returns only its body.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return AppScaffold(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: Breakpoints.maxContentWidth,
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: Breakpoints.maxContentWidth,
+            ),
+            child: const _HomeBody(),
           ),
-          child: const _HomeBody(),
         ),
       ),
     );

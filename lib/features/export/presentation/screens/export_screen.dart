@@ -25,12 +25,15 @@ import '../widgets/watermark_card.dart';
 /// | medium     | two-column row for FormatQuality + Watermark; Save and Disclaimer span the full row |
 /// | expanded / large | same as medium, with the content capped at [Breakpoints.maxContentWidth] |
 ///
-/// **Why a bare `Scaffold` (no `AppScaffold`)**: per
+/// **Why a bare `Scaffold` (no shell-owned bottom nav)**: per
 /// `.trellis/spec/frontend/component-guidelines.md` →
-/// "Convention: Flat routing + per-screen `AppScaffold`", screens that
-/// are modal flows (export is a transient destination from an editor)
-/// drop the bottom nav so the user can't accidentally walk off mid-
-/// save. The back button in the app bar is the only way out.
+/// "StatefulShellRoute + per-branch screen", `/export` is registered as
+/// a sibling top-level route **outside** the `StatefulShellRoute`. It
+/// therefore renders above the bottom nav (covering it), which is the
+/// behavior we want for a modal flow: users shouldn't accidentally
+/// walk off to another tab mid-save. The back button in the app bar
+/// is the only way out, and it routes back to the editor that
+/// initiated the export (tracked via [currentExportSourceKindProvider]).
 class ExportScreen extends ConsumerWidget {
   const ExportScreen({super.key});
 
