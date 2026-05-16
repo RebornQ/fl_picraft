@@ -612,3 +612,36 @@ Follow-up 修复上一轮 task (05-16-grid-canvas-height-first-fit) 的 Out-of-S
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: Extend side-panel chrome to compact and medium
+
+**Date**: 2026-05-17
+**Task**: Extend side-panel chrome to compact and medium
+**Branch**: `main`
+
+### Summary
+
+修复 compact / medium (手机/平板竖屏) 模式下控制栏下方大片裸白留白：Column 的 Flexible(loose) 在高屏幕下只取 panel intrinsic 高度，剩余 share - intrinsic 留在底部成为裸白页面背景。修复方案: compact 也加 expanded/large 已有的 surface chrome (surfaceContainerLow + outlineVariant + 16dp 圆角 + clipAntiAlias + 内 padding 16)，Flexible(loose) 改为 Expanded(fit=tight) 让 chrome 强制填满 free_space/2 覆盖裸白。抽 top-level helper _buildControlsPanelChrome(BuildContext) 让 compact 与 useSidePanel 两个分支共用 chrome，drift surface 为 0；同一 kGridControlsPanelChromeKey 复用（两分支互斥渲染）。3 files / 256 ins / 77 del；analyze 0 issues / 294 tests passed (含 3 个新增 compact / medium chrome 断言)。Spec 沉淀: 反转 Gotcha 'Flexible(loose) — not Expanded' 为「双模 Gotcha」(bare → Flexible(loose); chrome → Expanded)；Pattern Editor body compact / medium 代码示例改为 chrome 变体；Convention: Caller decoration variants 改为 per-editor × per-size-class 表格明确 grid 在所有 size class 都加 chrome、stitch 保持 bare；responsive behavior table grid_editor compact/medium 列同步。stitch_editor / GridControlsPanel / GridLayout / Painter 未改。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `08f575f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
