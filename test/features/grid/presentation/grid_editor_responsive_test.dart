@@ -180,6 +180,86 @@ void main() {
       expect(panelOrigin.dx, greaterThan(canvasOrigin.dx));
     });
 
+    testWidgets(
+      'expanded (1280×800) keeps canvas square and bounded by viewport height',
+      (tester) async {
+        // 1280×800: typical tablet-landscape / small desktop window.
+        // Available body height ≈ 800 − 56 (AppBar) − 40 (vertical padding)
+        // = 704 dp. Left-column width is much wider (≈ 1232 − 16 − 380 =
+        // 836 dp), so the height-first square must clamp to the height.
+        await _setViewportSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        final canvas = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+
+        // Canvas keeps its 1:1 square shape (within sub-pixel rounding).
+        expect(
+          (canvas.size.width - canvas.size.height).abs(),
+          lessThan(0.5),
+          reason: 'GridPreviewCanvas should stay square in expanded mode',
+        );
+
+        // Canvas height must NOT exceed the viewport's available body
+        // height — the prior bug let the canvas grow to the column
+        // width, overflowing the viewport. Generous upper bound of
+        // 720 keeps the assertion robust to small chrome variations.
+        expect(
+          canvas.size.height,
+          lessThanOrEqualTo(720),
+          reason: 'canvas height must fit within the viewport',
+        );
+
+        // Side panel stays docked at the right.
+        final canvasOrigin = tester.getTopLeft(find.byType(GridPreviewCanvas));
+        final panelOrigin = tester.getTopLeft(find.byType(GridControlsPanel));
+        expect(panelOrigin.dx, greaterThan(canvasOrigin.dx));
+
+        // No outer vertical overflow.
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'large (1920×1080) keeps canvas square and bounded by viewport height',
+      (tester) async {
+        // 1920×1080: typical desktop full-screen. Body height ≈ 1080 −
+        // 56 − 40 = 984 dp; left column width ≈ 1872 − 16 − 468 = 1388
+        // dp. Pre-fix the canvas would have grown to 1388×1388 and
+        // overflowed the 984 dp tall body. With the height-first
+        // skeleton it must clamp to ≤ 984.
+        await _setViewportSize(tester, const Size(1920, 1080));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        final canvas = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+
+        expect(
+          (canvas.size.width - canvas.size.height).abs(),
+          lessThan(0.5),
+          reason: 'GridPreviewCanvas should stay square in large mode',
+        );
+        expect(
+          canvas.size.height,
+          lessThanOrEqualTo(1000),
+          reason: 'canvas height must fit within the viewport',
+        );
+
+        // Side panel stays docked and clamped to the [380, 480] range.
+        final panel = tester.renderObject<RenderBox>(
+          find.byType(GridControlsPanel),
+        );
+        expect(panel.size.width, greaterThanOrEqualTo(380));
+        expect(panel.size.width, lessThanOrEqualTo(480));
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     testWidgets('content fills the container on very wide windows', (
       tester,
     ) async {
@@ -187,15 +267,18 @@ void main() {
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
 
-      // No outer maxContentWidth cap — canvas + panel widths together
-      // should track the viewport width (not lock at 1200 dp).
+      // No outer maxContentWidth cap — the side panel should hug the
+      // viewport's right edge (only 16 dp of padding between them),
+      // confirming the body tracks the container width rather than
+      // locking at 1200 dp. We can't use `canvas.width + panel.width`
+      // anymore (the canvas is now height-bounded so its width tops
+      // out at ~984 dp on a 1080 px tall window) — instead assert the
+      // panel's right edge reaches the right padding boundary.
+      final panelPos = tester.getTopLeft(find.byType(GridControlsPanel));
       final panel = tester.renderObject<RenderBox>(
         find.byType(GridControlsPanel),
       );
-      final canvas = tester.renderObject<RenderBox>(
-        find.byType(GridPreviewCanvas),
-      );
-      expect(panel.size.width + canvas.size.width, greaterThan(2000));
+      expect(panelPos.dx + panel.size.width, greaterThan(2380));
     });
 
     testWidgets(

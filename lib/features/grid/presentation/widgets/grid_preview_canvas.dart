@@ -24,18 +24,26 @@ const int _kCenterCellIndex = 4;
 /// **Sizing contract**: this widget paints whatever rectangle the
 /// caller hands it — it does NOT enforce a 1:1 (square) aspect ratio
 /// itself. The design mock uses `aspect-square`, but we keep the
-/// square-shape decision at the call site so each layout branch can
-/// pick "fit by width" vs "fit by height" independently:
+/// square-shape decision at the call site so the same height-first
+/// idiom can be reused across size classes:
 ///
-/// * compact / medium screens fit by **height** (canvas occupies the
-///   `Expanded` slot of a `Column`, wrapped in `Center` +
-///   `AspectRatio(aspectRatio: 1)` so it stays square while the
-///   controls panel keeps its scroll on the same screen — no
-///   page-level scroll). See `grid_editor_screen.dart`.
-/// * expanded / large screens fit by **width** (canvas sits in a
-///   `SingleChildScrollView` inside the left column of a two-column
-///   `Row`, wrapped in `AspectRatio(aspectRatio: 1)` so the square
-///   shape is preserved).
+/// * compact / medium screens — canvas occupies the `Expanded` slot of
+///   a single-column `Column`, wrapped in `Center` + `AspectRatio(1)`
+///   so the square is sized `min(columnWidth, remainingHeight)` and
+///   the controls panel keeps its scroll inside the same screen (no
+///   page-level scroll). See `grid_editor_screen.dart` compact branch.
+/// * expanded / large screens — same idiom, applied to the **left
+///   column** of a `Row(crossAxisAlignment: stretch)`: an inner
+///   `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))`
+///   gives the canvas a bounded height inherited from the Row, so the
+///   square is `min(leftColWidth, rowHeight)` — never taller than the
+///   container. See `grid_editor_screen.dart` expanded / large branch.
+///
+/// In every case the canvas size is `min(availableWidth,
+/// availableHeight)` — the caller's `Center + AspectRatio(1)` wrapper
+/// is the **only** place that picks the aspect; this widget must stay
+/// chrome-only so it can be reused across both single-column and
+/// side-panel skeletons.
 ///
 /// Either way the overlay math (see `_PreviewSurface`) reads
 /// `constraints.biggest` and scales the layout rectangles into the

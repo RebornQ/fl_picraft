@@ -44,19 +44,25 @@ const double _kGridControlsPanelMaxWidth = 480;
 /// surrounding `AppShell`; this screen returns only its own `Scaffold`
 /// (for `AppBar` + body + FAB) without a `bottomNavigationBar`.
 ///
-/// Responsive behavior (driven by [windowSizeClassOf]):
+/// Responsive behavior (driven by [windowSizeClassOf]) — every size
+/// class follows the same **height-first** principle: the canvas claims
+/// the remaining vertical space inside a `Column`, kept square via
+/// `Center` + `AspectRatio(1)`. The controls live below the canvas on
+/// phones and dock to the right on tablets / desktops, but the
+/// preview slot is always bounded by the container's height.
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | single column, **height-first** [Column] skeleton: an `Expanded` slot centers the square preview canvas via `Center` + `AspectRatio(1)`, an optional source-size warning sits below the canvas, and the controls panel scrolls **inside** its own `SingleChildScrollView` (no page-level scroll). |
+/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(1, canvas)))` + optional source-size warning + `Flexible(loose) > SingleChildScrollView > GridControlsPanel` (overflow scrolls *inside* the controls panel; no page-level scroll). |
 /// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton. |
-/// | expanded (840–1200 dp) | two-column [Row]: preview (wrapped in `AspectRatio(1)`) + optional warning on the left, [GridControlsPanel] docked on the right at a fluid width (`clamp(380, container * 0.25, 480)`). |
-/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp. |
+/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp and scrolls internally. |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp, canvas square is `min(leftColWidth, rowHeight)`. |
 ///
 /// The square (1:1) shape of the canvas is the caller's responsibility
-/// — [GridPreviewCanvas] no longer wraps itself in `AspectRatio` so each
-/// layout branch above can pick a fit-by-height vs fit-by-width strategy
-/// independently.
+/// — [GridPreviewCanvas] no longer wraps itself in `AspectRatio`. Every
+/// layout branch above feeds the canvas through the same
+/// `Center + AspectRatio(1)` idiom, so a single height-first sizing
+/// contract covers all four size classes.
 class GridEditorScreen extends ConsumerWidget {
   const GridEditorScreen({super.key});
 
@@ -146,10 +152,14 @@ class _GridEditorBody extends ConsumerWidget {
 
     if (useSidePanel) {
       // Two-column layout: canvas (+ optional warning) on the left,
-      // GridControlsPanel docked on the right at a fluid width. FAB
-      // clearance is not strictly needed at this width (the FAB
-      // floats over the canvas column), but we keep a comfortable
-      // bottom inset so the user can scroll past the parameter cards.
+      // GridControlsPanel docked on the right at a fluid width. The
+      // left column applies the same height-first skeleton as compact /
+      // medium so the canvas never grows taller than the container —
+      // see the "side-panel variant" section of
+      // `.trellis/spec/frontend/responsive-layout.md`. FAB clearance is
+      // not strictly needed at this width (the FAB floats over the
+      // canvas column), but we keep a comfortable bottom inset so the
+      // user can scroll past the parameter cards.
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: LayoutBuilder(
@@ -165,29 +175,38 @@ class _GridEditorBody extends ConsumerWidget {
               _kGridControlsPanelMaxWidth,
             );
             return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              // Stretch the row's children to the row's full height so
+              // the left column inherits a bounded vertical extent.
+              // Without stretch the column's height becomes unbounded
+              // and `AspectRatio(1)` collapses back onto width — the
+              // exact root cause of the prior "canvas overflows
+              // ultra-wide screens" bug.
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // GridPreviewCanvas no longer enforces 1:1
-                        // itself — wrap it here so the side-panel
-                        // layout keeps the square preview shape.
-                        const AspectRatio(
-                          aspectRatio: 1,
-                          child: GridPreviewCanvas(),
-                        ),
-                        if (sourceTooSmall) ...[
-                          const SizedBox(height: 12),
-                          _SourceSizeWarning(
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Canvas claims the leftover vertical space.
+                      // `Center + AspectRatio(1)` yields a square sized
+                      // `min(leftColWidth, leftColHeight)` — the canvas
+                      // never exceeds the container's height.
+                      const Expanded(
+                        child: Center(
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: GridPreviewCanvas(),
                           ),
-                        ],
+                        ),
+                      ),
+                      if (sourceTooSmall) ...[
+                        const SizedBox(height: 12),
+                        _SourceSizeWarning(
+                          colorScheme: colorScheme,
+                          textTheme: textTheme,
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 16),
