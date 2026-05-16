@@ -1,0 +1,29 @@
+{
+  "id": "editor-layout-and-import-isolation",
+  "name": "editor-layout-and-import-isolation",
+  "title": "editor layout + per-mode import isolation",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-16",
+  "completedAt": "2026-05-16",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-16-editor-fill-container-width",
+    "05-16-per-mode-import-isolation"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
