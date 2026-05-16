@@ -447,3 +447,36 @@ Closed the 05-16-editor-layout-and-import-isolation parent task by delivering it
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: Rename works tab to 功能大全 & plan grid canvas height-first fit
+
+**Date**: 2026-05-16
+**Task**: Rename works tab to 功能大全 & plan grid canvas height-first fit
+**Branch**: `main`
+
+### Summary
+
+Brainstorm 阶段拆分出两个独立 trellis 任务：(1) rename-works-to-feature-hub 完成 PRD/jsonl/implement/check/commit 全流程——底部导航 tab[0] label 作品库 → 功能大全、icon image_outlined/image → apps_outlined/apps，移除首页最近作品 section 与 RecentWorksGrid 占位 widget，更新 router.dart doc-comment、app_shell_test.dart 3 处 nav 断言、home_screen_responsive_test.dart 删除 RecentWorks 用例，6 files / 14 ins / 157 del，analyze 与 285 tests 全绿。(2) grid-canvas-height-first-fit 完成 PRD/jsonl，确认采用 Approach A（compact/medium ListView → Column+Expanded 高度优先骨架，画布占据剩余高度保持 1:1 居中、控件面板独立内部滚动），等待实施。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ed9b1b0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
