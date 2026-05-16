@@ -546,3 +546,36 @@ Task 2 (grid-canvas-height-first-fit) 完整实施: compact/medium 模式 grid_e
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: Extend grid canvas height-first to expanded/large windows
+
+**Date**: 2026-05-17
+**Task**: Extend grid canvas height-first to expanded/large windows
+**Branch**: `main`
+
+### Summary
+
+Follow-up 修复上一轮 task (05-16-grid-canvas-height-first-fit) 的 Out-of-Scope 漏洞：桌面端全屏 (1920×1080+) / ultra-wide / 平板横屏下画布按宽度撑成正方形纵向溢出。根因是 useSidePanel 分支左列用 SingleChildScrollView > Column(stretch) > AspectRatio(1, Canvas)，SingleChildScrollView 给 unbounded 纵向约束导致 AspectRatio 退化为按宽度算高度。修复方案 (Approach A): 左列改为 Expanded > Column(stretch) > Expanded(Center(AspectRatio(1, Canvas))) + warning，Row.crossAxisAlignment 从 start 改为 stretch 让左列继承 row 高度——画布在两轴都受限时取较短边 min(leftColW, rowH)，与 compact/medium 高度优先骨架对称。4 files / 223 ins / 55 del；新增 expanded (1280×800) + large (1920×1080) 两个不超高 + 正方形 + panel docked 断言；改写 'content fills wide windows' 用 panel right-edge 代替 canvas+panel width 之和；analyze 0 issues / 288 tests passed。Spec 沉淀: pattern 改名为 'Editor body — height-first Column skeleton (single-column + side-panel variants)' 并新增 side-panel variant 子段（Row(stretch) 关键性 + 左列移除 SingleChildScrollView + symmetry summary）；responsive behavior table grid_editor expanded/large 列更新。本任务承认上一轮判断失误（Out-of-Scope 划得过保守）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `af0e667` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
