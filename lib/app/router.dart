@@ -34,7 +34,7 @@ final GlobalKey<NavigatorState> _settingsNavigatorKey =
 /// Application-wide [GoRouter] configuration.
 ///
 /// Topology: one [StatefulShellRoute.indexedStack] hosting the four
-/// top-level tabs (作品库 / 长图拼接 / 宫格切图 / 设置), plus a sibling
+/// top-level tabs (功能大全 / 长图拼接 / 宫格切图 / 设置), plus a sibling
 /// root-level [GoRoute] for `/export` which is intentionally outside the
 /// shell so it covers the bottom nav while editing.
 ///

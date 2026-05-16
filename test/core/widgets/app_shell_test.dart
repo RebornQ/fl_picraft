@@ -56,7 +56,7 @@ void main() {
 
         // Switch back to home. Settings should now be retained in
         // the tree as offstage (the whole point of IndexedStack).
-        await tester.tap(_navDestination('作品库'));
+        await tester.tap(_navDestination('功能大全'));
         await tester.pumpAndSettle();
         expect(find.byType(HomeScreen), findsOneWidget);
         expect(
@@ -83,7 +83,7 @@ void main() {
       final firstSettingsElement = tester.element(find.byType(SettingsScreen));
 
       // Detour through home.
-      await tester.tap(_navDestination('作品库'));
+      await tester.tap(_navDestination('功能大全'));
       await tester.pumpAndSettle();
 
       // Return to settings.
@@ -120,7 +120,7 @@ void main() {
             'must not tear it down and rebuild it.',
       );
 
-      await tester.tap(_navDestination('作品库'));
+      await tester.tap(_navDestination('功能大全'));
       await tester.pumpAndSettle();
       final navBarAfterSecondSwitch = tester.element(
         find.byType(NavigationBar),

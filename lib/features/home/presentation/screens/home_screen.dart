@@ -4,22 +4,21 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/breakpoints.dart';
 import '../widgets/feature_card.dart';
-import '../widgets/recent_works_grid.dart';
 import '../widgets/tips_banner.dart';
 
 /// Top-level home screen mounted at `/`.
 ///
 /// Layout matches `_1_首页/code.html`: greeting header, two creative entry
-/// cards (long stitch + grid split), tips banner, and a recent works grid.
+/// cards (long stitch + grid split), and a tips banner.
 ///
 /// Responsive behavior (driven by [windowSizeClassOf]):
 ///
-/// | size class | feature cards | recent works grid |
-/// |------------|---------------|-------------------|
-/// | compact    | 1 column stacked | 3 columns         |
-/// | medium     | 2 columns side-by-side | 3 columns         |
-/// | expanded   | 2 columns side-by-side | 4 columns         |
-/// | large      | 2 columns side-by-side | 4 columns         |
+/// | size class | feature cards |
+/// |------------|---------------|
+/// | compact    | 1 column stacked |
+/// | medium     | 2 columns side-by-side |
+/// | expanded   | 2 columns side-by-side |
+/// | large      | 2 columns side-by-side |
 ///
 /// The body fills the available width on every size class — there is no
 /// outer `maxContentWidth` cap, so the page tracks the window width on
@@ -46,10 +45,6 @@ class _HomeBody extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final sizeClass = windowSizeClassOf(context);
     final isCompact = sizeClass == WindowSizeClass.compact;
-    final recentWorksColumns = switch (sizeClass) {
-      WindowSizeClass.compact || WindowSizeClass.medium => 3,
-      WindowSizeClass.expanded || WindowSizeClass.large => 4,
-    };
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
@@ -122,48 +117,6 @@ class _HomeBody extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: TipsBanner(message: '您可以尝试"电影台词模式"，它能在保留底部文字区域的同时自动叠加拼接。'),
-        ),
-        const SizedBox(height: 24),
-        // Recent works header.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '最近作品',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              TextButton(
-                // The full works library is not part of the MVP — keep
-                // the visual affordance but render it disabled so the
-                // empty handler doesn't look like a bug.
-                onPressed: null,
-                child: Row(
-                  children: [
-                    Text(
-                      '查看全部',
-                      style: textTheme.labelLarge?.copyWith(
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: colorScheme.primary,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: RecentWorksGrid(crossAxisCount: recentWorksColumns),
         ),
       ],
     );

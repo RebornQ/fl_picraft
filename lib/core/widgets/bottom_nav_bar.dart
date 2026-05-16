@@ -41,9 +41,9 @@ class AppBottomNavBar extends StatelessWidget {
   /// keep the two in sync when adding / reordering tabs.
   static const List<AppNavDestination> destinations = [
     AppNavDestination(
-      label: '作品库',
-      icon: Icons.image_outlined,
-      selectedIcon: Icons.image,
+      label: '功能大全',
+      icon: Icons.apps_outlined,
+      selectedIcon: Icons.apps,
       location: '/',
     ),
     AppNavDestination(

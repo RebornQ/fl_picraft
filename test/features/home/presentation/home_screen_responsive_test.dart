@@ -1,6 +1,5 @@
 import 'package:fl_picraft/features/home/presentation/screens/home_screen.dart';
 import 'package:fl_picraft/features/home/presentation/widgets/feature_card.dart';
-import 'package:fl_picraft/features/home/presentation/widgets/recent_works_grid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,49 +83,6 @@ void main() {
       final rhs = tester.getTopLeft(find.byType(FeatureCard).last);
       expect(lhs.dy, rhs.dy);
       expect(rhs.dx, greaterThan(lhs.dx));
-    });
-
-    testWidgets('recent works grid uses 3 columns on compact', (tester) async {
-      await tester.pumpWidget(_homeHarness(size: const Size(400, 800)));
-      await tester.pumpAndSettle();
-
-      // Use skipOffstage:false because the ListView lazily lays children
-      // off-screen when the compact viewport is too short to host the
-      // whole page in one pass.
-      final grid = tester.widget<RecentWorksGrid>(
-        find.byType(RecentWorksGrid, skipOffstage: false),
-      );
-      expect(grid.crossAxisCount, 3);
-    });
-
-    testWidgets('recent works grid uses 3 columns on medium', (tester) async {
-      await tester.pumpWidget(_homeHarness(size: const Size(720, 1024)));
-      await tester.pumpAndSettle();
-
-      final grid = tester.widget<RecentWorksGrid>(
-        find.byType(RecentWorksGrid, skipOffstage: false),
-      );
-      expect(grid.crossAxisCount, 3);
-    });
-
-    testWidgets('recent works grid uses 4 columns on expanded', (tester) async {
-      await tester.pumpWidget(_homeHarness(size: const Size(1024, 800)));
-      await tester.pumpAndSettle();
-
-      final grid = tester.widget<RecentWorksGrid>(
-        find.byType(RecentWorksGrid, skipOffstage: false),
-      );
-      expect(grid.crossAxisCount, 4);
-    });
-
-    testWidgets('recent works grid uses 4 columns on large', (tester) async {
-      await tester.pumpWidget(_homeHarness(size: const Size(1600, 900)));
-      await tester.pumpAndSettle();
-
-      final grid = tester.widget<RecentWorksGrid>(
-        find.byType(RecentWorksGrid, skipOffstage: false),
-      );
-      expect(grid.crossAxisCount, 4);
     });
 
     testWidgets('content fills the container on very wide windows', (
