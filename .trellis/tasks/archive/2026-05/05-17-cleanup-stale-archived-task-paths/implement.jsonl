@@ -1,0 +1,1 @@
+{"file": ".trellis/tasks/05-17-cleanup-stale-archived-task-paths/prd.md", "reason": "纯 chore 任务的实施只依赖 PRD 中列出的 12 条精确路径——不引入新的 spec/research"}

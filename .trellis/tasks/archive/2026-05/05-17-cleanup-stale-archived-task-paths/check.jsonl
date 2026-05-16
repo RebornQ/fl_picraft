@@ -1,0 +1,1 @@
+{"file": ".trellis/tasks/05-17-cleanup-stale-archived-task-paths/prd.md", "reason": "对照 AC（git status 干净 + 三个 archive 目录完整保留 + analyze/test 干净）逐项确认"}
