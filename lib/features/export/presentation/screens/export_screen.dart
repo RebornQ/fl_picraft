@@ -23,7 +23,7 @@ import '../widgets/watermark_card.dart';
 /// |------------|--------|
 /// | compact    | single column: FormatQuality → Watermark → Save → Disclaimer |
 /// | medium     | two-column row for FormatQuality + Watermark; Save and Disclaimer span the full row |
-/// | expanded / large | same as medium, with the content capped at [Breakpoints.maxContentWidth] |
+/// | expanded / large | same as medium — body fills the available width (no outer cap) |
 ///
 /// **Why a bare `Scaffold` (no shell-owned bottom nav)**: per
 /// `.trellis/spec/frontend/component-guidelines.md` →
@@ -48,16 +48,7 @@ class ExportScreen extends ConsumerWidget {
         ),
         title: const Text('导出'),
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: Breakpoints.maxContentWidth,
-            ),
-            child: const _ExportBody(),
-          ),
-        ),
-      ),
+      body: const SafeArea(child: _ExportBody()),
     );
   }
 

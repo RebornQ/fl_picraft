@@ -21,9 +21,10 @@ import '../widgets/tips_banner.dart';
 /// | expanded   | 2 columns side-by-side | 4 columns         |
 /// | large      | 2 columns side-by-side | 4 columns         |
 ///
-/// On all size classes the body is capped at [Breakpoints.maxContentWidth]
-/// via a [ConstrainedBox] + [Center] so the page does not stretch to fill
-/// ultra-wide monitors.
+/// The body fills the available width on every size class — there is no
+/// outer `maxContentWidth` cap, so the page tracks the window width on
+/// tablet / desktop / 4K monitors. Feature cards still self-balance via
+/// `Expanded(flex: 1)` inside the row.
 ///
 /// The bottom nav and `Scaffold` chrome are owned by the surrounding
 /// `AppShell`; this screen returns only its body.
@@ -32,18 +33,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: Breakpoints.maxContentWidth,
-            ),
-            child: const _HomeBody(),
-          ),
-        ),
-      ),
-    );
+    return const Scaffold(body: SafeArea(child: _HomeBody()));
   }
 }
 

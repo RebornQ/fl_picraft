@@ -12,11 +12,16 @@ import '../providers/grid_editor_provider.dart';
 import '../widgets/grid_controls_panel.dart';
 import '../widgets/grid_preview_canvas.dart';
 
-/// Width of the docked controls panel on expanded / large windows.
+/// Lower bound for the docked controls panel on expanded / large windows.
 ///
-/// Matches the analogous stitch editor panel so the two editors keep a
+/// Matches the analogous stitch editor minimum so the two editors keep a
 /// consistent side-panel rhythm on tablet / desktop windows.
-const double _kGridControlsPanelWidth = 380;
+const double _kGridControlsPanelMinWidth = 380;
+
+/// Upper bound for the docked controls panel. Past this width the
+/// panel looks oversized next to the preview on ultra-wide monitors —
+/// the extra space stays with the canvas.
+const double _kGridControlsPanelMaxWidth = 480;
 
 /// Grid-split editor screen.
 ///
@@ -44,8 +49,8 @@ const double _kGridControlsPanelWidth = 380;
 /// |------------|--------|
 /// | compact (<600 dp) | single column: preview → warning → controls panel, stacked in a [ListView] |
 /// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the canvas tappable |
-/// | expanded (840–1200 dp) | two-column [Row]: preview (+ optional warning) on the left, [GridControlsPanel] docked on the right at [_kGridControlsPanelWidth] |
-/// | large (≥1200 dp) | same as expanded, with the body capped at [Breakpoints.maxContentWidth] via [Center] + [ConstrainedBox] |
+/// | expanded (840–1200 dp) | two-column [Row]: preview (+ optional warning) on the left, [GridControlsPanel] docked on the right at a fluid width (`clamp(380, container * 0.25, 480)`) |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp |
 class GridEditorScreen extends ConsumerWidget {
   const GridEditorScreen({super.key});
 
@@ -99,18 +104,7 @@ class GridEditorScreen extends ConsumerWidget {
               label: const Text('导出'),
             )
           : null,
-      body: SafeArea(
-        child: ImageDropZone(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: Breakpoints.maxContentWidth,
-              ),
-              child: const _GridEditorBody(),
-            ),
-          ),
-        ),
-      ),
+      body: const SafeArea(child: ImageDropZone(child: _GridEditorBody())),
     );
   }
 
@@ -141,38 +135,54 @@ class _GridEditorBody extends ConsumerWidget {
 
     if (useSidePanel) {
       // Two-column layout: canvas (+ optional warning) on the left,
-      // GridControlsPanel docked on the right. FAB clearance is not
-      // strictly needed at this width (the FAB floats over the canvas
-      // column), but we keep a comfortable bottom inset so the user
-      // can scroll past the parameter cards.
+      // GridControlsPanel docked on the right at a fluid width. FAB
+      // clearance is not strictly needed at this width (the FAB
+      // floats over the canvas column), but we keep a comfortable
+      // bottom inset so the user can scroll past the parameter cards.
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const GridPreviewCanvas(),
-                    if (sourceTooSmall) ...[
-                      const SizedBox(height: 12),
-                      _SourceSizeWarning(
-                        colorScheme: colorScheme,
-                        textTheme: textTheme,
-                      ),
-                    ],
-                  ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Reserve 16 dp for the inter-column gap so the clamp
+            // sees the actual content room.
+            final available = (constraints.maxWidth - 16).clamp(
+              0.0,
+              double.infinity,
+            );
+            final panelWidth = (available * 0.25).clamp(
+              _kGridControlsPanelMinWidth,
+              _kGridControlsPanelMaxWidth,
+            );
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const GridPreviewCanvas(),
+                        if (sourceTooSmall) ...[
+                          const SizedBox(height: 12),
+                          _SourceSizeWarning(
+                            colorScheme: colorScheme,
+                            textTheme: textTheme,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            const SizedBox(
-              width: _kGridControlsPanelWidth,
-              child: SingleChildScrollView(child: GridControlsPanel()),
-            ),
-          ],
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: panelWidth,
+                  child: const SingleChildScrollView(
+                    child: GridControlsPanel(),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       );
     }

@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "本任务核心 spec 改动 — 新增 ‘按模式隔离 session 的 .family 范式’ 段落（继承现有 Cross-screen handoff via Riverpod 章节风格）"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "新增 ImageImportSessionKind 枚举要遵守 enum 设计约定（命名 / 扩展位 / 不带状态）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "ImageDropZone 新增必填参数 sessionKind — 需符合 widget API props 约定与 ConsumerWidget 约定"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "partial / TooManyImages / ImportCancelled 等 failure 类型在 family 下的传播与 SnackBar 语义保持不变"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint / format / test 红线 — flutter analyze + flutter test 必须全绿，~20 处测试 override 改造不得引入红"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增 image_import_session_kind.dart 放在 domain/entities/，遵守 Clean Architecture 分层 — 与 ExportSourceKind 的位置类比"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "确认 AsyncNotifierProviderFamily 是 Riverpod 官方 API,避免自造 keyed-provider helper"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "domain entity (枚举) 不依赖 presentation；ExportSourceKind 与 ImageImportSessionKind 双 enum 不互相导入"}
+{"file": ".trellis/tasks/05-16-per-mode-import-isolation/prd.md", "reason": "本子任务 PRD — 实施前作为 source of truth，对照 11 条 Requirements + 9 条 AC 实现"}
+{"file": ".trellis/tasks/05-16-editor-layout-and-import-isolation/prd.md", "reason": "母任务 Decisions (D4/D5) — 保证 family 设计、命名、扩展位与父级决策一致"}

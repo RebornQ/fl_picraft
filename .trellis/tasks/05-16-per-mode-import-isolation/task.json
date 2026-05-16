@@ -1,9 +1,9 @@
 {
-  "id": "bottom-nav-switch-optimization",
-  "name": "bottom-nav-switch-optimization",
-  "title": "底部导航切换优化为 IndexedStack/PageView",
+  "id": "per-mode-import-isolation",
+  "name": "per-mode-import-isolation",
+  "title": "per-mode image import session isolation",
   "description": "",
-  "status": "in_progress",
+  "status": "planning",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -19,7 +19,7 @@
   "pr_url": null,
   "subtasks": [],
   "children": [],
-  "parent": null,
+  "parent": "05-16-editor-layout-and-import-isolation",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

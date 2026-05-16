@@ -125,26 +125,53 @@ class _PreviewSurface extends StatelessWidget {
           )
         : assembled;
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 360, maxHeight: 480),
-      child: AspectRatio(
-        aspectRatio: canvasWidth / canvasHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: hasRadius
-                ? BorderRadius.circular(state.cornerRadius)
-                : null,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x33000000),
-                blurRadius: 16,
-                offset: Offset(0, 4),
-              ),
-            ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Compute the displayed size by fitting the natural canvas
+        // (canvasWidth × canvasHeight) inside the available area while
+        // preserving aspect ratio. Mirrors the previous `FittedBox` +
+        // fixed `ConstrainedBox(maxWidth: 360, maxHeight: 480)` look
+        // but lets the preview scale up with the surrounding panel
+        // (tablet / desktop / 4K). When constraints are unbounded on
+        // either axis (compact layout puts the canvas in a
+        // SingleChildScrollView whose maxHeight is infinity), we fall
+        // back to the cross-axis bound so the canvas still has a
+        // well-defined size.
+        final aspect = canvasWidth / canvasHeight;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : canvasWidth;
+        final maxHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : maxWidth / aspect;
+
+        var displayWidth = maxWidth;
+        var displayHeight = displayWidth / aspect;
+        if (displayHeight > maxHeight) {
+          displayHeight = maxHeight;
+          displayWidth = displayHeight * aspect;
+        }
+
+        return SizedBox(
+          width: displayWidth,
+          height: displayHeight,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: hasRadius
+                  ? BorderRadius.circular(state.cornerRadius)
+                  : null,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: FittedBox(fit: BoxFit.contain, child: clipped),
           ),
-          child: FittedBox(fit: BoxFit.contain, child: clipped),
-        ),
-      ),
+        );
+      },
     );
   }
 }

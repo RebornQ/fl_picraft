@@ -4,8 +4,7 @@ import 'package:flutter/widgets.dart';
 ///
 /// Sourced from
 /// <https://m3.material.io/foundations/layout/applying-layout/window-size-classes>.
-/// Use [windowSizeClassOf] for a typed switch and [maxContentWidth] to
-/// cap content on very wide windows.
+/// Use [windowSizeClassOf] for a typed switch.
 class Breakpoints {
   Breakpoints._();
 
@@ -20,11 +19,6 @@ class Breakpoints {
 
   /// Boundary between **expanded** and **large** (full desktop).
   static const double expanded = 1200;
-
-  /// Cap on the rendered content width for every top-level screen.
-  /// Beyond this, padding/center grows so cards do not stretch to
-  /// fill 27-inch monitors.
-  static const double maxContentWidth = 1200;
 }
 
 /// Window size buckets paired with [Breakpoints].
@@ -42,8 +36,10 @@ enum WindowSizeClass {
   /// `[840, 1200) dp`. Large tablet or small desktop window.
   expanded,
 
-  /// `>= 1200 dp`. Full desktop window. Content should be capped at
-  /// [Breakpoints.maxContentWidth].
+  /// `>= 1200 dp`. Full desktop window. Content fills the available
+  /// width — top-level screens no longer cap at 1200 dp so the layout
+  /// stretches with the window. Editor side panels remain bounded
+  /// independently (see each editor's panel-width clamp).
   large,
 }
 

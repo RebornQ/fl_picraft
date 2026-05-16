@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint / format / test 红线 — flutter analyze + flutter test 必须全绿"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 .family 范式段落自洽（Why / How to apply / Trade-offs），且与 Cross-screen handoff 章节兼容"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "复核 ImageImportSessionKind 枚举符合命名 / 扩展位 / 不带状态的约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 ImageDropZone 的新 sessionKind 必填参数符合 widget API props 约定"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "复核 AsyncError → SnackBar 的传播路径每个 mode 独立、partial 警告不串扰"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "复核 image_import_session_kind.dart 落在 domain/entities/ 而非 presentation/"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复核未自造 keyed-provider helper，全部走 Riverpod 官方 family API"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "复核 enum 不带 presentation 依赖，跨 feature 互不导入"}
+{"file": ".trellis/tasks/05-16-per-mode-import-isolation/prd.md", "reason": "对照 9 项 Acceptance Criteria 逐一勾选 + Definition of Done 3 项验收"}
+{"file": ".trellis/tasks/05-16-editor-layout-and-import-isolation/prd.md", "reason": "确认母任务 D4/D5 决策都在 subtask 实现里落地（family + ImageDropZone 参数化 + nine-grid-social 不变）"}

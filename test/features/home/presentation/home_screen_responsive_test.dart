@@ -26,6 +26,21 @@ Widget _homeHarness({required Size size}) {
   );
 }
 
+/// Override the actual paint surface so a "very wide window" test
+/// reflects the real `RenderBox` width — the MediaQuery wrapper alone
+/// only tells widgets *what* size to think they have, not what paint
+/// area Flutter gives them. The default surface is 800×600, which
+/// would silently mask any "no cap" regression in the home body's
+/// `ListView`.
+Future<void> _setViewportSize(WidgetTester tester, Size size) async {
+  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = size;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
+
 void main() {
   group('HomeScreen responsive layout', () {
     testWidgets('compact (< 600 dp) stacks feature cards vertically', (
@@ -114,19 +129,20 @@ void main() {
       expect(grid.crossAxisCount, 4);
     });
 
-    testWidgets('content is capped by maxContentWidth on very wide windows', (
+    testWidgets('content fills the container on very wide windows', (
       tester,
     ) async {
+      await _setViewportSize(tester, const Size(2400, 1080));
       await tester.pumpWidget(_homeHarness(size: const Size(2400, 1080)));
       await tester.pumpAndSettle();
 
-      // The ListView (inside the ConstrainedBox cap) must be no wider than
-      // the breakpoints constant — pick its first RenderConstrainedBox
-      // descendant and verify its width.
+      // No outer cap — the ListView should fill the available width
+      // instead of getting locked at 1200 dp. We allow a tiny slack
+      // for scrollbar / system insets that vary across host envs.
       final renderListView = tester.renderObject<RenderBox>(
         find.byType(ListView),
       );
-      expect(renderListView.size.width, lessThanOrEqualTo(1200));
+      expect(renderListView.size.width, greaterThan(2000));
     });
   });
 }

@@ -82,7 +82,6 @@ void main() {
     test('breakpoints follow Material 3 ordering', () {
       expect(Breakpoints.compact < Breakpoints.medium, isTrue);
       expect(Breakpoints.medium < Breakpoints.expanded, isTrue);
-      expect(Breakpoints.maxContentWidth >= Breakpoints.expanded, isTrue);
     });
   });
 }

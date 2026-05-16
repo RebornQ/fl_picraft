@@ -44,27 +44,26 @@ expect(windowSizeClassFromWidth(1200), WindowSizeClass.large);
 
 ---
 
-## Convention: Cap content with `Breakpoints.maxContentWidth`
+## Convention: Top-level screens fill the available width
 
-**What**: Every top-level screen wraps its body in `ConstrainedBox(maxWidth: Breakpoints.maxContentWidth)` (currently `1200`) + `Center`. Cards do not stretch to fill ultra-wide windows.
+**What**: Top-level screens (home / stitch editor / grid editor / export) **do not** cap their body width. The screen body mounts directly on `SafeArea` and tracks the container width on every size class. There is no `Breakpoints.maxContentWidth` constant; the legacy `Center + ConstrainedBox` wrapper is **removed**.
 
-**Why**: On a 27-inch monitor, a feature card that stretches to 2000 dp wide looks broken — text becomes one long line, hit targets become absurdly large. A 1200 dp cap gives the layout a comfortable upper bound while still letting tablets use double-pane mode.
+**Why**: Earlier we capped every screen at 1200 dp so cards wouldn't stretch absurdly on a 4K monitor. In practice the cap made the opposite problem worse: when a user dragged the window wider (1600 / 1920 / 2560 dp), the content **stopped tracking the window** and parked itself in a 1200 dp island with growing whitespace on either side. That looks like the app is broken, especially in the editor screens where the user expects more canvas room when they give the app more space.
+
+The cap was solving for "cards look weird if too wide" — but feature cards already self-balance via `Expanded(flex: 1)` inside a `Row`, and editor canvases visibly benefit from extra width. The cap was over-cautious; removing it lets the layout actually use the surface the user provides.
 
 **How to apply**:
 
 ```dart
 @override
 Widget build(BuildContext context) {
-  return Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxWidth: Breakpoints.maxContentWidth,
-      ),
-      child: _body(),
-    ),
+  return Scaffold(
+    body: SafeArea(child: _body()), // no Center + ConstrainedBox wrapper
   );
 }
 ```
+
+If a *specific* component (e.g. a Save CTA on the export screen) feels too wide on ultra-wide windows, cap **that component** with a local `ConstrainedBox` — don't bring back the global cap.
 
 ---
 
@@ -82,7 +81,7 @@ Widget build(BuildContext context) {
 2. **Keep** the existing `XxxControlsSheet` as a **thin wrapper** that adds the Material chrome and delegates to the panel. Existing tests + callers don't break.
 3. In the screen, switch on `WindowSizeClass`:
    - compact / medium → use `XxxControlsSheet` (with Material chrome)
-   - expanded / large → use `Row(Expanded(canvas), SizedBox(width: 380, XxxControlsPanel))`
+   - expanded / large → use `Row(Expanded(canvas), SizedBox(width: panelWidth, XxxControlsPanel))` where `panelWidth = clamp(380, container * 0.25, 480)` (see the panel-width convention below)
 
 ### Example
 
@@ -125,13 +124,21 @@ Widget build(BuildContext context) {
 
   return Scaffold(
     body: isSideDocked
-        ? Row(children: [
-            Expanded(child: _canvas()),
-            const SizedBox(
-              width: _kStitchControlsPanelWidth, // 380
-              child: SingleChildScrollView(child: StitchControlsPanel()),
-            ),
-          ])
+        ? LayoutBuilder(
+            builder: (context, constraints) {
+              final panelWidth = (constraints.maxWidth * 0.25)
+                  .clamp(380.0, 480.0);
+              return Row(children: [
+                Expanded(child: _canvas()),
+                SizedBox(
+                  width: panelWidth,
+                  child: const SingleChildScrollView(
+                    child: StitchControlsPanel(),
+                  ),
+                ),
+              ]);
+            },
+          )
         : Column(children: [
             Expanded(child: _canvas()),
             const StitchControlsSheet(),
@@ -140,9 +147,32 @@ Widget build(BuildContext context) {
 }
 ```
 
-### Convention: side panel is **380 dp** wide
+### Convention: side panel width is fluid in `[380, 480]` dp
 
-Both editor screens use `_kXxxControlsPanelWidth = 380` for visual rhythm consistency. If a future design wants a fluid panel (e.g. 30% of canvas), swap `SizedBox(width: 380)` for `Expanded(flex: 1)` or use a `LayoutBuilder` ratio — but do this in **one** place, not piecemeal per screen.
+Both editor screens compute the docked panel width as `clamp(380, container * 0.25, 480)` — a quarter of the available row width, clamped to a 380 dp lower bound (readability of the longest slider row) and a 480 dp upper bound (preserves visual primacy for the canvas on ultra-wide windows). The compact / medium layouts still use the bottom `XxxControlsSheet`; this convention only applies to expanded / large.
+
+**How to apply**:
+
+```dart
+LayoutBuilder(
+  builder: (context, constraints) {
+    final panelWidth = (constraints.maxWidth * 0.25).clamp(380.0, 480.0);
+    return Row(
+      children: [
+        const Expanded(
+          child: SingleChildScrollView(child: XxxCanvas()),
+        ),
+        SizedBox(
+          width: panelWidth,
+          child: const SingleChildScrollView(child: XxxControlsPanel()),
+        ),
+      ],
+    );
+  },
+)
+```
+
+**Why `LayoutBuilder` + `SizedBox` instead of `Flexible`-based heuristics**: when a `Row` mixes `Expanded(canvas)` and `Flexible(panel, minWidth, maxWidth)`, the panel gets squeezed by the `Expanded` competing for the same axis — the panel often collapses to its minimum even when there is room. Computing the panel width up front from the row's `maxWidth` sidesteps that fight entirely, makes the math easy to test, and keeps the panel reusable across editors (`stitch_editor_screen.dart`, `grid_editor_screen.dart`).
 
 ### Convention: panel has **no** outer padding
 
@@ -176,9 +206,9 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 
 | Screen | compact (<600 dp) | medium (600-840 dp) | expanded (840-1200 dp) | large (≥1200 dp) |
 |---|---|---|---|---|
-| home_screen | 3-col feature grid | 3-col | 4-col | 4-col, capped @ 1200 |
-| export_screen | single-column | single-column | two-column (preview / config) | same, capped @ 1200 |
-| stitch_editor / grid_editor | canvas + bottom sheet | same as compact | canvas + right panel (380 dp) | same, capped @ 1200 |
+| home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
+| export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
+| stitch_editor / grid_editor | canvas + bottom sheet | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
 
 When adding a new top-level screen, fill in this table for it.
 
@@ -186,25 +216,27 @@ When adding a new top-level screen, fill in this table for it.
 
 ## Common Mistakes
 
-### Gotcha: forgetting `Center` outside `ConstrainedBox`
+### Gotcha: `ConstrainedBox` alone never centers — it just caps
 
-`ConstrainedBox(maxWidth: 1200)` alone doesn't horizontally center — it just caps the max width. Without `Center`, the body left-aligns on a 1920 dp monitor with 720 dp of empty space on the right.
+If you ever need to cap the width of a *specific* component (e.g. a CTA on an ultra-wide window) — **not** an entire screen — wrap the `ConstrainedBox` in `Center`. A bare `ConstrainedBox(maxWidth: …)` parks its child at the left edge with growing whitespace on the right, which on a 1920 dp monitor looks like a layout bug.
 
 ```dart
 // ❌ Wrong — left-aligned on wide screens
 ConstrainedBox(
-  constraints: BoxConstraints(maxWidth: Breakpoints.maxContentWidth),
-  child: body,
+  constraints: const BoxConstraints(maxWidth: 600),
+  child: localCta,
 )
 
 // ✅ Correct
 Center(
   child: ConstrainedBox(
-    constraints: BoxConstraints(maxWidth: Breakpoints.maxContentWidth),
-    child: body,
+    constraints: const BoxConstraints(maxWidth: 600),
+    child: localCta,
   ),
 )
 ```
+
+(Top-level screens don't need this — they fill the container per the "Top-level screens fill the available width" convention above.)
 
 ### Gotcha: panel content must scroll independently
 
@@ -212,9 +244,36 @@ On expanded/large widths the side panel can be **taller** than the viewport. Alw
 
 ```dart
 SizedBox(
-  width: 380,
-  child: SingleChildScrollView(child: StitchControlsPanel()),
+  width: panelWidth, // clamp(380, container * 0.25, 480)
+  child: const SingleChildScrollView(child: StitchControlsPanel()),
 )
 ```
 
 Otherwise the panel content overflows and Flutter throws "RenderBox overflow by N pixels".
+
+### Gotcha: `LayoutBuilder.constraints.maxHeight` is `∞` inside a `SingleChildScrollView`
+
+When a widget that uses `LayoutBuilder` is placed inside a vertically-scrolling parent (`SingleChildScrollView`, `ListView`, or any other widget that gives an unbounded main-axis constraint), `constraints.maxHeight` is `double.infinity`. Naively using it in math — `displayHeight = constraints.maxHeight` or `aspectRatio * constraints.maxHeight` — yields `Infinity` / `NaN` paint sizes and crashes at layout time.
+
+For **aspect-locked content** (preview canvas, image, video, anything sized by `naturalWidth / naturalHeight`), fall back to the cross-axis bound when the main axis is unbounded:
+
+```dart
+LayoutBuilder(
+  builder: (context, constraints) {
+    final aspect = naturalWidth / naturalHeight;
+    final maxWidth = constraints.maxWidth.isFinite
+        ? constraints.maxWidth
+        : naturalWidth;          // last-resort: natural size
+    final maxHeight = constraints.maxHeight.isFinite
+        ? constraints.maxHeight
+        : maxWidth / aspect;     // ← derive from width when parent is unbounded vertically
+
+    var w = maxWidth;
+    var h = w / aspect;
+    if (h > maxHeight) { h = maxHeight; w = h * aspect; }
+    return SizedBox(width: w, height: h, child: /* aspect-locked content */);
+  },
+)
+```
+
+**Where this hits in this project**: `stitch_preview_canvas.dart`. The compact layout puts the canvas in a `SingleChildScrollView`, so the preview's `LayoutBuilder` sees `maxHeight = ∞`. The expanded / large two-column layout gives the canvas a bounded `Expanded` parent, so the same widget works without the fallback — but writing the fallback once keeps the widget reusable across both layouts. The general rule applies to any future editor that follows the same compact-scrollable + expanded-docked split.

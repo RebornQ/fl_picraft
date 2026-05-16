@@ -123,22 +123,50 @@ void main() {
       expect(panelOrigin.dx, greaterThan(canvasOrigin.dx));
     });
 
-    testWidgets('content is capped by maxContentWidth on very wide windows', (
+    testWidgets('content fills the container on very wide windows', (
       tester,
     ) async {
       await _setViewportSize(tester, const Size(2400, 1080));
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
 
-      // The body's outermost ConstrainedBox caps to 1200 dp; canvas +
-      // panel widths together must respect that bound.
+      // No outer maxContentWidth cap — canvas + panel widths together
+      // should track the viewport width (not lock at 1200 dp).
       final panel = tester.renderObject<RenderBox>(
         find.byType(GridControlsPanel),
       );
       final canvas = tester.renderObject<RenderBox>(
         find.byType(GridPreviewCanvas),
       );
-      expect(panel.size.width + canvas.size.width, lessThanOrEqualTo(1200));
+      expect(panel.size.width + canvas.size.width, greaterThan(2000));
     });
+
+    testWidgets(
+      'side panel respects [380, 480] dp bounds across wide windows',
+      (tester) async {
+        // 1280 dp viewport: inner row width ≈ 1280 - 32 padding - 16
+        // gap = 1232; 25% = 308 → clamped UP to 380 dp.
+        await _setViewportSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+        var panel = tester.renderObject<RenderBox>(
+          find.byType(GridControlsPanel),
+        );
+        expect(panel.size.width, 380);
+
+        // 1920 dp: inner ≈ 1872; 25% = 468 → in bounds, exact value.
+        tester.view.physicalSize = const Size(1920, 1080);
+        await tester.pumpAndSettle();
+        panel = tester.renderObject<RenderBox>(find.byType(GridControlsPanel));
+        expect(panel.size.width, greaterThanOrEqualTo(380));
+        expect(panel.size.width, lessThanOrEqualTo(480));
+
+        // 2560 dp: 25% comfortably above 480 → clamped DOWN to 480 dp.
+        tester.view.physicalSize = const Size(2560, 1440);
+        await tester.pumpAndSettle();
+        panel = tester.renderObject<RenderBox>(find.byType(GridControlsPanel));
+        expect(panel.size.width, 480);
+      },
+    );
   });
 }

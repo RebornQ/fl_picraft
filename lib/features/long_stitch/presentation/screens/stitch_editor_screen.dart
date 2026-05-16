@@ -14,12 +14,16 @@ import '../widgets/stitch_controls_sheet.dart';
 import '../widgets/stitch_image_strip.dart';
 import '../widgets/stitch_preview_canvas.dart';
 
-/// Width of the docked controls panel on expanded / large windows.
+/// Lower bound for the docked controls panel on expanded / large windows.
 ///
 /// Picked to comfortably fit the longest slider label plus value
-/// readout without wrapping. Smaller than the canvas flex so the
-/// preview keeps the visual primacy on tablet / desktop.
-const double _kStitchControlsPanelWidth = 380;
+/// readout without wrapping on a tablet-class window.
+const double _kStitchControlsPanelMinWidth = 380;
+
+/// Upper bound for the docked controls panel. Past this width the panel
+/// looks oversized next to the canvas on ultra-wide monitors — keep the
+/// extra space on the canvas instead.
+const double _kStitchControlsPanelMaxWidth = 480;
 
 /// Long-stitch editor screen.
 ///
@@ -45,8 +49,8 @@ const double _kStitchControlsPanelWidth = 380;
 /// |------------|--------|
 /// | compact (<600 dp) | image strip on top, scrollable canvas in the middle, controls docked as a bottom [StitchControlsSheet] |
 /// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the touch sheet reachable |
-/// | expanded (840–1200 dp) | image strip on top; below it a two-column [Row] with the canvas on the left and a [_kStitchControlsPanelWidth]-wide [StitchControlsPanel] docked on the right |
-/// | large (≥1200 dp) | same as expanded, with the body capped at [Breakpoints.maxContentWidth] via [Center] + [ConstrainedBox] |
+/// | expanded (840–1200 dp) | image strip on top; below it a two-column [Row] with the canvas on the left and a fluid [StitchControlsPanel] docked on the right (width = `clamp(380, container * 0.25, 480)`) |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp |
 class StitchEditorScreen extends ConsumerWidget {
   const StitchEditorScreen({super.key});
 
@@ -98,18 +102,7 @@ class StitchEditorScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: SafeArea(
-        child: ImageDropZone(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: Breakpoints.maxContentWidth,
-              ),
-              child: const _StitchEditorBody(),
-            ),
-          ),
-        ),
-      ),
+      body: const SafeArea(child: ImageDropZone(child: _StitchEditorBody())),
     );
   }
 
@@ -134,21 +127,38 @@ class _StitchEditorBody extends StatelessWidget {
         sizeClass == WindowSizeClass.large;
 
     if (useSidePanel) {
-      return const Column(
+      return Column(
         children: [
-          StitchImageStrip(),
+          const StitchImageStrip(),
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(child: StitchPreviewCanvas()),
-                ),
-                SizedBox(
-                  width: _kStitchControlsPanelWidth,
-                  child: SingleChildScrollView(child: StitchControlsPanel()),
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Fluid panel width: 25% of the row, clamped to
+                // [380, 480]. Keeping the math in one LayoutBuilder
+                // (instead of `Flexible` + `ConstrainedBox` games)
+                // sidesteps the gotcha where the panel would be
+                // squeezed by `Expanded(canvas)` competing for space.
+                final panelWidth = (constraints.maxWidth * 0.25).clamp(
+                  _kStitchControlsPanelMinWidth,
+                  _kStitchControlsPanelMaxWidth,
+                );
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Expanded(
+                      child: SingleChildScrollView(
+                        child: StitchPreviewCanvas(),
+                      ),
+                    ),
+                    SizedBox(
+                      width: panelWidth,
+                      child: const SingleChildScrollView(
+                        child: StitchControlsPanel(),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
