@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "现有 ‘Flat routing + per-screen AppScaffold’ 章节必须重写为 StatefulShellRoute 约定，是本任务核心 spec 改动"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "currentExportSourceKindProvider 的跨屏 handoff 模式要保持，确认 export 在 shell 之外不会破坏 provider 读取"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新 app_shell.dart 的归属位置与 core/widgets/ 边界，避免 shell 误放进 features/"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "tab 切换不能破坏 stitch/grid 编辑器现有的 sheet ↔ panel 双形态布局；shell 的 NavigationBar 必须与 ConstrainedBox(maxWidth: 1200) 共存"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "PopScope onPopInvokedWithResult 的容错处理（navigatorKey 为 null / mounted 检查）"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "确认 IndexedStack / StatefulShellRoute 是 Flutter / GoRouter 官方原生 API，避免自造轮子"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "AppShell 在 core/widgets/，不应反向依赖 features/*/presentation/screens"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "MD3 设计 tokens + 顶层架构概览，确保 NavigationBar 样式与 shell 整体一致"}
