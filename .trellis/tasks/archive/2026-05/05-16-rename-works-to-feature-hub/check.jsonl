@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终验收 analyze / format / test 三红线必须全绿"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 widget 改动符合组件规范（NavigationDestination label/icon 一致性、_HomeBody 树结构清晰）"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "复核 dead file 已删除、import 已清理、无遗留引用"}
+{"file": ".trellis/tasks/05-16-rename-works-to-feature-hub/prd.md", "reason": "对照本任务 AC + DoD 逐项确认，特别是 label/icon/tests/file deletion 五项是否齐全"}

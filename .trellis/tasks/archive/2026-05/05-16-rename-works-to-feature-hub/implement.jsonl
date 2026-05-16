@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "改 NavigationDestination label/icon 与 _HomeBody 子树移除，必须遵循 widget 复用 + 命名 + a11y 文本断言规范"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "删除 recent_works_grid.dart 文件并清理引用链，必须遵循 feature-first 目录结构与 dead file 处理约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "改完后 flutter analyze / test / format 三红线必须全绿，且必须更新被影响的 home/app_shell 测试用例"}
