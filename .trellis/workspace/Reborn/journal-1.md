@@ -381,3 +381,36 @@ Refactor bottom-nav from flat GoRoute + per-screen AppScaffold to StatefulShellR
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: subtask1: editor + all screens fill container width
+
+**Date**: 2026-05-16
+**Task**: subtask1: editor + all screens fill container width
+**Branch**: `main`
+
+### Summary
+
+Brainstormed the editor-layout-and-import-isolation parent task and split it into two sibling subtasks. Implemented subtask1 in full: removed Breakpoints.maxContentWidth (1200 dp cap) so home / stitch / grid / export screens fill SafeArea on wide windows; reshaped both editors' docked control panel to a fluid [380, 480] dp clamp computed via LayoutBuilder + (container * 0.25).clamp; rewrote stitch_preview_canvas to fit the available area with a vertically-unbounded fallback for the compact SingleChildScrollView path. Spec responsive-layout.md rewritten in three places (Cap convention, panel-width convention, behavior table large columns) plus a new Common Mistakes gotcha codifying the LayoutBuilder + unbounded-parent trap discovered in the preview canvas refactor. Added panel-clamp widget tests at 1280 / 1920 / 2560 dp viewports across home / export / stitch / grid. flutter analyze clean, dart format clean, 281 tests pass. Sibling subtask 05-16-per-mode-import-isolation remains in planning with PRD + jsonl curated, ready to start.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `07490ba` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

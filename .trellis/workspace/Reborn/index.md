@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-05-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~383 | Active |
+| `journal-1.md` | ~416 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-05-16 | subtask1: editor + all screens fill container width | `07490ba` | `main` |
 | 11 | 2026-05-16 | 底部导航从扁平路由切换为 StatefulShellRoute（状态保留） | `5701514` | `main` |
 | 10 | 2026-05-16 | Polish & Multi-Platform Readiness — 8 rounds across export unification, responsive, a11y, dark mode, perf | `1748862`, `a4904d3` | `main` |
 | 9 | 2026-05-14 | Nine-grid social mode: implement, check, spec capture | `2b65af6`, `2bd9584`, `9ea709b` | `main` |
