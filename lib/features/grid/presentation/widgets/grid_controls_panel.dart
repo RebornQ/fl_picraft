@@ -11,9 +11,10 @@ import 'grid_type_selector.dart';
 /// Groups the nine-grid-social toggle, grid-type selector, and bento
 /// parameter cards. Used in two contexts:
 ///
-/// * compact / medium screen widths — inlined into the [ListView] that
-///   stacks the preview canvas, optional source-size warning, and
-///   these controls vertically.
+/// * compact / medium screen widths — placed in a [Flexible] +
+///   [SingleChildScrollView] slot below the height-first canvas in the
+///   editor body's [Column], so the panel scrolls **inside** its own
+///   viewport without dragging the canvas off-screen.
 /// * expanded / large screen widths — docked into the side panel next
 ///   to the canvas; see `grid_editor_screen.dart`.
 ///

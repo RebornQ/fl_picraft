@@ -17,10 +17,29 @@ const int _kCenterCellIndex = 4;
 /// Live preview matching the central canvas in `_3_宫格切图/code.html`
 /// lines 119–141.
 ///
-/// Renders the source image at square aspect ratio (the design mock
-/// uses `aspect-square`) with a grid overlay drawn at the active
+/// Renders the source image with a grid overlay drawn at the active
 /// [GridType]. Updates instantly when the user adjusts spacing / type
 /// because the layout math is pure-Dart and runs on the UI isolate.
+///
+/// **Sizing contract**: this widget paints whatever rectangle the
+/// caller hands it — it does NOT enforce a 1:1 (square) aspect ratio
+/// itself. The design mock uses `aspect-square`, but we keep the
+/// square-shape decision at the call site so each layout branch can
+/// pick "fit by width" vs "fit by height" independently:
+///
+/// * compact / medium screens fit by **height** (canvas occupies the
+///   `Expanded` slot of a `Column`, wrapped in `Center` +
+///   `AspectRatio(aspectRatio: 1)` so it stays square while the
+///   controls panel keeps its scroll on the same screen — no
+///   page-level scroll). See `grid_editor_screen.dart`.
+/// * expanded / large screens fit by **width** (canvas sits in a
+///   `SingleChildScrollView` inside the left column of a two-column
+///   `Row`, wrapped in `AspectRatio(aspectRatio: 1)` so the square
+///   shape is preserved).
+///
+/// Either way the overlay math (see `_PreviewSurface`) reads
+/// `constraints.biggest` and scales the layout rectangles into the
+/// painted rectangle, so it works for any caller-imposed shape.
 class GridPreviewCanvas extends ConsumerWidget {
   const GridPreviewCanvas({super.key});
 
@@ -30,26 +49,23 @@ class GridPreviewCanvas extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colorScheme.outlineVariant),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: state.hasSource
-            ? _PreviewSurface(state: state)
-            : _EmptyState(textTheme: textTheme, colorScheme: colorScheme),
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
+      child: state.hasSource
+          ? _PreviewSurface(state: state)
+          : _EmptyState(textTheme: textTheme, colorScheme: colorScheme),
     );
   }
 }

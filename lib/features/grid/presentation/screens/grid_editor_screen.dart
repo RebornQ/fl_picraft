@@ -48,10 +48,15 @@ const double _kGridControlsPanelMaxWidth = 480;
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | single column: preview → warning → controls panel, stacked in a [ListView] |
-/// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the canvas tappable |
-/// | expanded (840–1200 dp) | two-column [Row]: preview (+ optional warning) on the left, [GridControlsPanel] docked on the right at a fluid width (`clamp(380, container * 0.25, 480)`) |
-/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp |
+/// | compact (<600 dp) | single column, **height-first** [Column] skeleton: an `Expanded` slot centers the square preview canvas via `Center` + `AspectRatio(1)`, an optional source-size warning sits below the canvas, and the controls panel scrolls **inside** its own `SingleChildScrollView` (no page-level scroll). |
+/// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton. |
+/// | expanded (840–1200 dp) | two-column [Row]: preview (wrapped in `AspectRatio(1)`) + optional warning on the left, [GridControlsPanel] docked on the right at a fluid width (`clamp(380, container * 0.25, 480)`). |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp. |
+///
+/// The square (1:1) shape of the canvas is the caller's responsibility
+/// — [GridPreviewCanvas] no longer wraps itself in `AspectRatio` so each
+/// layout branch above can pick a fit-by-height vs fit-by-width strategy
+/// independently.
 class GridEditorScreen extends ConsumerWidget {
   const GridEditorScreen({super.key});
 
@@ -167,7 +172,13 @@ class _GridEditorBody extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const GridPreviewCanvas(),
+                        // GridPreviewCanvas no longer enforces 1:1
+                        // itself — wrap it here so the side-panel
+                        // layout keeps the square preview shape.
+                        const AspectRatio(
+                          aspectRatio: 1,
+                          child: GridPreviewCanvas(),
+                        ),
                         if (sourceTooSmall) ...[
                           const SizedBox(height: 12),
                           _SourceSizeWarning(
@@ -193,19 +204,51 @@ class _GridEditorBody extends ConsumerWidget {
       );
     }
 
-    return ListView(
-      // Bottom 96 dp clears the floating action button on compact /
-      // medium widths.
+    // Height-first single-column skeleton for compact / medium widths.
+    //
+    // The body is a [Column] (not a [ListView]) so the canvas can claim
+    // the **remaining** vertical space via [Expanded] rather than
+    // sizing itself by container width. This keeps the canvas + first
+    // controls card visible on the first screen — without this skeleton
+    // the AspectRatio(1) canvas plus the controls panel together
+    // overflow a typical phone viewport and force the user to scroll
+    // before they can adjust spacing / corner radius.
+    //
+    // Layout breakdown:
+    // * `Expanded` slot → `Center(AspectRatio(1, GridPreviewCanvas))`
+    //   pins the canvas to a centered square that grows with the
+    //   available height (bounded to width when the viewport is wide).
+    // * Optional `_SourceSizeWarning` lives just below the canvas as a
+    //   non-scrolling fixed-height banner.
+    // * `Flexible(fit: FlexFit.loose) + SingleChildScrollView` for the
+    //   controls panel — `loose` means it sizes to its content when
+    //   there is room, but never grows past the remaining vertical
+    //   space (any overflow scrolls *inside* the controls panel, not
+    //   the whole page). `Expanded` would force the panel to fill all
+    //   leftover height even when its content is much shorter, which
+    //   would visually disconnect the controls from the canvas.
+    return Padding(
+      // Bottom 96 dp clears the floating action button.
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-      children: [
-        const GridPreviewCanvas(),
-        if (sourceTooSmall) ...[
-          const SizedBox(height: 12),
-          _SourceSizeWarning(colorScheme: colorScheme, textTheme: textTheme),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Expanded(
+            child: Center(
+              child: AspectRatio(aspectRatio: 1, child: GridPreviewCanvas()),
+            ),
+          ),
+          if (sourceTooSmall) ...[
+            const SizedBox(height: 12),
+            _SourceSizeWarning(colorScheme: colorScheme, textTheme: textTheme),
+          ],
+          const SizedBox(height: 16),
+          const Flexible(
+            fit: FlexFit.loose,
+            child: SingleChildScrollView(child: GridControlsPanel()),
+          ),
         ],
-        const SizedBox(height: 16),
-        const GridControlsPanel(),
-      ],
+      ),
     );
   }
 }

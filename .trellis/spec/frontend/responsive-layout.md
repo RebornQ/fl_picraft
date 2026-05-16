@@ -180,6 +180,55 @@ The panel widget is bare; the **caller** wraps with appropriate padding (compact
 
 ---
 
+## Pattern: Compact-mode editor body — height-first `Column` skeleton
+
+**Problem**: A compact editor screen has a fixed-aspect canvas (e.g. `AspectRatio(1)`) plus a tall controls panel under it. Naively stacking them inside a `ListView` makes the canvas claim `maxWidth` and become a square as tall as the screen is wide — the controls fall *off-screen* and the user must scroll the whole page just to see the first parameter card. That violates the editor mental model where the canvas and "what I can change" should be visible together.
+
+**Solution**: Use a `Column` whose **canvas slot takes `Expanded`** (so the canvas claims all remaining height after warnings/etc.), and whose **controls slot takes `Flexible(fit: FlexFit.loose) + SingleChildScrollView`** (so the panel sizes to its intrinsic content but never pushes the canvas off-screen; overflow scrolls *inside* the panel).
+
+**How to apply** (grid editor compact / medium):
+
+```dart
+return Padding(
+  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), // 96 = FAB clearance
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      // Canvas claims the leftover height. Center + AspectRatio(1)
+      // turns the Expanded slot into a centered square.
+      Expanded(
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: const GridPreviewCanvas(),
+          ),
+        ),
+      ),
+      if (sourceTooSmall) ...[
+        const SizedBox(height: 12),
+        _SourceSizeWarning(...),
+      ],
+      const SizedBox(height: 16),
+      // Controls slot: sizes to its content; if content > remaining
+      // space, scrolls inside instead of growing the column.
+      Flexible(
+        fit: FlexFit.loose,
+        child: SingleChildScrollView(
+          child: const GridControlsPanel(),
+        ),
+      ),
+    ],
+  ),
+);
+```
+
+**Sizing contract for the canvas widget**: When this skeleton is in play, the canvas widget itself **must not** wrap its content in an `AspectRatio` — the *caller* supplies the aspect constraint (compact: `Expanded + AspectRatio(1)`; expanded/large: a bare `AspectRatio(1)` inside the docked column). A canvas widget that locks its own aspect internally breaks the height-first pattern because `AspectRatio` always picks width-first when both axes are bounded. Spell this out in the canvas widget's class doc-comment so future callers don't accidentally double-wrap.
+
+**Where this is used**: `grid_editor_screen.dart` compact/medium branch. The `stitch_editor_screen.dart` compact path uses a different shape (`Column + Expanded(canvas) + StitchControlsSheet`) because it docks a Material sheet rather than a bare panel — the height-first principle still applies.
+
+---
+
+
 ## Test pattern: Responsive widget tests
 
 To test responsive behavior, override the viewport via `tester.view.physicalSize` + `tester.view.devicePixelRatio`, **not** `MediaQuery` wrapper — because `Column + Expanded` screens rely on the actual paint surface size.
@@ -208,7 +257,8 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 |---|---|---|---|---|
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
-| stitch_editor / grid_editor | canvas + bottom sheet | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
+| stitch_editor | scrollable canvas + bottom `StitchControlsSheet` | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
+| grid_editor | height-first `Column`: `Expanded(canvas)` + `Flexible(loose, panel)` (see "Compact-mode editor body" pattern) | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
 
 When adding a new top-level screen, fill in this table for it.
 
@@ -277,3 +327,29 @@ LayoutBuilder(
 ```
 
 **Where this hits in this project**: `stitch_preview_canvas.dart`. The compact layout puts the canvas in a `SingleChildScrollView`, so the preview's `LayoutBuilder` sees `maxHeight = ∞`. The expanded / large two-column layout gives the canvas a bounded `Expanded` parent, so the same widget works without the fallback — but writing the fallback once keeps the widget reusable across both layouts. The general rule applies to any future editor that follows the same compact-scrollable + expanded-docked split.
+
+### Gotcha: use `Flexible(loose)` — **not** `Expanded` — for the controls slot in a height-first `Column`
+
+In the [compact-mode height-first skeleton](#pattern-compact-mode-editor-body--height-first-column-skeleton), the controls slot must be a `Flexible(fit: FlexFit.loose)`-wrapped `SingleChildScrollView`. **Don't** wrap it in `Expanded`:
+
+```dart
+// ❌ Wrong — Expanded forces the slot to claim ALL remaining height,
+// inflating a short controls panel with a gap between the canvas and
+// the first parameter card. The "canvas + first card" visual cluster
+// breaks; the FAB also overlaps the bottom of an inflated panel.
+Expanded(
+  child: SingleChildScrollView(child: GridControlsPanel()),
+),
+
+// ✅ Correct — Flexible(loose) lets the panel size to its intrinsic
+// content height; if the content overflows the remaining space, the
+// inner SingleChildScrollView scrolls inside the slot.
+Flexible(
+  fit: FlexFit.loose,
+  child: SingleChildScrollView(child: GridControlsPanel()),
+),
+```
+
+`Flexible(tight)` (the default `fit:` for `Flexible`) behaves like `Expanded` — also wrong here. The `fit: FlexFit.loose` is the load-bearing part of this gotcha.
+
+**Symptom if you forget**: A "floating" controls panel detached from the canvas by an awkward whitespace strip, or the FAB sitting on top of the panel's last parameter card. Both look like bugs to the user.

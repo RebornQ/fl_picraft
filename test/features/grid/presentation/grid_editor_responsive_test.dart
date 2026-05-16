@@ -71,12 +71,63 @@ void main() {
         expect(find.byType(GridPreviewCanvas), findsOneWidget);
         expect(find.byType(GridControlsPanel), findsOneWidget);
 
-        // Layout signal: panel sits below the canvas in the ListView,
-        // so they share the same left edge.
+        // Vertical ordering signal: panel sits **below** the canvas in
+        // the height-first Column skeleton. Horizontal dx values are
+        // not asserted here — the canvas is now `Center`-ed inside its
+        // Expanded slot, so when the column width exceeds the
+        // height-constrained square the canvas shifts inward while the
+        // panel keeps the column's left edge.
         final canvasOrigin = tester.getTopLeft(find.byType(GridPreviewCanvas));
         final panelOrigin = tester.getTopLeft(find.byType(GridControlsPanel));
-        expect(panelOrigin.dx, canvasOrigin.dx);
         expect(panelOrigin.dy, greaterThan(canvasOrigin.dy));
+      },
+    );
+
+    testWidgets(
+      'compact body uses height-first Column skeleton (no outer ListView)',
+      (tester) async {
+        // 360x640 mimics a typical phone portrait viewport — the smallest
+        // realistic compact size. The canvas must stay square and visible
+        // on the first screen alongside the first controls card without
+        // any page-level scroll.
+        await _setViewportSize(tester, const Size(360, 640));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        // The body skeleton must NOT be a vertical ListView (the prior
+        // skeleton was; the height-first refactor replaced it with a
+        // Column). We allow horizontal ListViews because
+        // [GridTypeSelector] uses one internally for the type chips.
+        final verticalBodyListView = find.byWidgetPredicate(
+          (widget) =>
+              widget is ListView && widget.scrollDirection == Axis.vertical,
+        );
+        expect(verticalBodyListView, findsNothing);
+
+        // Canvas keeps its 1:1 square shape (within sub-pixel rounding).
+        final canvas = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+        expect(
+          (canvas.size.width - canvas.size.height).abs(),
+          lessThan(0.5),
+          reason: 'GridPreviewCanvas should render as a square in compact mode',
+        );
+
+        // Canvas height must fit within the viewport height (no need to
+        // scroll the page to see the canvas in full).
+        expect(canvas.size.height, lessThanOrEqualTo(640));
+
+        // Controls panel scrolls internally — a SingleChildScrollView
+        // wraps it directly so any overflow stays inside the panel.
+        final scrollableAncestors = find.ancestor(
+          of: find.byType(GridControlsPanel),
+          matching: find.byType(SingleChildScrollView),
+        );
+        expect(scrollableAncestors, findsOneWidget);
+
+        // No render-flex overflow exception fired during pump.
+        expect(tester.takeException(), isNull);
       },
     );
 
@@ -89,10 +140,13 @@ void main() {
 
       expect(find.byType(GridControlsPanel), findsOneWidget);
 
+      // Stacked: panel sits below the canvas. The dx values are not
+      // strictly equal anymore because the canvas is centered inside an
+      // Expanded slot — when the column is wider than the
+      // height-constrained square the canvas shifts inward while the
+      // panel hugs the column's left edge.
       final canvasOrigin = tester.getTopLeft(find.byType(GridPreviewCanvas));
       final panelOrigin = tester.getTopLeft(find.byType(GridControlsPanel));
-      // Stacked: same left edge, panel below.
-      expect(panelOrigin.dx, canvasOrigin.dx);
       expect(panelOrigin.dy, greaterThan(canvasOrigin.dy));
     });
 
