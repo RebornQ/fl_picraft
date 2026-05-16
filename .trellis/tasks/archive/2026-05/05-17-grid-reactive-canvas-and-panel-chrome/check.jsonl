@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终 analyze/format/test 三红线全绿，含新增 viewport 动态变化测试 + panel chrome 高度断言"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "复核 panel chrome convention 说明已添加，与代码一致"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核颜色 token 用法（surfaceContainerLow / outlineVariant）符合规范，无 hex 硬编码"}
+{"file": ".trellis/tasks/05-17-grid-reactive-canvas-and-panel-chrome/prd.md", "reason": "对照本任务 AC + DoD 逐项确认"}

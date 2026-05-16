@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本次扩展现有 'Convention: panel has no outer padding' 的 caller decoration 含义——grid editor 在 caller 处加 surface chrome 容器，与 stitch editor 的 bare panel 形成对比，需要在 spec 中阐明这种差异化决策"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "DecoratedBox/Container 装饰使用 Theme.of(context).colorScheme.surfaceContainerLow / outlineVariant，必须遵循颜色 token 规范（不硬编码 hex）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "新增 viewport 动态变化测试 + panel chrome 高度断言；analyze/format/test 三红线必须全绿"}
+{"file": ".trellis/tasks/archive/2026-05/05-17-grid-canvas-height-first-expanded-large/prd.md", "reason": "上一轮 task 已确认 expanded/large 的 Row(stretch) 骨架，本任务在此基础上加 chrome；需要保证 sub-agent 看到上下文连续性"}
