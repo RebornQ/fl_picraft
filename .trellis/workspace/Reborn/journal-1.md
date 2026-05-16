@@ -348,3 +348,36 @@ polish-platform-test 任务的 8 轮迭代收尾。Round 1 quick wins（清理 s
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: 底部导航从扁平路由切换为 StatefulShellRoute（状态保留）
+
+**Date**: 2026-05-16
+**Task**: 底部导航从扁平路由切换为 StatefulShellRoute（状态保留）
+**Branch**: `main`
+
+### Summary
+
+Refactor bottom-nav from flat GoRoute + per-screen AppScaffold to StatefulShellRoute.indexedStack rooted at a new AppShell. Each branch keeps its own Navigator stack so tab switches preserve state (R1). NavigationBar identity survives switches (R2). Android back-key follows a three-layer contract: inner Navigator pop → goBranch(0) → SystemNavigator.pop (R8). /export stays a sibling top-level route outside the shell; currentExportSourceKindProvider handoff unchanged. Rewrites .trellis/spec/frontend/component-guidelines.md "Flat routing" section. Adds 5 widget tests in test/core/widgets/app_shell_test.dart covering R1/R2/R8 including SystemNavigator.pop platform-channel mock. flutter analyze: clean. flutter test: 279 passed, 2 skipped (benchmark), 0 failed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5701514` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
