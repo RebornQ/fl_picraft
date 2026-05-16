@@ -6,6 +6,7 @@ import 'package:fl_picraft/features/grid/domain/usecases/compute_center_transfor
 import 'package:fl_picraft/features/grid/presentation/providers/grid_editor_provider.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_failure.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_result.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/domain/repositories/image_import_repository.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
@@ -226,17 +227,21 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
       final notifier = container.read(gridEditorControllerProvider.notifier);
-      // Trigger initial build of the import controller.
-      await container.read(imageImportControllerProvider.future);
+      // Trigger initial build of the grid-scoped import controller.
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).future,
+      );
 
       notifier.setNineGridSocialMode(true);
       await notifier.pickCenterImage();
 
-      final session = container.read(importedImagesProvider);
+      final session = container.read(
+        importedImagesProvider(ImageImportSessionKind.grid),
+      );
       expect(
         session,
         isEmpty,
-        reason: 'center pick must not append to the main import session',
+        reason: 'center pick must not append to the grid import session',
       );
     });
   });

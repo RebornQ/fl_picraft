@@ -283,6 +283,117 @@ Widget build(BuildContext context, WidgetRef ref) {
 
 **Required tests**: assert (a) caller writes the right kind before navigating; (b) consumer reads the kind from the provider, not from `GoRouterState.extra`; (c) the provider's default value is sane (whichever editor is "default" when the user deep-links into `/export` directly).
 
+### Pattern: Per-mode session isolation via `.family`
+
+**Problem**: Two (or more) top-level editor modes need the same underlying behavior — e.g. "import images, hold them as a session, accept add / remove / reorder / clear" — but each mode must keep its own independent state. Long-stitch and grid-split both consume the result of an image picker / drag-drop / clipboard paste, but they are conceptually different workspaces: the user expects the imports they collected for stitch mode to survive a quick visit to grid mode (and vice versa), and a failure surfaced in one mode must never produce a snackbar in the other.
+
+A naive single global `AsyncNotifierProvider<List<ImportedImage>>` collapses both sessions into one bucket:
+
+- Importing 3 images in stitch and switching to grid leaks the same 3 images into grid (cross-mode contamination)
+- A `pickFromGallery` failure in stitch flips the controller to `AsyncError`; any grid-side `ref.listen` for SnackBars fires too (cross-mode error storm)
+- Closing one mode (`clear()`) wipes the other mode's session
+
+**Solution**: convert the controller to a Riverpod **family** keyed by a typed enum of modes. Each call to `provider(kind)` resolves to a separate notifier instance with its own state and its own `AsyncValue`. Tests and editor screens look up the family instance that matches their mode; the controller body is identical across instances.
+
+```dart
+// lib/features/image_import/domain/entities/image_import_session_kind.dart
+enum ImageImportSessionKind { stitch, grid }
+
+// lib/features/image_import/presentation/providers/image_import_provider.dart
+class ImageImportController
+    extends FamilyAsyncNotifier<List<ImportedImage>, ImageImportSessionKind> {
+  @override
+  Future<List<ImportedImage>> build(ImageImportSessionKind kind) async {
+    // `kind` is only a cache key — the controller body is identical
+    // across instances. Each kind just gets its own storage.
+    return const [];
+  }
+  // ... pickFromGallery / addFromDrop / reorder / clear ...
+}
+
+final imageImportControllerProvider =
+    AsyncNotifierProvider.family<
+      ImageImportController,
+      List<ImportedImage>,
+      ImageImportSessionKind
+    >(ImageImportController.new);
+
+final importedImagesProvider =
+    Provider.family<List<ImportedImage>, ImageImportSessionKind>((ref, kind) {
+      return ref.watch(imageImportControllerProvider(kind)).valueOrNull ??
+          const [];
+    });
+```
+
+**Caller**:
+
+```dart
+// Stitch editor screen — every call site picks the .stitch instance
+ref.listen<AsyncValue<List<ImportedImage>>>(
+  imageImportControllerProvider(ImageImportSessionKind.stitch),
+  (prev, next) { /* SnackBar on AsyncError */ },
+);
+
+// The drop-zone widget makes the choice required so callers can't
+// forget which session a drop belongs to:
+ImageDropZone(
+  sessionKind: ImageImportSessionKind.stitch,  // required, no default
+  child: _StitchEditorBody(),
+);
+```
+
+**Test override pattern** (per-kind, so a single test can stub one mode and leave the other empty):
+
+```dart
+ProviderScope(
+  overrides: [
+    importedImagesProvider(
+      ImageImportSessionKind.stitch,
+    ).overrideWith((ref) => stubbedImages),
+    importedImagesProvider(
+      ImageImportSessionKind.grid,
+    ).overrideWithValue(const []),
+  ],
+  child: ...,
+);
+```
+
+**When to use**:
+
+- Multiple top-level modes / workspaces share behavior but must keep independent state
+- A failure in one mode must not surface as a UI side-effect in another
+- The user's expectation is "switch back later and find my work where I left it" per mode
+
+**When NOT to use**:
+
+- The state genuinely is global (e.g. "current logged-in user") — a family adds ceremony without benefit
+- The mode is ephemeral (e.g. a transient dialog open / close flag) — local widget state is fine
+- The number of kinds is unbounded (e.g. per-document state) — use a different mechanism (e.g. a `Map<DocId, State>` inside a single notifier) so eviction is explicit
+
+**Trade-offs to accept**:
+
+- **Family key stability is load-bearing**. The enum value names become part of the Riverpod cache key. Renaming a value silently invalidates every test override that targets that key and any persisted reference. Lock value names with a stability note in the enum's dartdoc; add new values without touching old ones.
+- **Tests need the family arg everywhere**. `imageImportControllerProvider.notifier` → `imageImportControllerProvider(.stitch).notifier`. Plan the migration as a single rename pass; mixed-mode tests get noisier.
+- **Cross-mode helpers go through a typed bridge**. If a sibling enum (e.g. `ExportSourceKind`) needs to map to / from the session kind, define a single explicit `sessionKindFor(...)` function rather than coupling the two types. See `lib/features/export/presentation/providers/export_dispatch.dart` for the convention.
+- **Memory**: every `.family` instance lives until the container is disposed unless `.autoDispose` is added. For a bounded enum (one entry per editor) this is fine. For unbounded keys you must opt into `.autoDispose` or evict manually.
+
+**Don't**:
+
+- Don't introduce a third instance just because you need a one-off bypass — e.g. the grid editor's nine-grid-social "center image" pick deliberately goes through the **repository** (`imageImportRepositoryProvider.pickFromGallery`) rather than the import controller, because that pick is a peer flow that must NOT populate the grid session. Reach for the bypass before adding `ImageImportSessionKind.gridCenterImage`. See `code-reuse-thinking-guide.md` → "Pattern: Side-Channel Reuse via Repository, Not Controller".
+
+**Required tests** (per the pattern's intent):
+
+- Per kind: the controller's existing behavior unit tests still pass when run against any one instance (use a single representative kind to avoid duplication; the controller body is identical).
+- Cross-kind isolation: assert (a) imports into kind A don't appear in kind B; (b) `lastWarning` is per-instance; (c) `clear()` on one doesn't touch the other; (d) `AsyncError` on one doesn't propagate to the other.
+- Round-trip survival: build kind B's editor controller after populating kind A and assert kind A's state is intact (this guards the `StatefulShellRoute` tab-switch invariant).
+
+**Where this lives**:
+- Enum: `lib/features/image_import/domain/entities/image_import_session_kind.dart`
+- Family providers: `lib/features/image_import/presentation/providers/image_import_provider.dart`
+- Widget API that surfaces the choice to callers: `ImageDropZone(sessionKind: ...)`
+- Bridge to a sibling enum: `sessionKindFor(ExportSourceKind)` in `export_dispatch.dart`
+- Cross-kind isolation tests: `test/features/image_import/presentation/cross_mode_isolation_test.dart`
+
 ---
 
 ## Common Mistakes

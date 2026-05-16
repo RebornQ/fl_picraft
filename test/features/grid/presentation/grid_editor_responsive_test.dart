@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:fl_picraft/features/grid/presentation/screens/grid_editor_screen.dart';
 import 'package:fl_picraft/features/grid/presentation/widgets/grid_controls_panel.dart';
 import 'package:fl_picraft/features/grid/presentation/widgets/grid_preview_canvas.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +37,9 @@ Widget _gridHarness({List<ImportedImage>? images}) {
   );
   return ProviderScope(
     overrides: [
-      importedImagesProvider.overrideWith((ref) => images ?? [_stub()]),
+      importedImagesProvider(
+        ImageImportSessionKind.grid,
+      ).overrideWith((ref) => images ?? [_stub()]),
     ],
     child: MaterialApp.router(routerConfig: router),
   );

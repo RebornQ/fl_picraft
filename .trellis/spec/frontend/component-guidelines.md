@@ -97,6 +97,49 @@ class ProductCard extends ConsumerWidget {
 | Submit/confirm | `onSubmit` |
 | Dismiss/close | `onDismiss` |
 
+### Convention: Require a typed mode parameter when a widget feeds a `.family` provider
+
+**What**: When a reusable widget routes its user input into a Riverpod
+family provider keyed by a mode / kind enum, the widget MUST require the
+key as a `final` constructor parameter (no default). The caller is
+forced to spell out which family instance the widget feeds.
+
+**Example** — `ImageDropZone` from the image-import feature:
+
+```dart
+class ImageDropZone extends ConsumerWidget {
+  const ImageDropZone({
+    super.key,
+    required this.child,
+    required this.sessionKind,   // ← required, no default
+    ...
+  });
+
+  final ImageImportSessionKind sessionKind;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // ...
+    onPerformDrop: (event) async {
+      // ...
+      await ref
+          .read(imageImportControllerProvider(sessionKind).notifier)
+          .addFromDrop(raw);
+    },
+  }
+}
+```
+
+**Why**: Without a required parameter, callers either silently fall
+back to a default mode (leaks across sessions — the original bug this
+convention prevents) or have to remember to pass the right kind every
+time (silent omission becomes a runtime cross-mode contamination). A
+compile-time required parameter turns a "forgot to pick the mode"
+mistake into a build error.
+
+**See also**: `state-management.md` → "Pattern: Per-mode session
+isolation via `.family`".
+
 ---
 
 ## Styling Patterns

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/screens/stitch_editor_screen.dart';
@@ -37,9 +38,9 @@ Widget _stitchHarness({List<ImportedImage>? images}) {
   );
   return ProviderScope(
     overrides: [
-      importedImagesProvider.overrideWith(
-        (ref) => images ?? [_stub(tag: 'a'), _stub(tag: 'b')],
-      ),
+      importedImagesProvider(
+        ImageImportSessionKind.stitch,
+      ).overrideWith((ref) => images ?? [_stub(tag: 'a'), _stub(tag: 'b')]),
     ],
     child: MaterialApp.router(routerConfig: router),
   );

@@ -357,6 +357,58 @@ class ExportController extends Notifier<ExportState> {
 
 ---
 
+### Pattern: Parallel enum domains with explicit bridge function
+
+**Problem**: Two modules each need an enum that **happens to have the same value set today** but represents different domain concepts. Example: the **export** module has `ExportSourceKind { stitch, grid }` ("which editor invoked the export") and the **image_import** module has `ImageImportSessionKind { stitch, grid }` ("which editor owns this import session"). Tempting naive solutions:
+
+- **Reuse one enum across both modules** → forces `image_import` to import from `export` (reverse layer dependency: a `domain/entities/` enum now depends on a sibling feature's `presentation/providers/`) and entangles the two evolution timelines. The day `export` adds `ExportSourceKind.pdfMerge` (a future PDF-combine source that has **no** import session), every `image_import` site silently inherits a value it can't satisfy.
+- **Parameterize a single enum with a discriminator string** → over-engineered for two values and erodes the compile-time exhaustiveness that makes enums useful in the first place.
+
+**Solution**: define both enums independently in each module's own layer. Provide a single explicit **bridge function** living on the side that *consumes* the mapping, not on either domain enum:
+
+```dart
+// lib/features/image_import/domain/entities/image_import_session_kind.dart
+enum ImageImportSessionKind { stitch, grid }
+
+// lib/features/export/presentation/providers/export_dispatch.dart
+enum ExportSourceKind { stitch, grid }
+
+ImageImportSessionKind sessionKindFor(ExportSourceKind kind) {
+  return switch (kind) {
+    ExportSourceKind.stitch => ImageImportSessionKind.stitch,
+    ExportSourceKind.grid => ImageImportSessionKind.grid,
+  };
+}
+```
+
+**Why two types and not one**:
+
+- **No reverse layer dependency**: the import enum lives in `domain/entities/` and knows nothing about export's `presentation/providers/`. Each module is closed under its own dependency arrows.
+- **Independent evolution**: if export grows a value with no import counterpart (`pdfMerge`), the bridge is the single place that compile-errors. You can't accidentally route a PDF-merge export through a per-editor import session.
+- **Exhaustive switch on the bridge**: adding a value to either enum forces the bridge to be updated (or kept divergent by design). The compiler enforces the contract.
+
+**When NOT to use**: if two modules genuinely model the **same** domain concept (e.g. both `auth` and `profile` use `UserRole { admin, member, guest }`) — there is one underlying truth and the enum belongs in `core/` or a shared `domain/`. Use this pattern only when the values happen to coincide today but the **concepts** are independent (which is most cases at module boundaries).
+
+**Don't write a generic `Map` instead of a `switch`**:
+
+```dart
+// ❌ Don't — loses exhaustiveness; silently goes stale when either enum changes
+const _kindBridge = <ExportSourceKind, ImageImportSessionKind>{
+  ExportSourceKind.stitch: ImageImportSessionKind.stitch,
+  ExportSourceKind.grid: ImageImportSessionKind.grid,
+};
+```
+
+A `Map` literal won't compile-error when either enum gains a value; a `switch` will. Always prefer the `switch`.
+
+**Where this lives** (current implementations):
+- `lib/features/image_import/domain/entities/image_import_session_kind.dart` — independent enum + stability dartdoc (enum value names are Riverpod family cache keys; rename = break test overrides)
+- `lib/features/export/presentation/providers/export_dispatch.dart::sessionKindFor` — the bridge
+
+**Related**: `state-management.md` → "Pattern: Per-mode session isolation via `.family`" — `ImageImportSessionKind` is the family key.
+
+---
+
 ## Forbidden Patterns
 
 ### ❌ Don't

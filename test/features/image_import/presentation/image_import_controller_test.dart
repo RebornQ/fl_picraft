@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_failure.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_result.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/raw_image_bytes.dart';
 import 'package:fl_picraft/features/image_import/domain/repositories/image_import_repository.dart';
@@ -17,6 +18,12 @@ void main() {
   setUpAll(() {
     registerFallbackValue(const <RawImageBytes>[]);
   });
+
+  // Most behaviour tests run against the stitch session — the controller
+  // itself is identical across kinds, the family arg is only a cache
+  // key. The dedicated "session isolation" group at the bottom of this
+  // file pumps both kinds to assert they stay independent.
+  const kind = ImageImportSessionKind.stitch;
 
   group('ImageImportController', () {
     late _MockRepo repo;
@@ -36,7 +43,7 @@ void main() {
       addTearDown(container.dispose);
 
       final initial = await container.read(
-        imageImportControllerProvider.future,
+        imageImportControllerProvider(kind).future,
       );
       expect(initial, isEmpty);
     });
@@ -50,12 +57,12 @@ void main() {
       addTearDown(container.dispose);
 
       // Wait for initial build.
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .pickFromGallery();
 
-      final state = container.read(imageImportControllerProvider);
+      final state = container.read(imageImportControllerProvider(kind));
       expect(state.valueOrNull, isNotNull);
       expect(state.valueOrNull!, hasLength(1));
     });
@@ -72,11 +79,11 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
 
       // Drop 25 raw items.
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .addFromDrop(
             List.generate(
               25,
@@ -84,7 +91,9 @@ void main() {
             ),
           );
 
-      final list = container.read(imageImportControllerProvider).valueOrNull!;
+      final list = container
+          .read(imageImportControllerProvider(kind))
+          .valueOrNull!;
       expect(
         list,
         hasLength(kMaxImportSessionImages),
@@ -92,7 +101,9 @@ void main() {
             'Even when the repository returns more than 20 images, the '
             'controller must enforce the per-session cap.',
       );
-      final controller = container.read(imageImportControllerProvider.notifier);
+      final controller = container.read(
+        imageImportControllerProvider(kind).notifier,
+      );
       expect(controller.lastWarning, isA<TooManyImages>());
     });
 
@@ -105,13 +116,13 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
 
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .pasteFromClipboard();
 
-      final state = container.read(imageImportControllerProvider);
+      final state = container.read(imageImportControllerProvider(kind));
       expect(state, isA<AsyncError<List<ImportedImage>>>());
       expect(state.error, isA<InvalidImageData>());
     });
@@ -124,22 +135,22 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .pickFromGallery();
-      expect(container.read(importedImagesProvider), hasLength(1));
+      expect(container.read(importedImagesProvider(kind)), hasLength(1));
 
       // Now simulate user cancelling the camera prompt.
       when(
         () => repo.captureFromCamera(),
       ).thenAnswer((_) async => const ImportFailure(ImportCancelled()));
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .captureFromCamera();
 
       // List should still have the originally-picked image.
-      expect(container.read(importedImagesProvider), hasLength(1));
+      expect(container.read(importedImagesProvider(kind)), hasLength(1));
     });
 
     test('removeAt drops the indexed image', () async {
@@ -149,14 +160,14 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .pickFromGallery();
 
-      container.read(imageImportControllerProvider.notifier).removeAt(1);
+      container.read(imageImportControllerProvider(kind).notifier).removeAt(1);
 
-      final list = container.read(importedImagesProvider);
+      final list = container.read(importedImagesProvider(kind));
       expect(list.map((i) => i.sourcePath).toList(), ['a', 'c']);
     });
 
@@ -167,17 +178,19 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .pickFromGallery();
 
       // Move 'a' to the end (ListView.reorder convention: newIndex
       // counts the gap *after* the destination, so newIndex=3 inserts
       // at the end of a 3-item list).
-      container.read(imageImportControllerProvider.notifier).reorder(0, 3);
+      container
+          .read(imageImportControllerProvider(kind).notifier)
+          .reorder(0, 3);
 
-      final list = container.read(importedImagesProvider);
+      final list = container.read(importedImagesProvider(kind));
       expect(list.map((i) => i.sourcePath).toList(), ['b', 'c', 'a']);
     });
 
@@ -188,14 +201,199 @@ void main() {
 
       final container = makeContainer();
       addTearDown(container.dispose);
-      await container.read(imageImportControllerProvider.future);
+      await container.read(imageImportControllerProvider(kind).future);
       await container
-          .read(imageImportControllerProvider.notifier)
+          .read(imageImportControllerProvider(kind).notifier)
           .pickFromGallery();
 
-      container.read(imageImportControllerProvider.notifier).clear();
+      container.read(imageImportControllerProvider(kind).notifier).clear();
 
-      expect(container.read(importedImagesProvider), isEmpty);
+      expect(container.read(importedImagesProvider(kind)), isEmpty);
+    });
+  });
+
+  group('ImageImportController — per-mode session isolation', () {
+    late _MockRepo repo;
+
+    setUp(() {
+      repo = _MockRepo();
+    });
+
+    ProviderContainer makeContainer() {
+      return ProviderContainer(
+        overrides: [imageImportRepositoryProvider.overrideWithValue(repo)],
+      );
+    }
+
+    test('stitch and grid sessions store images independently', () async {
+      when(
+        () => repo.pickFromGallery(limit: any(named: 'limit')),
+      ).thenAnswer((_) async => ImportSuccess([_image('only-stitch')]));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      // Trigger initial build for both kinds so the family instances
+      // exist in the container.
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch).future,
+      );
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).future,
+      );
+
+      // Pick into stitch only.
+      await container
+          .read(
+            imageImportControllerProvider(
+              ImageImportSessionKind.stitch,
+            ).notifier,
+          )
+          .pickFromGallery();
+
+      expect(
+        container.read(importedImagesProvider(ImageImportSessionKind.stitch)),
+        hasLength(1),
+      );
+      expect(
+        container.read(importedImagesProvider(ImageImportSessionKind.grid)),
+        isEmpty,
+        reason: 'grid session must stay empty when only stitch was imported',
+      );
+    });
+
+    test('lastWarning is per-instance', () async {
+      // Stitch path produces a TooManyImages warning; grid path stays
+      // clean.
+      when(() => repo.importRawBytes(any())).thenAnswer((invocation) async {
+        final input =
+            invocation.positionalArguments.first as List<RawImageBytes>;
+        return ImportSuccess(
+          List.generate(input.length, (i) => _image('drop-$i')),
+        );
+      });
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch).future,
+      );
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).future,
+      );
+
+      await container
+          .read(
+            imageImportControllerProvider(
+              ImageImportSessionKind.stitch,
+            ).notifier,
+          )
+          .addFromDrop(
+            List.generate(
+              25,
+              (_) => RawImageBytes(bytes: Uint8List.fromList([0])),
+            ),
+          );
+
+      final stitchController = container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+      );
+      final gridController = container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+      );
+      expect(stitchController.lastWarning, isA<TooManyImages>());
+      expect(
+        gridController.lastWarning,
+        isNull,
+        reason: 'grid session warning must not be flagged by stitch import',
+      );
+    });
+
+    test('clear on one kind does not affect the other', () async {
+      when(
+        () => repo.pickFromGallery(limit: any(named: 'limit')),
+      ).thenAnswer((_) async => ImportSuccess([_image('shared')]));
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      // Populate both.
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch).future,
+      );
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).future,
+      );
+      await container
+          .read(
+            imageImportControllerProvider(
+              ImageImportSessionKind.stitch,
+            ).notifier,
+          )
+          .pickFromGallery();
+      await container
+          .read(
+            imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+          )
+          .pickFromGallery();
+
+      // Clear stitch only.
+      container
+          .read(
+            imageImportControllerProvider(
+              ImageImportSessionKind.stitch,
+            ).notifier,
+          )
+          .clear();
+
+      expect(
+        container.read(importedImagesProvider(ImageImportSessionKind.stitch)),
+        isEmpty,
+      );
+      expect(
+        container.read(importedImagesProvider(ImageImportSessionKind.grid)),
+        hasLength(1),
+        reason: 'clearing stitch must not touch the grid session',
+      );
+    });
+
+    test('AsyncError on stitch does not surface on grid', () async {
+      when(() => repo.pasteFromClipboard()).thenAnswer(
+        (_) async => const ImportFailure(
+          InvalidImageData('Clipboard does not contain a supported image.'),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch).future,
+      );
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).future,
+      );
+
+      await container
+          .read(
+            imageImportControllerProvider(
+              ImageImportSessionKind.stitch,
+            ).notifier,
+          )
+          .pasteFromClipboard();
+
+      final stitchState = container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch),
+      );
+      final gridState = container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid),
+      );
+      expect(stitchState, isA<AsyncError<List<ImportedImage>>>());
+      expect(
+        gridState,
+        isA<AsyncData<List<ImportedImage>>>(),
+        reason: 'grid must remain in AsyncData when stitch fails',
+      );
+      expect(gridState.valueOrNull, isEmpty);
     });
   });
 }

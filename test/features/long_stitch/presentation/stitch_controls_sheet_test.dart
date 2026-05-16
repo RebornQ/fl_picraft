@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:fl_picraft/features/long_stitch/domain/entities/stitch_editor_state.dart';
@@ -22,7 +23,11 @@ void main() {
 
   Widget pumpHarness({required List<ImportedImage> images}) {
     return ProviderScope(
-      overrides: [importedImagesProvider.overrideWith((ref) => images)],
+      overrides: [
+        importedImagesProvider(
+          ImageImportSessionKind.stitch,
+        ).overrideWith((ref) => images),
+      ],
       child: const MaterialApp(
         home: Scaffold(
           // Bottom-aligned so the sheet doesn't overflow during pump.
@@ -88,9 +93,9 @@ void main() {
     // Use a wider container so the slider has measurable extent.
     final container = ProviderContainer(
       overrides: [
-        importedImagesProvider.overrideWith(
-          (ref) => [stub(tag: 'a'), stub(tag: 'b')],
-        ),
+        importedImagesProvider(
+          ImageImportSessionKind.stitch,
+        ).overrideWith((ref) => [stub(tag: 'a'), stub(tag: 'b')]),
       ],
     );
     addTearDown(container.dispose);
@@ -139,7 +144,9 @@ void main() {
   ) async {
     final container = ProviderContainer(
       overrides: [
-        importedImagesProvider.overrideWith((ref) => [stub(), stub()]),
+        importedImagesProvider(
+          ImageImportSessionKind.stitch,
+        ).overrideWith((ref) => [stub(), stub()]),
       ],
     );
     addTearDown(container.dispose);

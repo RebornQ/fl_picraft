@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/errors/user_facing_messages.dart';
 import '../../../export/presentation/providers/export_dispatch.dart';
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../../image_import/presentation/widgets/image_drop_zone.dart';
@@ -60,20 +61,20 @@ class GridEditorScreen extends ConsumerWidget {
     final notifier = ref.read(gridEditorControllerProvider.notifier);
 
     // Surface image-import failures (same rationale as the stitch
-    // editor — see `stitch_editor_screen.dart`). Both editors wrap
-    // their bodies in [ImageDropZone], which is how drag-drop failures
-    // also flow through `imageImportControllerProvider`.
-    ref.listen<AsyncValue<List<ImportedImage>>>(imageImportControllerProvider, (
-      previous,
-      next,
-    ) {
-      if (next is! AsyncError) return;
-      if (!context.mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(content: Text(importFailureMessage(next.error))),
-      );
-    });
+    // editor — see `stitch_editor_screen.dart`). The grid editor
+    // listens to its own `(.grid)` family instance so stitch-side
+    // import errors never surface here.
+    ref.listen<AsyncValue<List<ImportedImage>>>(
+      imageImportControllerProvider(ImageImportSessionKind.grid),
+      (previous, next) {
+        if (next is! AsyncError) return;
+        if (!context.mounted) return;
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger?.showSnackBar(
+          SnackBar(content: Text(importFailureMessage(next.error))),
+        );
+      },
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -104,7 +105,12 @@ class GridEditorScreen extends ConsumerWidget {
               label: const Text('导出'),
             )
           : null,
-      body: const SafeArea(child: ImageDropZone(child: _GridEditorBody())),
+      body: const SafeArea(
+        child: ImageDropZone(
+          sessionKind: ImageImportSessionKind.grid,
+          child: _GridEditorBody(),
+        ),
+      ),
     );
   }
 

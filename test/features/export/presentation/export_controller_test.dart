@@ -9,6 +9,7 @@ import 'package:fl_picraft/features/export/presentation/providers/export_dispatc
 import 'package:fl_picraft/features/grid/data/renderers/grid_image_renderer.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/grid_render_request.dart';
 import 'package:fl_picraft/features/grid/presentation/providers/grid_editor_provider.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:fl_picraft/features/long_stitch/data/renderers/stitch_image_renderer.dart';
@@ -88,7 +89,15 @@ void main() {
       return ProviderContainer(
         overrides: [
           exportRepositoryProvider.overrideWithValue(repo),
-          importedImagesProvider.overrideWithValue(images),
+          // Stitch and grid editors each watch their own family
+          // instance — override both so the existing tests can pump
+          // identical images into both editors via a single helper.
+          importedImagesProvider(
+            ImageImportSessionKind.stitch,
+          ).overrideWithValue(images),
+          importedImagesProvider(
+            ImageImportSessionKind.grid,
+          ).overrideWithValue(images),
           stitchImageRendererProvider.overrideWithValue(
             const _FakeStitchRenderer(),
           ),
@@ -179,7 +188,14 @@ void main() {
   group('canExportProvider', () {
     test('false when both editors are empty', () {
       final container = ProviderContainer(
-        overrides: [importedImagesProvider.overrideWithValue(const [])],
+        overrides: [
+          importedImagesProvider(
+            ImageImportSessionKind.stitch,
+          ).overrideWithValue(const []),
+          importedImagesProvider(
+            ImageImportSessionKind.grid,
+          ).overrideWithValue(const []),
+        ],
       );
       addTearDown(container.dispose);
       expect(container.read(canExportProvider), isFalse);
@@ -188,7 +204,12 @@ void main() {
     test('true for stitch kind when stitch editor has images', () {
       final container = ProviderContainer(
         overrides: [
-          importedImagesProvider.overrideWithValue([_fakeImage('a')]),
+          importedImagesProvider(
+            ImageImportSessionKind.stitch,
+          ).overrideWithValue([_fakeImage('a')]),
+          importedImagesProvider(
+            ImageImportSessionKind.grid,
+          ).overrideWithValue(const []),
         ],
       );
       addTearDown(container.dispose);
@@ -199,7 +220,12 @@ void main() {
     test('true for grid kind when grid editor has a source', () {
       final container = ProviderContainer(
         overrides: [
-          importedImagesProvider.overrideWithValue([_fakeImage('a')]),
+          importedImagesProvider(
+            ImageImportSessionKind.stitch,
+          ).overrideWithValue(const []),
+          importedImagesProvider(
+            ImageImportSessionKind.grid,
+          ).overrideWithValue([_fakeImage('a')]),
         ],
       );
       addTearDown(container.dispose);
@@ -213,7 +239,12 @@ void main() {
     test('stitch kind label has no cell count; grid kind includes count', () {
       final container = ProviderContainer(
         overrides: [
-          importedImagesProvider.overrideWithValue([_fakeImage('a')]),
+          importedImagesProvider(
+            ImageImportSessionKind.stitch,
+          ).overrideWithValue([_fakeImage('a')]),
+          importedImagesProvider(
+            ImageImportSessionKind.grid,
+          ).overrideWithValue([_fakeImage('a')]),
         ],
       );
       addTearDown(container.dispose);

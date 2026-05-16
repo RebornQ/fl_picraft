@@ -255,6 +255,57 @@ void main() {
 }
 ```
 
+### Pattern: Plain `test` over `testWidgets` for `AsyncNotifier`-only assertions
+
+**Problem**: A test wants to assert provider-level behavior on an `AsyncNotifier` (family-instance isolation, `AsyncError` propagation across instances, `clear()` semantics). Wrapping it in `testWidgets` so you can `pumpWidget` introduces `FakeAsync` — and Riverpod's `AsyncNotifier` scheduler then complains about pending timers at teardown:
+
+```
+A Timer is still pending even after the widget tree was disposed.
+```
+
+This is **not** a bug in your code — it's the interaction between `FakeAsync` (which `testWidgets` installs) and the `AsyncNotifier` microtask scheduler. Pumping more (`tester.pumpAndSettle()`) doesn't always drain it because the scheduler can re-arm.
+
+**Solution**: when the assertion target is the **provider's state**, not the widget tree, drop `testWidgets` and drive a manual `ProviderContainer` from a plain `test`:
+
+```dart
+test('stitch picks do not appear in grid session', () async {
+  final container = ProviderContainer(overrides: [
+    imageImportRepositoryProvider.overrideWithValue(_StubRepo()),
+  ]);
+  addTearDown(container.dispose);
+
+  await container.read(
+    imageImportControllerProvider(ImageImportSessionKind.stitch).future,
+  );
+  await container
+      .read(imageImportControllerProvider(ImageImportSessionKind.stitch).notifier)
+      .pickFromGallery();
+
+  expect(
+    container.read(importedImagesProvider(ImageImportSessionKind.stitch)),
+    hasLength(1),
+  );
+  expect(
+    container.read(importedImagesProvider(ImageImportSessionKind.grid)),
+    isEmpty,
+  );
+});
+```
+
+**When to use `testWidgets`**: the assertion target is the widget tree (a `SnackBar` surfaces, a button enables / disables, layout changes at a viewport size). The FakeAsync interaction is tolerable there because you're already pumping widgets and can `pumpAndSettle`.
+
+**When to use plain `test` + `ProviderContainer`**:
+- Family-instance isolation (provider A and provider B don't share state)
+- `AsyncNotifier` state transitions in isolation (`AsyncLoading` → `AsyncError` → `AsyncData`)
+- `Provider`-derived value sanity (`importedImagesProvider` reads correctly off the controller)
+- Anything where the widget tree is incidental
+
+**Where this lives** (current implementations):
+- `test/features/image_import/presentation/cross_mode_isolation_test.dart` — cross-mode isolation uses plain `test` + `ProviderContainer`
+- `test/features/image_import/presentation/image_import_controller_test.dart` — controller unit tests follow the same pattern
+
+**Don't reach for `tester.pumpAndSettle()` to mask the timer leak** — it can pass on one machine and flake on CI. If the widget tree adds no value to the assertion, the right fix is dropping `testWidgets` entirely, not pumping harder.
+
 ### Pattern: Performance benchmarks via `@Tags(['benchmark'])`
 
 **What**: Place all performance benchmarks in `test/benchmarks/` and tag them with `@Tags(['benchmark'])`. Configure `dart_test.yaml` to skip the tag by default:

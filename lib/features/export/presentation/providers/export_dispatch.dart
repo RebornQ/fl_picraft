@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../grid/domain/entities/grid_type.dart';
 import '../../../grid/presentation/providers/grid_editor_provider.dart';
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../long_stitch/presentation/providers/stitch_editor_provider.dart';
 import '../../data/datasources/gallery_saver_datasource.dart';
 
@@ -12,6 +13,23 @@ import '../../data/datasources/gallery_saver_datasource.dart';
 /// export controller dispatches its render + persist pipeline on the
 /// value at save time so a single `/export` route services both flows.
 enum ExportSourceKind { stitch, grid }
+
+/// Map an [ExportSourceKind] to the [ImageImportSessionKind] whose
+/// import session feeds that editor.
+///
+/// The two enums happen to enumerate the same set of editors today but
+/// are kept as independent types per `state-management.md` →
+/// "Pattern: Per-mode session isolation via .family" (export sources
+/// and import sessions are different concerns). This helper is the
+/// single bridge point — any caller that needs to look up the import
+/// session for an export source goes through here so the mapping stays
+/// in one place.
+ImageImportSessionKind sessionKindFor(ExportSourceKind kind) {
+  return switch (kind) {
+    ExportSourceKind.stitch => ImageImportSessionKind.stitch,
+    ExportSourceKind.grid => ImageImportSessionKind.grid,
+  };
+}
 
 /// Routing-state provider — flipped by editor screens just before they
 /// navigate to `/export`. Defaults to [ExportSourceKind.stitch] so a

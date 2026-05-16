@@ -4,6 +4,7 @@ import '../../data/datasources/drag_drop_datasource.dart';
 import '../../data/repositories/image_import_repository_impl.dart';
 import '../../domain/entities/image_import_failure.dart';
 import '../../domain/entities/image_import_result.dart';
+import '../../domain/entities/image_import_session_kind.dart';
 import '../../domain/entities/imported_image.dart';
 import '../../domain/entities/raw_image_bytes.dart';
 import '../../domain/repositories/image_import_repository.dart';
@@ -22,19 +23,34 @@ final dragDropDataSourceProvider = Provider<DragDropDataSource>((ref) {
   return const DragDropDataSource();
 });
 
-/// Reactive view over the most recent import result.
+/// Reactive view over the most recent import result, scoped per
+/// [ImageImportSessionKind].
 ///
 /// State is `AsyncData([])` initially; calling any of the trigger
 /// methods flips to `AsyncLoading` then back to `AsyncData(images)` (or
 /// `AsyncError(failure)` on failure).
 ///
+/// Each [ImageImportSessionKind] gets its own instance of this notifier
+/// — the long-stitch editor's imports live in
+/// `imageImportControllerProvider(ImageImportSessionKind.stitch)` and
+/// the grid-split editor's live in
+/// `imageImportControllerProvider(ImageImportSessionKind.grid)`. The
+/// two instances do not share state; failures in one never surface as
+/// errors in the other.
+///
 /// The notifier owns the current "import session" — i.e. the list of
 /// images chosen via any combination of sources. Downstream features
 /// (Long Stitch, Grid Split) watch [importedImagesProvider] for the
 /// list shape they need.
-class ImageImportController extends AsyncNotifier<List<ImportedImage>> {
+class ImageImportController
+    extends FamilyAsyncNotifier<List<ImportedImage>, ImageImportSessionKind> {
   @override
-  Future<List<ImportedImage>> build() async => const [];
+  Future<List<ImportedImage>> build(ImageImportSessionKind kind) async {
+    // The session-kind argument is purely a cache key — the controller's
+    // behaviour is identical across modes. Each mode just gets its own
+    // independent storage.
+    return const [];
+  }
 
   ImageImportRepository get _repo => ref.read(imageImportRepositoryProvider);
 
@@ -161,15 +177,25 @@ class ImageImportController extends AsyncNotifier<List<ImportedImage>> {
   }
 }
 
-/// Async session of imported images.
+/// Per-mode async session of imported images.
+///
+/// Each [ImageImportSessionKind] is an isolated instance — reading
+/// `imageImportControllerProvider(ImageImportSessionKind.stitch)` and
+/// `imageImportControllerProvider(ImageImportSessionKind.grid)` returns
+/// two unrelated controllers. See the enum's dartdoc for the rationale.
 final imageImportControllerProvider =
-    AsyncNotifierProvider<ImageImportController, List<ImportedImage>>(
-      ImageImportController.new,
-    );
+    AsyncNotifierProvider.family<
+      ImageImportController,
+      List<ImportedImage>,
+      ImageImportSessionKind
+    >(ImageImportController.new);
 
-/// Convenience: the bare `List<ImportedImage>` (or empty during load).
-/// Features that just need the list watch this instead of the controller
-/// to avoid rebuilds on transient AsyncLoading flips.
-final importedImagesProvider = Provider<List<ImportedImage>>((ref) {
-  return ref.watch(imageImportControllerProvider).valueOrNull ?? const [];
-});
+/// Convenience: the bare `List<ImportedImage>` for a given session kind
+/// (or empty during load). Features that just need the list watch this
+/// instead of the controller to avoid rebuilds on transient
+/// AsyncLoading flips.
+final importedImagesProvider =
+    Provider.family<List<ImportedImage>, ImageImportSessionKind>((ref, kind) {
+      return ref.watch(imageImportControllerProvider(kind)).valueOrNull ??
+          const [];
+    });

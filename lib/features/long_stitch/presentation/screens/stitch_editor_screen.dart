@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/errors/user_facing_messages.dart';
 import '../../../export/presentation/providers/export_dispatch.dart';
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../../image_import/presentation/widgets/image_drop_zone.dart';
@@ -60,24 +61,23 @@ class StitchEditorScreen extends ConsumerWidget {
     final state = ref.watch(stitchEditorControllerProvider);
 
     // Surface image-import failures the editor's import affordances
-    // funnel into AsyncError on the shared controller. Without this
-    // listen the picker rejection / unsupported-source / invalid-data
-    // failures were silently dropped (the editor reads
-    // `importedImagesProvider` which collapses error to an empty
-    // list). One attach per editor screen is enough — both editors
-    // wrap their bodies in [ImageDropZone] but neither is mounted at
-    // the same time as the other, so we won't see duplicate snackbars.
-    ref.listen<AsyncValue<List<ImportedImage>>>(imageImportControllerProvider, (
-      previous,
-      next,
-    ) {
-      if (next is! AsyncError) return;
-      if (!context.mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger?.showSnackBar(
-        SnackBar(content: Text(importFailureMessage(next.error))),
-      );
-    });
+    // funnel into AsyncError on the stitch-scoped controller. Without
+    // this listen the picker rejection / unsupported-source /
+    // invalid-data failures were silently dropped (the editor reads
+    // `importedImagesProvider(.stitch)` which collapses error to an
+    // empty list). The grid editor listens to its own
+    // `(.grid)` instance — errors never cross modes.
+    ref.listen<AsyncValue<List<ImportedImage>>>(
+      imageImportControllerProvider(ImageImportSessionKind.stitch),
+      (previous, next) {
+        if (next is! AsyncError) return;
+        if (!context.mounted) return;
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger?.showSnackBar(
+          SnackBar(content: Text(importFailureMessage(next.error))),
+        );
+      },
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -102,7 +102,12 @@ class StitchEditorScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: const SafeArea(child: ImageDropZone(child: _StitchEditorBody())),
+      body: const SafeArea(
+        child: ImageDropZone(
+          sessionKind: ImageImportSessionKind.stitch,
+          child: _StitchEditorBody(),
+        ),
+      ),
     );
   }
 

@@ -2,10 +2,11 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
+import '../../domain/entities/image_import_session_kind.dart';
 import '../providers/image_import_provider.dart';
 
 /// Wraps a [child] in a `DropRegion` that funnels dropped images into
-/// the [imageImportControllerProvider].
+/// the [imageImportControllerProvider] keyed by [sessionKind].
 ///
 /// This widget exists because `super_drag_and_drop`'s `DropRegion` must
 /// live in the widget tree — there's no way to express "drag-drop input"
@@ -14,6 +15,11 @@ import '../providers/image_import_provider.dart';
 /// `data/datasources/drag_drop_datasource.dart`; the widget only knows
 /// the data source's `evaluateDropOver` / `extractDroppedImages` API.
 ///
+/// Callers MUST decide explicitly which import session a drop belongs
+/// to via [sessionKind] — the field is required (no default) so a
+/// caller forgetting to pick a mode is a compile-time error rather
+/// than a silent cross-mode leak.
+///
 /// On platforms that don't support drag-drop (mobile),
 /// `super_drag_and_drop`'s `DropRegion` simply never receives events,
 /// so the widget is harmless to wrap unconditionally.
@@ -21,6 +27,7 @@ class ImageDropZone extends ConsumerWidget {
   const ImageDropZone({
     super.key,
     required this.child,
+    required this.sessionKind,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.onDragOver,
     this.onDragLeave,
@@ -29,6 +36,11 @@ class ImageDropZone extends ConsumerWidget {
   /// The content to wrap. Often a `Stack` containing the editor's
   /// canvas and an overlay highlight that listens to [onDragOver].
   final Widget child;
+
+  /// Which import session this drop zone feeds. Each editor screen
+  /// passes its own kind (`.stitch` / `.grid` / …) so drops never
+  /// leak between modes.
+  final ImageImportSessionKind sessionKind;
 
   /// Hit-test behavior for the underlying [DropRegion]. Default
   /// matches super_drag_and_drop's example.
@@ -62,7 +74,9 @@ class ImageDropZone extends ConsumerWidget {
         onDragOver?.call(false);
         final raw = await dataSource.extractDroppedImages(event);
         if (raw.isEmpty) return;
-        await ref.read(imageImportControllerProvider.notifier).addFromDrop(raw);
+        await ref
+            .read(imageImportControllerProvider(sessionKind).notifier)
+            .addFromDrop(raw);
       },
       child: child,
     );

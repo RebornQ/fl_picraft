@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../data/renderers/stitch_image_renderer.dart';
@@ -25,11 +26,14 @@ final stitchImageRendererProvider = Provider<StitchImageRenderer>((ref) {
 class StitchEditorController extends Notifier<StitchEditorState> {
   @override
   StitchEditorState build() {
-    // Seed the editor with whatever the import controller currently
-    // holds, then keep the two in sync. Listening lets the editor
-    // pick up images dropped/pasted while it's already on screen.
-    final initial = ref.read(importedImagesProvider);
-    ref.listen<List<ImportedImage>>(importedImagesProvider, (prev, next) {
+    // Seed the editor with whatever the stitch-scoped import controller
+    // currently holds, then keep the two in sync. Listening lets the
+    // editor pick up images dropped/pasted while it's already on
+    // screen. The grid editor watches its own family instance — the
+    // two sessions never share state.
+    const kind = ImageImportSessionKind.stitch;
+    final initial = ref.read(importedImagesProvider(kind));
+    ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
       // Replace the editor's image list verbatim. The import
       // controller already enforces the 20-image cap.
       state = state.copyWith(images: next);
@@ -95,37 +99,60 @@ class StitchEditorController extends Notifier<StitchEditorState> {
   void removeImage(int index) {
     if (index < 0 || index >= state.images.length) return;
     // Drive the import controller so both stay in sync.
-    ref.read(imageImportControllerProvider.notifier).removeAt(index);
+    ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+        )
+        .removeAt(index);
   }
 
   /// Reorder the editor list. Delegates to the import controller so
-  /// other features observing `importedImagesProvider` see the same
-  /// order. The `newIndex` follows the standard Flutter reorderable
-  /// convention (post-removal coordinate space); the import controller
-  /// handles the `> oldIndex ? - 1 : 0` adjustment internally.
+  /// other features observing `importedImagesProvider(.stitch)` see
+  /// the same order. The `newIndex` follows the standard Flutter
+  /// reorderable convention (post-removal coordinate space); the
+  /// import controller handles the `> oldIndex ? - 1 : 0` adjustment
+  /// internally.
   void reorder(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= state.images.length) return;
     ref
-        .read(imageImportControllerProvider.notifier)
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+        )
         .reorder(oldIndex, newIndex);
   }
 
   /// Append images via the gallery picker — reuses the existing
   /// import flow rather than re-implementing it.
   Future<void> addFromGallery() async {
-    await ref.read(imageImportControllerProvider.notifier).pickFromGallery();
+    await ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+        )
+        .pickFromGallery();
   }
 
   Future<void> addFromCamera() async {
-    await ref.read(imageImportControllerProvider.notifier).captureFromCamera();
+    await ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+        )
+        .captureFromCamera();
   }
 
   Future<void> pasteFromClipboard() async {
-    await ref.read(imageImportControllerProvider.notifier).pasteFromClipboard();
+    await ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+        )
+        .pasteFromClipboard();
   }
 
   void clear() {
-    ref.read(imageImportControllerProvider.notifier).clear();
+    ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.stitch).notifier,
+        )
+        .clear();
   }
 
   // ---- rendering --------------------------------------------------------

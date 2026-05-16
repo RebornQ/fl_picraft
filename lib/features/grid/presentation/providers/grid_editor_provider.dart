@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../image_import/domain/entities/image_import_result.dart';
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../data/renderers/grid_image_renderer.dart';
@@ -27,10 +28,13 @@ class GridEditorController extends Notifier<GridEditorState> {
   @override
   GridEditorState build() {
     // The grid editor consumes a single source image — by convention
-    // the first imported image. We listen to the import controller so
-    // the editor picks up a new source when the user re-imports.
-    final initial = ref.read(importedImagesProvider);
-    ref.listen<List<ImportedImage>>(importedImagesProvider, (prev, next) {
+    // the first imported image from the grid-scoped import session.
+    // We listen so the editor picks up a new source when the user
+    // re-imports. The stitch editor watches its own session — the two
+    // never share state.
+    const kind = ImageImportSessionKind.grid;
+    final initial = ref.read(importedImagesProvider(kind));
+    ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
       _syncSourceFromImports(next);
     });
     final source = initial.isNotEmpty ? initial.first : null;
@@ -196,20 +200,36 @@ class GridEditorController extends Notifier<GridEditorState> {
   /// will become the source (existing imports + new ones combine
   /// through the import controller's session cap).
   Future<void> addFromGallery() async {
-    await ref.read(imageImportControllerProvider.notifier).pickFromGallery();
+    await ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+        )
+        .pickFromGallery();
   }
 
   Future<void> addFromCamera() async {
-    await ref.read(imageImportControllerProvider.notifier).captureFromCamera();
+    await ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+        )
+        .captureFromCamera();
   }
 
   Future<void> pasteFromClipboard() async {
-    await ref.read(imageImportControllerProvider.notifier).pasteFromClipboard();
+    await ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+        )
+        .pasteFromClipboard();
   }
 
   /// Clear the editor (drops the source image too).
   void clear() {
-    ref.read(imageImportControllerProvider.notifier).clear();
+    ref
+        .read(
+          imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+        )
+        .clear();
   }
 
   // ---- rendering --------------------------------------------------------
