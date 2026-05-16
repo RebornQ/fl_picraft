@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本次扩展上一轮新增的 'Compact-mode editor body — height-first Column skeleton' pattern 到 expanded/large 双栏布局，必须复用并扩展同一 pattern"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "GridPreviewCanvas 的 sizing contract 已经迁移到调用方，本次改动调用方包法（保留 Center+AspectRatio），需遵循组件规范"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "新增 expanded/large 模式的「画布高度 ≤ 容器高度 + 不出现外层垂直滚动」断言并跑 analyze/test/format 三红线"}
+{"file": ".trellis/tasks/archive/2026-05/05-16-grid-canvas-height-first-fit/prd.md", "reason": "上一轮任务 PRD 把 expanded/large 列为 Out-of-Scope，本次是 follow-up 修复其判断失误，必须明确该任务的边界与本任务的衔接"}

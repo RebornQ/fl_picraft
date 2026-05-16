@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终 analyze/format/test 三红线必须全绿；新增 expanded/large 不超高断言要稳定通过"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "复核 pattern 段落扩写后与 compact/medium 描述自洽、responsive behavior table grid_editor 行 expanded/large 列已更新为 height-first 表述"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 GridPreviewCanvas 的 doc-comment 与新职责（所有 size class 都 fit-by-height-or-min-dim）一致"}
+{"file": ".trellis/tasks/05-17-grid-canvas-height-first-expanded-large/prd.md", "reason": "对照本任务 AC + DoD 逐项确认（1280×800 / 1920×1080 / 2560×1440 三尺寸下画布正方形 + 不超高 + 不滚动 + 面板 docked + 三红线）"}
