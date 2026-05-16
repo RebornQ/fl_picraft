@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/05-16-editor-fill-container-width/prd.md", "reason": "子任务1 PRD — 母任务通过子任务推进实施，必须保证母任务 D1/D2/D3 决策被覆盖"}
-{"file": ".trellis/tasks/05-16-per-mode-import-isolation/prd.md", "reason": "子任务2 PRD — 母任务通过子任务推进实施，必须保证母任务 D4/D5 决策被覆盖"}
-{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "母任务集成回归 — 子任务1 改完后，从母任务视角复核 spec 改写一致性"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "母任务集成回归 — 子任务2 改完后，从母任务视角复核 family 范式 spec 一致性"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "母任务集成 smoke 测试红线 — 跨 subtask 的整合回归必须 analyze / test 全绿"}

@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本次改动核心是 compact/medium 响应式骨架重构（ListView → Column+Expanded），必须按 window size class 与「主内容固定 / 副内容滚动」pattern 落地"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "GridPreviewCanvas 内部 AspectRatio 责任迁移到调用方，涉及 widget composition / props 边界，必须遵循组件规范"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "确认改动不破坏 gridEditorControllerProvider 的 select/watch 用法，避免在 build 阶段误改 provider"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "compact/medium 模式必须新增「正方形 + 不出现外层垂直滚动」断言，且 analyze/test/format 三红线全绿"}

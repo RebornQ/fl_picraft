@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "母任务最终验收 — analyze / format / test 三红线必须全绿"}
-{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "复核 subtask1 spec 改动 + 整体 Responsive behavior table 自洽"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 subtask2 spec 改动 + Cross-screen handoff 段落与新 family 段落兼容"}
-{"file": ".trellis/tasks/05-16-editor-fill-container-width/prd.md", "reason": "对照子任务1 的 AC + DoD，确认在母任务集成视角全部满足"}
-{"file": ".trellis/tasks/05-16-per-mode-import-isolation/prd.md", "reason": "对照子任务2 的 AC + DoD，确认在母任务集成视角全部满足"}
-{"file": ".trellis/tasks/05-16-editor-layout-and-import-isolation/prd.md", "reason": "对照母任务 ‘整体 hand-off’ 验收（跨 subtask smoke + spec 同步 + analyze/format/test）"}
