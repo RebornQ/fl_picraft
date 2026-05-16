@@ -178,6 +178,56 @@ LayoutBuilder(
 
 The panel widget is bare; the **caller** wraps with appropriate padding (compact: via `ListView.padding`; expanded: via `Padding(padding: ...)` around the `Row`). This keeps the panel reusable across surfaces without leaking chrome assumptions.
 
+### Convention: Caller decoration variants
+
+**What**: The "panel is bare" rule covers *padding* — the panel never paints its own padding so the caller can decide the visual rhythm. The same caller-decides principle extends to **all** outer chrome (background fill, outline, rounded corners, elevation): if a caller wants to anchor the side panel inside a visible surface slab, it wraps the panel itself; if it wants the panel to float chrome-free, it doesn't. **The panel widget never paints its own chrome either way.**
+
+**Why**: Different editors have different visual identities. The grid editor's side panel is a docked tool surface and reads better when visually anchored by a contained slab that fills the row's full height; the stitch editor's side panel reads better floating against the canvas background. Both call sites use the *same* bare panel widget — duplicating panels just to add / remove chrome would drift in six months.
+
+**How to apply** — pick one of these caller patterns per editor:
+
+```dart
+// 1) Bare caller (stitch editor style) — panel floats against the page bg
+SizedBox(
+  width: panelWidth,
+  child: const SingleChildScrollView(child: StitchControlsPanel()),
+)
+
+// 2) Surface-chrome caller (grid editor style) — panel sits inside a
+//    `surfaceContainerLow` slab with an `outlineVariant` outline and
+//    16 dp rounded corners. Stretched by Row(stretch) to the row's
+//    full height so the chrome anchors the column top-to-bottom.
+SizedBox(
+  width: panelWidth,
+  child: Container(
+    key: kGridControlsPanelChromeKey,        // optional — for tests
+    decoration: BoxDecoration(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: colorScheme.outlineVariant),
+    ),
+    clipBehavior: Clip.antiAlias,            // keep scroll inside corners
+    child: const SingleChildScrollView(
+      padding: EdgeInsets.all(16),           // padding inside scroll view
+      child: GridControlsPanel(),
+    ),
+  ),
+)
+```
+
+**Current call-site decisions** (kept in sync with each editor's
+class-level doc-comment):
+
+| Editor | Side-panel chrome |
+|---|---|
+| `grid_editor_screen.dart` | surface chrome (pattern 2 above) |
+| `stitch_editor_screen.dart` | bare (pattern 1 above) |
+
+When adding a third editor, pick whichever pattern matches the visual
+intent, then record the decision in this table.
+
+**Don't**: Add the chrome inside the panel widget itself (`GridControlsPanel`, `StitchControlsPanel`). That breaks the "panel is bare" rule and forces a future bare-panel use-case to either fork the panel or hack around the chrome.
+
 ---
 
 ## Pattern: Editor body — height-first `Column` skeleton (single-column + side-panel variants)
@@ -316,7 +366,7 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
 | stitch_editor | scrollable canvas + bottom `StitchControlsSheet` | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
-| grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Flexible(loose, panel)` (see "Editor body — height-first Column skeleton" pattern) | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp scrolls internally | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp scrolls internally |
+| grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Flexible(loose, panel)` (see "Editor body — height-first Column skeleton" pattern) | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in a `surfaceContainerLow` + `outlineVariant` 16 dp rounded chrome that fills the row height, scrolls internally | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
 
 When adding a new top-level screen, fill in this table for it.
 

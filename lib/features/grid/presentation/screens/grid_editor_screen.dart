@@ -24,6 +24,18 @@ const double _kGridControlsPanelMinWidth = 380;
 /// the extra space stays with the canvas.
 const double _kGridControlsPanelMaxWidth = 480;
 
+/// Key for the docked controls panel's surface chrome container in the
+/// expanded / large layout.
+///
+/// Exposed so widget tests can locate the chrome to assert visual
+/// behavior (height fills the row, decoration colors match the
+/// `surfaceContainerLow` + `outlineVariant` palette, etc.) without
+/// reaching for fragile structural finders. Lives alongside the
+/// panel-width clamp constants because both are visual contracts of
+/// the side-panel variant — see `.trellis/spec/frontend/responsive-layout.md`
+/// → "Caller decoration variants".
+const Key kGridControlsPanelChromeKey = ValueKey('grid_controls_panel_chrome');
+
 /// Grid-split editor screen.
 ///
 /// Layout on compact / medium widths (matching `_3_宫格切图/code.html`):
@@ -55,8 +67,8 @@ const double _kGridControlsPanelMaxWidth = 480;
 /// |------------|--------|
 /// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(1, canvas)))` + optional source-size warning + `Flexible(loose) > SingleChildScrollView > GridControlsPanel` (overflow scrolls *inside* the controls panel; no page-level scroll). |
 /// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton. |
-/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp and scrolls internally. |
-/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp, canvas square is `min(leftColWidth, rowHeight)`. |
+/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp inside a `surfaceContainerLow` + `outlineVariant` 16 dp rounded chrome container (`kGridControlsPanelChromeKey`) that fills the row's full height and scrolls internally. |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp with the surface chrome, canvas square is `min(leftColWidth, rowHeight)`. |
 ///
 /// The square (1:1) shape of the canvas is the caller's responsibility
 /// — [GridPreviewCanvas] no longer wraps itself in `AspectRatio`. Every
@@ -212,8 +224,37 @@ class _GridEditorBody extends ConsumerWidget {
                 const SizedBox(width: 16),
                 SizedBox(
                   width: panelWidth,
-                  child: const SingleChildScrollView(
-                    child: GridControlsPanel(),
+                  // Surface chrome: paints a `surfaceContainerLow` slab
+                  // with a 1 px `outlineVariant` outline and 16 dp
+                  // rounded corners. Stretched by the parent `Row` to
+                  // the row's full height, so the chrome visually
+                  // anchors the controls column from top to bottom even
+                  // when the inner controls don't fill the height. The
+                  // bare [GridControlsPanel] stays decoration-free per
+                  // the "panel has no outer padding" convention; the
+                  // caller (this screen) supplies the chrome here. The
+                  // stitch editor's analogous side panel keeps its
+                  // bare layout — see
+                  // `.trellis/spec/frontend/responsive-layout.md`
+                  // → "Caller decoration variants".
+                  child: Container(
+                    key: kGridControlsPanelChromeKey,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                    ),
+                    // `clipBehavior: antiAlias` keeps the scroll
+                    // viewport (and any future overflow indicators)
+                    // confined inside the rounded corners.
+                    clipBehavior: Clip.antiAlias,
+                    // Padding lives **inside** the scroll view so the
+                    // top/bottom margins scroll with the content — the
+                    // chrome itself stays flush against the row edges.
+                    child: const SingleChildScrollView(
+                      padding: EdgeInsets.all(16),
+                      child: GridControlsPanel(),
+                    ),
                   ),
                 ),
               ],

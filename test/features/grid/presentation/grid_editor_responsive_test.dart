@@ -249,12 +249,16 @@ void main() {
           reason: 'canvas height must fit within the viewport',
         );
 
-        // Side panel stays docked and clamped to the [380, 480] range.
-        final panel = tester.renderObject<RenderBox>(
-          find.byType(GridControlsPanel),
+        // Side panel chrome (the docked column) stays clamped to the
+        // [380, 480] range. The bare [GridControlsPanel] inside the
+        // chrome is 32 dp narrower (16 dp inner padding on each side)
+        // so it's not the right anchor for the spec's column-width
+        // contract.
+        final chrome = tester.renderObject<RenderBox>(
+          find.byKey(kGridControlsPanelChromeKey),
         );
-        expect(panel.size.width, greaterThanOrEqualTo(380));
-        expect(panel.size.width, lessThanOrEqualTo(480));
+        expect(chrome.size.width, greaterThanOrEqualTo(380));
+        expect(chrome.size.width, lessThanOrEqualTo(480));
 
         expect(tester.takeException(), isNull);
       },
@@ -267,45 +271,164 @@ void main() {
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
 
-      // No outer maxContentWidth cap — the side panel should hug the
-      // viewport's right edge (only 16 dp of padding between them),
-      // confirming the body tracks the container width rather than
-      // locking at 1200 dp. We can't use `canvas.width + panel.width`
-      // anymore (the canvas is now height-bounded so its width tops
-      // out at ~984 dp on a 1080 px tall window) — instead assert the
-      // panel's right edge reaches the right padding boundary.
-      final panelPos = tester.getTopLeft(find.byType(GridControlsPanel));
-      final panel = tester.renderObject<RenderBox>(
-        find.byType(GridControlsPanel),
+      // No outer maxContentWidth cap — the side panel column should
+      // hug the viewport's right edge (only 16 dp of body padding
+      // between them), confirming the body tracks the container width
+      // rather than locking at 1200 dp.
+      //
+      // We measure the **chrome** (the side column's outer container)
+      // rather than the bare [GridControlsPanel] inside it — the chrome
+      // **is** the side column now (its 16 dp internal padding sits
+      // *inside* the column). The chrome's right edge is what visually
+      // touches the body padding boundary.
+      final chromePos = tester.getTopLeft(
+        find.byKey(kGridControlsPanelChromeKey),
       );
-      expect(panelPos.dx + panel.size.width, greaterThan(2380));
+      final chrome = tester.renderObject<RenderBox>(
+        find.byKey(kGridControlsPanelChromeKey),
+      );
+      expect(chromePos.dx + chrome.size.width, greaterThan(2380));
     });
 
     testWidgets(
       'side panel respects [380, 480] dp bounds across wide windows',
       (tester) async {
+        // The "panel" here means the side **column** (the chrome
+        // container) — what the panel-width clamp formula actually
+        // sizes. The bare [GridControlsPanel] now lives inside the
+        // chrome with 16 dp internal padding, so its `RenderBox.size`
+        // is smaller than the clamp value. Asserting on the chrome
+        // keeps the test aligned with the responsive-layout spec's
+        // "side panel width ∈ [380, 480] dp" contract.
+
         // 1280 dp viewport: inner row width ≈ 1280 - 32 padding - 16
         // gap = 1232; 25% = 308 → clamped UP to 380 dp.
         await _setViewportSize(tester, const Size(1280, 800));
         await tester.pumpWidget(_gridHarness());
         await tester.pumpAndSettle();
-        var panel = tester.renderObject<RenderBox>(
-          find.byType(GridControlsPanel),
+        var chrome = tester.renderObject<RenderBox>(
+          find.byKey(kGridControlsPanelChromeKey),
         );
-        expect(panel.size.width, 380);
+        expect(chrome.size.width, 380);
 
         // 1920 dp: inner ≈ 1872; 25% = 468 → in bounds, exact value.
         tester.view.physicalSize = const Size(1920, 1080);
         await tester.pumpAndSettle();
-        panel = tester.renderObject<RenderBox>(find.byType(GridControlsPanel));
-        expect(panel.size.width, greaterThanOrEqualTo(380));
-        expect(panel.size.width, lessThanOrEqualTo(480));
+        chrome = tester.renderObject<RenderBox>(
+          find.byKey(kGridControlsPanelChromeKey),
+        );
+        expect(chrome.size.width, greaterThanOrEqualTo(380));
+        expect(chrome.size.width, lessThanOrEqualTo(480));
 
         // 2560 dp: 25% comfortably above 480 → clamped DOWN to 480 dp.
         tester.view.physicalSize = const Size(2560, 1440);
         await tester.pumpAndSettle();
-        panel = tester.renderObject<RenderBox>(find.byType(GridControlsPanel));
-        expect(panel.size.width, 480);
+        chrome = tester.renderObject<RenderBox>(
+          find.byKey(kGridControlsPanelChromeKey),
+        );
+        expect(chrome.size.width, 480);
+      },
+    );
+
+    testWidgets(
+      'expanded canvas tracks viewport size changes (no LayoutBuilder short-circuit)',
+      (tester) async {
+        // 1280×800: body height ≈ 800 − 56 (AppBar) − 40 (vertical
+        // padding) = 704 dp; left col width ≈ 1280 − 32 − 16 − 380 =
+        // 852 dp. Canvas square = min(852, 704) = 704 (height-bounded).
+        await _setViewportSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+        final canvasInitial = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+        final initialHeight = canvasInitial.size.height;
+
+        // Grow the viewport vertically — body height becomes ≈ 1000 −
+        // 56 − 40 = 904 dp; left col width unchanged at 852 dp. Canvas
+        // square = min(852, 904) = 852 (now width-bounded). The canvas
+        // must follow this change because [LayoutBuilder] rebuilds on
+        // every viewport metric update; if a future refactor inserts a
+        // widget that caches constraints, this test catches the
+        // regression.
+        tester.view.physicalSize = const Size(1280, 1000);
+        await tester.pumpAndSettle();
+        final canvasGrown = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+        expect(
+          canvasGrown.size.height,
+          greaterThan(initialHeight + 50),
+          reason:
+              'canvas must grow when the viewport gains vertical space '
+              'because LayoutBuilder rebuilds on metric changes',
+        );
+
+        // Shrink back to the original viewport — canvas height should
+        // return to ~initialHeight (within sub-pixel rounding).
+        tester.view.physicalSize = const Size(1280, 800);
+        await tester.pumpAndSettle();
+        final canvasReverted = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+        expect(
+          (canvasReverted.size.height - initialHeight).abs(),
+          lessThan(1.0),
+          reason:
+              'canvas height must return to the original value when the '
+              'viewport shrinks back',
+        );
+      },
+    );
+
+    testWidgets('expanded panel chrome fills the row height', (tester) async {
+      // 1280×800: body height ≈ 800 − 56 − 40 = 704 dp. The chrome
+      // container is stretched to the row's full height by
+      // `Row(crossAxisAlignment: stretch)`, so its rendered height
+      // should match the body height within Material chrome tolerances.
+      await _setViewportSize(tester, const Size(1280, 800));
+      await tester.pumpWidget(_gridHarness());
+      await tester.pumpAndSettle();
+
+      final chromeSize = tester.getSize(
+        find.byKey(kGridControlsPanelChromeKey),
+      );
+      // Expected ≈ 704 dp. Tolerance ±8 covers borderline cases where
+      // the AppBar / safe-area math differs by a pixel or two across
+      // host platforms.
+      expect(
+        (chromeSize.height - 704).abs(),
+        lessThan(8.0),
+        reason:
+            'chrome should fill the row height (≈ 704 dp on a 800 dp '
+            'viewport), actually ${chromeSize.height}',
+      );
+      // Width matches the clamped panel width.
+      expect(chromeSize.width, 380);
+    });
+
+    testWidgets(
+      'expanded panel chrome uses surfaceContainerLow + outlineVariant decoration',
+      (tester) async {
+        await _setViewportSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        // Resolve the active theme via the GridControlsPanel's element
+        // so the assertion stays correct even if the harness changes
+        // themes in the future.
+        final panelContext = tester.element(find.byType(GridControlsPanel));
+        final scheme = Theme.of(panelContext).colorScheme;
+
+        final chrome = tester.widget<Container>(
+          find.byKey(kGridControlsPanelChromeKey),
+        );
+        final decoration = chrome.decoration as BoxDecoration;
+
+        expect(decoration.color, scheme.surfaceContainerLow);
+        expect(decoration.border, Border.all(color: scheme.outlineVariant));
+        expect(decoration.borderRadius, BorderRadius.circular(16));
+        expect(chrome.clipBehavior, Clip.antiAlias);
       },
     );
   });
