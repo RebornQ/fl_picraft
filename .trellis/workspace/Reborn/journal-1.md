@@ -513,3 +513,36 @@ Task 2 (grid-canvas-height-first-fit) 完整实施: compact/medium 模式 grid_e
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: Cleanup stale archived task paths
+
+**Date**: 2026-05-17
+**Task**: Cleanup stale archived task paths
+**Branch**: `main`
+
+### Summary
+
+清理 task.py archive 命令遗留的 12 个 D 状态路径——archive 将 task 目录 move 到 .trellis/tasks/archive/2026-05/ 时只 stage 了新位置 add，没 stage 旧位置 delete，导致 working tree 长期 dirty。本任务用 git rm 一次性把三个受影响 task (05-16-editor-layout-and-import-isolation / per-mode-import-isolation / grid-canvas-height-first-fit) 的旧路径 deletion 提交进去。12 files / 534 deletions / 0 insertions；archive/ 下副本完整保留；flutter analyze 干净；无代码改动。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0b62bf2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

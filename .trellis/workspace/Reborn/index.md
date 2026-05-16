@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
+- **Total Sessions**: 16
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~515 | Active |
+| `journal-1.md` | ~548 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-05-17 | Cleanup stale archived task paths | `0b62bf2` | `main` |
 | 15 | 2026-05-17 | Grid canvas height-first compact-mode skeleton + spec sediment | `b3812b8` | `main` |
 | 14 | 2026-05-16 | Rename works tab to 功能大全 & plan grid canvas height-first fit | `ed9b1b0` | `main` |
 | 13 | 2026-05-16 | subtask2: per-mode image import session isolation + parent task closure | `a460571` | `main` |
