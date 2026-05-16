@@ -431,5 +431,107 @@ void main() {
         expect(chrome.clipBehavior, Clip.antiAlias);
       },
     );
+
+    testWidgets('compact panel chrome fills the column remaining height', (
+      tester,
+    ) async {
+      // 360×900 mimics a typical tall-phone portrait viewport — the
+      // exact case where the pre-fix bare-panel `Flexible(loose)` slot
+      // collapsed to the panel's intrinsic height and left a strip of
+      // bare page background below it. With the chrome wrapped in an
+      // `Expanded` slot the chrome should fill its share of the
+      // column's free space (≈ free_height / 2).
+      //
+      // Body height ≈ 900 − 56 (AppBar) − 16 (top pad) − 96 (bottom
+      // FAB clearance) = 732 dp. Non-flex children inside the Column:
+      // a single 16 dp SizedBox between the canvas and the chrome
+      // (the source-size warning is not rendered for the test's
+      // 1024×1024 stub image). Free space = 732 − 16 = 716 dp,
+      // distributed evenly between the canvas `Expanded` and the
+      // chrome `Expanded` → each gets ≈ 358 dp. The loose [200, 500]
+      // band covers minor padding / chrome variance while still
+      // catching a regression to "chrome collapses to panel
+      // intrinsic" (~350 dp would still pass; but a collapse to a
+      // ~0 dp slot or growth past 500 would fail).
+      await _setViewportSize(tester, const Size(360, 900));
+      await tester.pumpWidget(_gridHarness());
+      await tester.pumpAndSettle();
+
+      final chromeSize = tester.getSize(
+        find.byKey(kGridControlsPanelChromeKey),
+      );
+      expect(
+        chromeSize.height,
+        greaterThan(200),
+        reason:
+            'compact chrome should fill ~free_height/2 (≈ 358 dp on a '
+            '900 dp viewport), actually ${chromeSize.height}',
+      );
+      expect(
+        chromeSize.height,
+        lessThan(500),
+        reason:
+            'compact chrome should not exceed its Expanded share '
+            '(~358 dp). Actually ${chromeSize.height} — has the canvas '
+            'lost its Expanded slot?',
+      );
+
+      // Width = column width = viewport − 32 dp side padding = 328 dp.
+      expect((chromeSize.width - 328).abs(), lessThan(1.0));
+
+      // No render-flex overflow exception.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'compact panel chrome shares decoration with expanded variant',
+      (tester) async {
+        // Decoration is built by `_buildControlsPanelChrome`, shared
+        // across all size classes — regressions in one branch are
+        // already caught by the expanded decoration test above, but
+        // duplicating the assertion at compact width pins down the
+        // contract that both branches must render visually identical
+        // chrome.
+        await _setViewportSize(tester, const Size(360, 900));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        final panelContext = tester.element(find.byType(GridControlsPanel));
+        final scheme = Theme.of(panelContext).colorScheme;
+
+        final chrome = tester.widget<Container>(
+          find.byKey(kGridControlsPanelChromeKey),
+        );
+        final decoration = chrome.decoration as BoxDecoration;
+
+        expect(decoration.color, scheme.surfaceContainerLow);
+        expect(decoration.border, Border.all(color: scheme.outlineVariant));
+        expect(decoration.borderRadius, BorderRadius.circular(16));
+        expect(chrome.clipBehavior, Clip.antiAlias);
+      },
+    );
+
+    testWidgets('medium panel chrome fills the column remaining height', (
+      tester,
+    ) async {
+      // 720×1200 medium width (phone landscape / small tablet). Same
+      // single-column skeleton as compact, so the chrome should also
+      // fill ~free_height/2 ≈ (1200 − 56 − 112 − 16) / 2 = 508 dp.
+      // The [300, 700] band covers minor variance.
+      await _setViewportSize(tester, const Size(720, 1200));
+      await tester.pumpWidget(_gridHarness());
+      await tester.pumpAndSettle();
+
+      final chromeSize = tester.getSize(
+        find.byKey(kGridControlsPanelChromeKey),
+      );
+      expect(chromeSize.height, greaterThan(300));
+      expect(chromeSize.height, lessThan(700));
+
+      // Width = viewport − 32 dp side padding = 688 dp.
+      expect((chromeSize.width - 688).abs(), lessThan(1.0));
+
+      expect(tester.takeException(), isNull);
+    });
   });
 }

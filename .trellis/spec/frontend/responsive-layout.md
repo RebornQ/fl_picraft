@@ -218,10 +218,16 @@ SizedBox(
 **Current call-site decisions** (kept in sync with each editor's
 class-level doc-comment):
 
-| Editor | Side-panel chrome |
-|---|---|
-| `grid_editor_screen.dart` | surface chrome (pattern 2 above) |
-| `stitch_editor_screen.dart` | bare (pattern 1 above) |
+| Editor | compact / medium | expanded / large |
+|---|---|---|
+| `grid_editor_screen.dart` | inline panel + surface chrome inside an `Expanded` slot of the body `Column` — same `surfaceContainerLow` + `outlineVariant` + 16 dp rounded decoration as the side panel below | side panel + surface chrome (pattern 2 above) |
+| `stitch_editor_screen.dart` | bottom `StitchControlsSheet` (Material sheet chrome — different shape, not an inline panel) | bare side panel (pattern 1 above) |
+
+**Note**: `grid_editor` reuses the **same** chrome decoration across all
+size classes via a shared `_buildControlsPanelChrome` helper, with a
+single `kGridControlsPanelChromeKey`. The two branches are mutually
+exclusive, so the key resolves to one widget at a time — tests can
+locate the chrome without caring about the active size class.
 
 When adding a third editor, pick whichever pattern matches the visual
 intent, then record the decision in this table.
@@ -234,7 +240,7 @@ intent, then record the decision in this table.
 
 **Problem**: An editor screen has a fixed-aspect canvas (e.g. `AspectRatio(1)`) plus a tall controls surface. Naively stacking them inside a `ListView`, or wrapping the canvas in `SingleChildScrollView` and letting `AspectRatio` size by width, makes the canvas claim `maxWidth` and become a square as tall as the column is wide — the controls fall *off-screen* (compact) or the canvas grows taller than the viewport on ultra-wide windows (expanded / large) and the page must scroll just to see the canvas. Both violate the editor mental model where the canvas and "what I can change" should be visible together without scrolling the page.
 
-**Solution**: keep the **same height-first principle** across every size class. The canvas always lives inside an `Expanded` slot of a `Column` and is sized by `Center + AspectRatio(1)`; the controls live below it on phones (`Flexible(loose) + SingleChildScrollView`) and dock to the right on tablets / desktops (`SizedBox(width: panelWidth, SingleChildScrollView)` inside a `Row(crossAxisAlignment: stretch)`).
+**Solution**: keep the **same height-first principle** across every size class. The canvas always lives inside an `Expanded` slot of a `Column` and is sized by `Center + AspectRatio(1)`; the controls live below it on phones (the wrapper choice — `Expanded` vs `Flexible(loose)` — depends on whether the controls slot is wrapped in chrome; see the Gotcha below) and dock to the right on tablets / desktops (`SizedBox(width: panelWidth, SingleChildScrollView)` inside a `Row(crossAxisAlignment: stretch)`).
 
 ### Single-column variant (compact / medium)
 
@@ -259,14 +265,36 @@ return Padding(
         _SourceSizeWarning(...),
       ],
       const SizedBox(height: 16),
-      // Controls slot: sizes to its content; if content > remaining
-      // space, scrolls inside instead of growing the column.
-      Flexible(
-        fit: FlexFit.loose,
-        child: SingleChildScrollView(
-          child: const GridControlsPanel(),
+      // Controls slot. Wrapper choice (`Expanded` vs `Flexible(loose)`)
+      // is load-bearing — see the "Flexible(loose) vs Expanded for the
+      // controls slot depends on chrome" Gotcha below.
+      //
+      // Chrome variant (grid_editor): Expanded forces the chrome to
+      // fill the column's remaining height, so the chrome background
+      // (not bare page bg) covers everything below the canvas.
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: const SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: GridControlsPanel(),
+          ),
         ),
       ),
+
+      // Bare variant (no chrome — e.g. a future editor that doesn't
+      // decorate its controls): Flexible(loose) lets the slot collapse
+      // to the panel's intrinsic height so the panel sits flush against
+      // the canvas, no whitespace strip between them.
+      // Flexible(
+      //   fit: FlexFit.loose,
+      //   child: SingleChildScrollView(child: const XxxControlsPanel()),
+      // ),
     ],
   ),
 );
@@ -328,7 +356,7 @@ return Padding(
 
 **Why the left column drops `SingleChildScrollView`**: with `stretch` giving the column a finite height, the only piece that could overflow is the warning banner (a fixed-height one-line strip). The page no longer needs an outer scroll — keep the canvas pinned to its `Expanded` slot and the warning stuck just below it. The controls panel on the right keeps its own `SingleChildScrollView` because the parameter cards can still overflow the viewport height when there are many of them.
 
-**Symmetry summary**: in both variants the canvas lives inside `Expanded(Center(AspectRatio(1, ...)))`. The only structural difference is **where the controls live** — under the canvas in a `Flexible(loose)` slot of the same column (compact / medium), or to the right of the canvas as a `SizedBox`-bounded column of a row (expanded / large). The height-first sizing contract is identical.
+**Symmetry summary**: in both variants the canvas lives inside `Expanded(Center(AspectRatio(1, ...)))`. The only structural difference is **where the controls live** — under the canvas in a chrome-wrapped `Expanded` slot of the same column (compact / medium), or to the right of the canvas as a chrome-wrapped `SizedBox`-bounded column of a row (expanded / large). The height-first sizing contract is identical, and the same chrome decoration anchors the controls in both branches (see `grid_editor_screen.dart` → `_buildControlsPanelChrome`). For bare controls slots (no chrome) use `Flexible(loose)` instead of `Expanded` — see the Gotcha below.
 
 **Sizing contract for the canvas widget**: when this skeleton is in play, the canvas widget itself **must not** wrap its content in an `AspectRatio` — the *caller* supplies the aspect constraint via `Center + AspectRatio(1)`. A canvas widget that locks its own aspect internally breaks the height-first pattern because `AspectRatio` always picks width-first when both axes are bounded. Spell this out in the canvas widget's class doc-comment so future callers don't accidentally double-wrap.
 
@@ -366,7 +394,7 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
 | stitch_editor | scrollable canvas + bottom `StitchControlsSheet` | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
-| grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Flexible(loose, panel)` (see "Editor body — height-first Column skeleton" pattern) | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in a `surfaceContainerLow` + `outlineVariant` 16 dp rounded chrome that fills the row height, scrolls internally | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
+| grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Expanded(chrome[GridControlsPanel])` — chrome (`surfaceContainerLow` + `outlineVariant` + 16 dp rounded; matches the side-panel chrome at expanded / large) fills the column's remaining height so no bare page background leaks below it (see "Editor body — height-first Column skeleton" pattern) | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in the **same** surface chrome that fills the row height, scrolls internally | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
 
 When adding a new top-level screen, fill in this table for it.
 
@@ -436,28 +464,46 @@ LayoutBuilder(
 
 **Where this hits in this project**: `stitch_preview_canvas.dart`. The compact layout puts the canvas in a `SingleChildScrollView`, so the preview's `LayoutBuilder` sees `maxHeight = ∞`. The expanded / large two-column layout gives the canvas a bounded `Expanded` parent, so the same widget works without the fallback — but writing the fallback once keeps the widget reusable across both layouts. The general rule applies to any future editor that follows the same compact-scrollable + expanded-docked split.
 
-### Gotcha: use `Flexible(loose)` — **not** `Expanded` — for the controls slot in a height-first `Column`
+### Gotcha: `Flexible(loose)` vs `Expanded` for the controls slot depends on whether the slot has chrome
 
-In the [height-first `Column` skeleton](#pattern-editor-body--height-first-column-skeleton-single-column--side-panel-variants), the controls slot must be a `Flexible(fit: FlexFit.loose)`-wrapped `SingleChildScrollView`. **Don't** wrap it in `Expanded`:
+In the [height-first `Column` skeleton](#pattern-editor-body--height-first-column-skeleton-single-column--side-panel-variants), the right wrapper for the controls slot depends on whether the slot is **bare** or **chrome-wrapped**:
+
+| Slot variant | Wrapper | Why |
+|---|---|---|
+| **Bare panel** (no chrome) | `Flexible(fit: FlexFit.loose)` | `Expanded` would inflate a short panel and leave an awkward whitespace strip between the canvas and the first parameter card — the "canvas + first card" visual cluster breaks, and the FAB ends up overlapping the bottom of the inflated panel. `Flexible(loose)` lets the slot size to its intrinsic content height; if the content overflows the remaining space, the inner `SingleChildScrollView` scrolls inside the slot. |
+| **Chrome-wrapped panel** (e.g. a surface-tinted container) | `Expanded` | `Flexible(loose)` would collapse the slot to the panel's intrinsic height, leaving a strip of bare page background visible below the chrome (≈ `free_space/2 − intrinsic_panel_h` dp on phones with tall viewports). `Expanded` forces the chrome to fill its full free-space share — the chrome's background covers the entire slot, no bare bleed. |
+
+Two examples:
 
 ```dart
-// ❌ Wrong — Expanded forces the slot to claim ALL remaining height,
-// inflating a short controls panel with a gap between the canvas and
-// the first parameter card. The "canvas + first card" visual cluster
-// breaks; the FAB also overlaps the bottom of an inflated panel.
-Expanded(
-  child: SingleChildScrollView(child: GridControlsPanel()),
-),
-
-// ✅ Correct — Flexible(loose) lets the panel size to its intrinsic
-// content height; if the content overflows the remaining space, the
-// inner SingleChildScrollView scrolls inside the slot.
+// ✅ Bare panel — Flexible(loose) (placeholder / future editor that
+// doesn't decorate the controls slot):
 Flexible(
   fit: FlexFit.loose,
-  child: SingleChildScrollView(child: GridControlsPanel()),
+  child: const SingleChildScrollView(child: XxxControlsPanel()),
+),
+
+// ✅ Chrome-wrapped panel — Expanded (grid_editor's compact / medium
+// branch; the chrome is the SAME decoration used by the side panel
+// at expanded / large):
+Expanded(
+  child: Container(
+    decoration: BoxDecoration(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: colorScheme.outlineVariant),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: const SingleChildScrollView(
+      padding: EdgeInsets.all(16),
+      child: GridControlsPanel(),
+    ),
+  ),
 ),
 ```
 
-`Flexible(tight)` (the default `fit:` for `Flexible`) behaves like `Expanded` — also wrong here. The `fit: FlexFit.loose` is the load-bearing part of this gotcha.
+`Flexible(tight)` (the default `fit:` for `Flexible`) behaves like `Expanded`, so prefer the explicit `Expanded` form when you want fill semantics. The `fit: FlexFit.loose` is the load-bearing part of the bare variant.
 
-**Symptom if you forget**: A "floating" controls panel detached from the canvas by an awkward whitespace strip, or the FAB sitting on top of the panel's last parameter card. Both look like bugs to the user.
+**Symptoms if you mismatch**:
+- *Bare panel wrapped in `Expanded`*: a "floating" controls panel detached from the canvas by an awkward whitespace strip; or the FAB sitting on top of the panel's last parameter card.
+- *Chrome-wrapped panel wrapped in `Flexible(loose)`*: a strip of bare page background below the chrome (the chrome anchors to its content's intrinsic height instead of the slot's allocated share, exposing the page bg below). Looks especially wrong on tall phone viewports where `free_space/2 − intrinsic_panel_h` is large.
