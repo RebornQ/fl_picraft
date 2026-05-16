@@ -414,3 +414,36 @@ Brainstormed the editor-layout-and-import-isolation parent task and split it int
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: subtask2: per-mode image import session isolation + parent task closure
+
+**Date**: 2026-05-16
+**Task**: subtask2: per-mode image import session isolation + parent task closure
+**Branch**: `main`
+
+### Summary
+
+Closed the 05-16-editor-layout-and-import-isolation parent task by delivering its second subtask. Converted imageImportControllerProvider and importedImagesProvider to AsyncNotifier.family / Provider.family keyed by a new ImageImportSessionKind { stitch, grid } enum (with stability dartdoc warning that value names are Riverpod family cache keys). ImageDropZone now requires a typed sessionKind parameter so each editor screen funnels drops into its own session at compile time. Stitch and grid editor controllers / screens resolve their family instance via .stitch / .grid; nine-grid-social pickCenterImage still bypasses the import controller. Added sessionKindFor(ExportSourceKind) bridge in export_dispatch.dart to keep the two enums as independent types (no reverse layer dependency from image_import to export). New cross_mode_isolation_test covers AC2.1-2.4 with plain test + ProviderContainer to avoid the FakeAsync timer-pending interaction in testWidgets; per-mode session isolation group in image_import_controller_test covers list / lastWarning / clear / AsyncError independence. All editor / export / responsive / social tests updated to thread the family kind through their overrides. Four spec additions: state-management.md (Pattern: Per-mode session isolation via .family); component-guidelines.md (Convention: Require a typed mode parameter when a widget feeds a .family provider); type-safety.md (Pattern: Parallel enum domains with explicit bridge function); quality-guidelines.md (Pattern: Plain test over testWidgets for AsyncNotifier-only assertions under FakeAsync). flutter analyze clean, dart format clean, 289 tests pass.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a460571` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
