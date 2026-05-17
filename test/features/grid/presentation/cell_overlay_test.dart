@@ -3,8 +3,12 @@ import 'dart:typed_data';
 import 'package:fl_picraft/features/grid/domain/usecases/compute_cell_transform.dart';
 import 'package:fl_picraft/features/grid/presentation/providers/grid_editor_provider.dart';
 import 'package:fl_picraft/features/grid/presentation/widgets/cell_overlay.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_failure.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/image_import_result.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
+import 'package:fl_picraft/features/image_import/domain/entities/raw_image_bytes.dart';
+import 'package:fl_picraft/features/image_import/domain/repositories/image_import_repository.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,12 +31,45 @@ ImportedImage _image({int seed = 0}) {
   );
 }
 
-Widget _harness({required Widget child}) {
+/// Stub repository that returns a caller-controlled queue of images
+/// from `pickFromGallery`. Used by the "re-replace on tap" widget test
+/// to assert the gallery picker is re-invoked after a cell already has
+/// a replacement.
+class _QueuedPickerRepo implements ImageImportRepository {
+  _QueuedPickerRepo(this._queue);
+
+  final List<ImportedImage> _queue;
+  int pickCallCount = 0;
+
+  @override
+  Future<ImportResult> pickFromGallery({int limit = 20}) async {
+    pickCallCount++;
+    if (_queue.isEmpty) {
+      return ImportFailure(const ImportCancelled());
+    }
+    return ImportSuccess(<ImportedImage>[_queue.removeAt(0)]);
+  }
+
+  @override
+  Future<ImportResult> captureFromCamera() async =>
+      ImportFailure(const ImportCancelled());
+
+  @override
+  Future<ImportResult> pasteFromClipboard() async =>
+      ImportFailure(const ImportCancelled());
+
+  @override
+  Future<ImportResult> importRawBytes(List<RawImageBytes> raw) async =>
+      ImportFailure(const ImportCancelled());
+}
+
+Widget _harness({required Widget child, ImageImportRepository? repo}) {
   return ProviderScope(
     overrides: [
       importedImagesProvider(
         ImageImportSessionKind.grid,
       ).overrideWith((_) => const []),
+      if (repo != null) imageImportRepositoryProvider.overrideWithValue(repo),
     ],
     child: MaterialApp(
       home: Scaffold(
@@ -257,6 +294,69 @@ void main() {
       expect(state.cellReplacements[0]?.scale, 1.8);
       expect(state.cellReplacements[4]?.scale, kDefaultCellScale);
       expect(state.cellReplacements[4]?.offset, kCellOffsetZero);
+    });
+
+    testWidgets('tap on replaced cell re-invokes picker and overwrites image', (
+      tester,
+    ) async {
+      // Regression test for the "宫格只能覆盖一次" bug: once a cell has
+      // a replacement, a single tap on it should re-open the gallery
+      // picker and swap the image in place. Before the fix the
+      // _ReplacedCell GestureDetector had no onTap handler, so taps
+      // fell into the gesture arena unhandled and the user had to
+      // discover the longpress menu to re-replace.
+      final imageA = _image(seed: 0);
+      final imageB = _image(seed: 1);
+      final repo = _QueuedPickerRepo(<ImportedImage>[imageB]);
+      late WidgetRef capturedRef;
+      await tester.pumpWidget(
+        _harness(
+          repo: repo,
+          child: Consumer(
+            builder: (ctx, ref, _) {
+              capturedRef = ref;
+              return const CellOverlay(
+                cellIndex: 3,
+                rows: 3,
+                cols: 3,
+                cellWidth: 100,
+                cellHeight: 100,
+                sourceCellWidth: 100,
+                sourceCellHeight: 100,
+              );
+            },
+          ),
+        ),
+      );
+
+      // Seed the cell with imageA so the overlay renders the
+      // replaced-state branch (_ReplacedCell).
+      capturedRef
+          .read(gridEditorControllerProvider.notifier)
+          .setCellImage(3, imageA);
+      await tester.pumpAndSettle();
+      expect(
+        capturedRef
+            .read(gridEditorControllerProvider)
+            .cellReplacements[3]
+            ?.image,
+        same(imageA),
+      );
+
+      // Tap the replaced cell. The new onTap should call
+      // pickCellImage, which goes through the stubbed repo and
+      // returns imageB.
+      await tester.tap(find.byType(CellOverlay));
+      await tester.pumpAndSettle();
+
+      expect(repo.pickCallCount, 1);
+      expect(
+        capturedRef
+            .read(gridEditorControllerProvider)
+            .cellReplacements[3]
+            ?.image,
+        same(imageB),
+      );
     });
   });
 }

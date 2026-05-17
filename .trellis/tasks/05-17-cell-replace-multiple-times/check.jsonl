@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Build gates (analyze + test) for the bug-fix patch."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify the new onTap doesn't regress pinch / longpress / drag-isolation contracts."}

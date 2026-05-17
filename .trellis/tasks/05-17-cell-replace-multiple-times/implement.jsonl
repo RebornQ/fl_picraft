@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "GestureDetector tap arbitration vs scale/longpress; ensure tap addition doesn't break existing gesture contract."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Widget test coverage requirement for the second-replace path."}

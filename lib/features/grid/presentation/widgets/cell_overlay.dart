@@ -168,6 +168,16 @@ class _ReplacedCellState extends ConsumerState<_ReplacedCell> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+      // A single tap on a replaced cell re-opens the gallery picker so
+      // the user can swap in another image. Without this, the only path
+      // to re-replace was longpress → menu → "替换图片", which users
+      // perceived as "the cell can only be replaced once".
+      // The gesture arena distinguishes tap (no movement) from scale
+      // (pinch / drag) and longpress (hold without movement), so this
+      // addition does not interfere with the existing handlers.
+      onTap: () => ref
+          .read(gridEditorControllerProvider.notifier)
+          .pickCellImage(widget.cellIndex),
       onLongPressStart: (details) => _showMenu(context, details.globalPosition),
       onScaleStart: (details) {
         _gestureStartScale = replacement.scale;
