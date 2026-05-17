@@ -1111,3 +1111,38 @@ Fixed grid-mode replaced cells being unable to pan/drag at default userScale=1.0
 ### Next Steps
 
 - None - task complete
+
+
+## Session 34: Long-stitch toolbar height cap + subtitle-mode polish
+
+**Date**: 2026-05-18
+**Task**: Long-stitch toolbar height cap + subtitle-mode polish
+**Branch**: `main`
+
+### Summary
+
+Capped the compact/medium StitchControlsSheet height at max(200, min(screenHeight*0.28, 360)) with an internal SingleChildScrollView so the canvas reclaims visual area. Switched subtitle band height from absolute pixels to a percent-of-first-image-height field (5-50%, default 12%), hid the no-op 图片间距 slider in subtitle mode, and added an opt-in auto-trim-black-bars toggle backed by a new detect_letterbox usecase that scans each decoded image and feeds the insets into _layoutMovieSubtitle. Promoted the height-cap idiom into responsive-layout.md as a reusable convention.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ac9a1ef` | (see git log) |
+| `72f0f4d` | (see git log) |
+| `13f09af` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
