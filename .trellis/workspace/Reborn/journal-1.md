@@ -1011,3 +1011,36 @@ User reported 'cells can only be covered once'. Root cause: _ReplacedCell had no
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: Fix: cell hint icon fades with grid lines
+
+**Date**: 2026-05-18
+**Task**: Fix: cell hint icon fades with grid lines
+**Branch**: `main`
+
+### Summary
+
+User reported visual inconsistency — during source-image drag the grid lines fade out (via _PreviewSurfaceState._isGesturing wrapped in AnimatedOpacity 150ms) but the Icons.add_circle_outline hint on each cell stayed fully visible because CellOverlay was mounted as a sibling, not a child, of the grid-lines fade. Fix: thread a required isGesturing bool from _PreviewSurface through CellOverlay → _EmptyCellTarget / _ReplacedCell → _CellAddHint; the hint wraps its Icon in AnimatedOpacity(150ms) syncing with grid lines. Replacement images in _ReplacedCell stay at full opacity (user still needs to see them during drag). 7 existing test sites updated with isGesturing: false; 2 new tests assert opacity 0/1 + 150ms duration parity. flutter analyze clean · flutter test 328 passed / 3 skipped (+2).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8ca307d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
