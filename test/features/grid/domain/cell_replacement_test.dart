@@ -134,14 +134,14 @@ void main() {
       notifier.setCellImage(0, _img(6));
 
       // 0.5 → clamped to 1.0.
-      notifier.setCellScale(0, 0.5);
+      notifier.setCellScale(0, 0.5, cellWidth: 300, cellHeight: 300);
       expect(
         container.read(gridEditorControllerProvider).cellReplacements[0]?.scale,
         1.0,
       );
 
       // 3.0 → clamped to 2.0.
-      notifier.setCellScale(0, 3.0);
+      notifier.setCellScale(0, 3.0, cellWidth: 300, cellHeight: 300);
       expect(
         container.read(gridEditorControllerProvider).cellReplacements[0]?.scale,
         2.0,
@@ -150,7 +150,7 @@ void main() {
 
     test('setCellScale on an empty cell is a no-op', () {
       final notifier = container.read(gridEditorControllerProvider.notifier);
-      notifier.setCellScale(0, 1.5);
+      notifier.setCellScale(0, 1.5, cellWidth: 300, cellHeight: 300);
       expect(
         container.read(gridEditorControllerProvider).cellReplacements,
         isEmpty,
@@ -159,10 +159,15 @@ void main() {
 
     test('setCellOffset clamps against cover-fit bounds', () {
       final notifier = container.read(gridEditorControllerProvider.notifier);
-      // Use a 300x300 image at scale=1.0 (default) — surplus = 0 →
-      // offset must clamp to (0, 0).
+      // Use a 300x300 image against a 300x300 cell at scale=1.0
+      // (default) — surplus = 0 → offset must clamp to (0, 0).
       notifier.setCellImage(0, _img(7));
-      notifier.setCellOffset(0, const CellOffset(100, 100));
+      notifier.setCellOffset(
+        0,
+        const CellOffset(100, 100),
+        cellWidth: 300,
+        cellHeight: 300,
+      );
       expect(
         container
             .read(gridEditorControllerProvider)
@@ -173,8 +178,13 @@ void main() {
 
       // Bump scale to 2.0 → effective extent 600x600, surplus 300,
       // half-surplus 150 → offset (100, 100) is legal.
-      notifier.setCellScale(0, 2.0);
-      notifier.setCellOffset(0, const CellOffset(100, 100));
+      notifier.setCellScale(0, 2.0, cellWidth: 300, cellHeight: 300);
+      notifier.setCellOffset(
+        0,
+        const CellOffset(100, 100),
+        cellWidth: 300,
+        cellHeight: 300,
+      );
       expect(
         container
             .read(gridEditorControllerProvider)

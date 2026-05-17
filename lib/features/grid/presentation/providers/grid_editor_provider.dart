@@ -179,21 +179,31 @@ class GridEditorController extends Notifier<GridEditorState> {
 
   /// Update the cover-relative scale of the cell's replacement. No-op
   /// when no replacement exists at [cellIndex].
-  void setCellScale(int cellIndex, double scale) {
+  ///
+  /// [cellWidth] / [cellHeight] are the **source-pixel** cell extents
+  /// (matching the renderer's `layout.rects[i].width/height`). The
+  /// widget supplies them via `widget.sourceCellWidth/Height` so the
+  /// cover-fit clamp uses the real cell geometry — using the
+  /// replacement image's own dimensions as a proxy is incorrect (it
+  /// collapses `maxDx/maxDy` to zero at `userScale = 1.0` for
+  /// non-same-aspect images and prevents any pan).
+  void setCellScale(
+    int cellIndex,
+    double scale, {
+    required int cellWidth,
+    required int cellHeight,
+  }) {
     final current = state.cellReplacements[cellIndex];
     if (current == null) return;
     final clamped = clampUserScale(scale);
     // Re-clamp offset against the new scale so the image still covers
-    // the cell. We don't know the live cell pixel extent here, so we
-    // use the replacement image's own dimensions as the cell-shape
-    // proxy — sufficient for a domain-level guarantee. The widget
-    // additionally clamps against its on-screen extent.
+    // the cell.
     final reClamped = clampCellOffset(
       offset: current.offset,
       imageWidth: current.image.width,
       imageHeight: current.image.height,
-      cellWidth: current.image.width,
-      cellHeight: current.image.height,
+      cellWidth: cellWidth,
+      cellHeight: cellHeight,
       userScale: clamped,
     );
     final next = Map<int, CellReplacement>.from(state.cellReplacements);
@@ -202,20 +212,26 @@ class GridEditorController extends Notifier<GridEditorState> {
   }
 
   /// Update the pan offset of the cell's replacement (cell-target
-  /// pixels). No-op when no replacement exists at [cellIndex]. The
-  /// widget supplies the on-screen cell extents so this method clamps
-  /// against the real cover-fit bounds; callers that don't know the
-  /// cell size should use the version of `setCellOffset` from the
-  /// widget itself (which feeds the cell extents through).
-  void setCellOffset(int cellIndex, CellOffset offset) {
+  /// pixels). No-op when no replacement exists at [cellIndex].
+  ///
+  /// [cellWidth] / [cellHeight] are the **source-pixel** cell extents
+  /// (matching the renderer's `layout.rects[i].width/height`). The
+  /// widget supplies them via `widget.sourceCellWidth/Height` so the
+  /// cover-fit clamp uses the real cell geometry.
+  void setCellOffset(
+    int cellIndex,
+    CellOffset offset, {
+    required int cellWidth,
+    required int cellHeight,
+  }) {
     final current = state.cellReplacements[cellIndex];
     if (current == null) return;
     final clamped = clampCellOffset(
       offset: offset,
       imageWidth: current.image.width,
       imageHeight: current.image.height,
-      cellWidth: current.image.width,
-      cellHeight: current.image.height,
+      cellWidth: cellWidth,
+      cellHeight: cellHeight,
       userScale: current.scale,
     );
     if (clamped == current.offset) return;

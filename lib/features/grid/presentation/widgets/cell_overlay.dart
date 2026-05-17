@@ -257,8 +257,18 @@ class _ReplacedCellState extends ConsumerState<_ReplacedCell> {
       startOffset.dy + dySource,
     );
 
-    notifier.setCellScale(widget.cellIndex, newScale);
-    notifier.setCellOffset(widget.cellIndex, newOffset);
+    notifier.setCellScale(
+      widget.cellIndex,
+      newScale,
+      cellWidth: widget.sourceCellWidth.round(),
+      cellHeight: widget.sourceCellHeight.round(),
+    );
+    notifier.setCellOffset(
+      widget.cellIndex,
+      newOffset,
+      cellWidth: widget.sourceCellWidth.round(),
+      cellHeight: widget.sourceCellHeight.round(),
+    );
   }
 
   Future<void> _showMenu(BuildContext context, Offset globalPos) async {
@@ -286,8 +296,18 @@ class _ReplacedCellState extends ConsumerState<_ReplacedCell> {
       case _CellMenuAction.replace:
         await notifier.pickCellImage(widget.cellIndex);
       case _CellMenuAction.reset:
-        notifier.setCellScale(widget.cellIndex, kDefaultCellScale);
-        notifier.setCellOffset(widget.cellIndex, kCellOffsetZero);
+        notifier.setCellScale(
+          widget.cellIndex,
+          kDefaultCellScale,
+          cellWidth: widget.sourceCellWidth.round(),
+          cellHeight: widget.sourceCellHeight.round(),
+        );
+        notifier.setCellOffset(
+          widget.cellIndex,
+          kCellOffsetZero,
+          cellWidth: widget.sourceCellWidth.round(),
+          cellHeight: widget.sourceCellHeight.round(),
+        );
       case _CellMenuAction.remove:
         notifier.resetCell(widget.cellIndex);
     }

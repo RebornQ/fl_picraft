@@ -35,7 +35,7 @@ void main() {
       notifier.setCellImage(8, _image(seed: 3));
 
       // Manipulate cell 4's scale; cells 0 and 8 must stay at defaults.
-      notifier.setCellScale(4, 1.8);
+      notifier.setCellScale(4, 1.8, cellWidth: 100, cellHeight: 100);
       final state = container.read(gridEditorControllerProvider);
       expect(state.cellReplacements[0]?.scale, kDefaultCellScale);
       expect(state.cellReplacements[4]?.scale, 1.8);
@@ -57,8 +57,13 @@ void main() {
       notifier.setCellImage(4, _image(seed: 2));
 
       // Scale-up cell 4 so offset (5, 5) is legal.
-      notifier.setCellScale(4, 2.0);
-      notifier.setCellOffset(4, const CellOffset(5, 5));
+      notifier.setCellScale(4, 2.0, cellWidth: 100, cellHeight: 100);
+      notifier.setCellOffset(
+        4,
+        const CellOffset(5, 5),
+        cellWidth: 100,
+        cellHeight: 100,
+      );
       final state = container.read(gridEditorControllerProvider);
       expect(state.cellReplacements[0]?.offset, kCellOffsetZero);
       expect(state.cellReplacements[4]?.offset, const CellOffset(5, 5));

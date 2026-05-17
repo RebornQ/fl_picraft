@@ -354,8 +354,13 @@ void main() {
       notifier.setCellImage(4, _image(seed: 1));
 
       // Scale + offset on cell 0 must not affect cell 4.
-      notifier.setCellScale(0, 1.8);
-      notifier.setCellOffset(0, const CellOffset(5, 10));
+      notifier.setCellScale(0, 1.8, cellWidth: 32, cellHeight: 32);
+      notifier.setCellOffset(
+        0,
+        const CellOffset(5, 10),
+        cellWidth: 32,
+        cellHeight: 32,
+      );
       final state = capturedRef.read(gridEditorControllerProvider);
       expect(state.cellReplacements[0]?.scale, 1.8);
       expect(state.cellReplacements[4]?.scale, kDefaultCellScale);
