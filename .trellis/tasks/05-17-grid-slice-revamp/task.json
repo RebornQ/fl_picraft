@@ -1,0 +1,30 @@
+{
+  "id": "grid-slice-revamp",
+  "name": "grid-slice-revamp",
+  "title": "宫格切图三项改动：每格可替换+正方形+精简列表",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-17-grid-type-prune-text-selector",
+    "05-17-grid-square-cell-geometry",
+    "05-17-grid-per-cell-replacement"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

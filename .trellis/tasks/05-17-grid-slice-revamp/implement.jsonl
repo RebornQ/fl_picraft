@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Coordinates GridType domain/presentation split conventions and the grid_type_icons section that this revamp deprecates."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Per-cell replacement Map and grid-type-switch reset semantics live in the Notifier/state shape contract."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Selector widget rewrite + CellOverlay generalization follow widget pattern + a11y rules."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Canvas AspectRatio shifts from 1:1 to cols:rows; layout branches in grid_editor_screen.dart must stay consistent with the height-first contract."}

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Domain value type (CellReplacement) lives under domain/entities; data renderer in data/renderers; widget under presentation/widgets — keep layering clean."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Per-cell Map state shape, copyWith immutability, and reset-on-type-change semantics follow Riverpod Notifier patterns."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "CellOverlay generalization — gesture handling, hit-test transparency, Semantics labels for a11y per MD3."}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Riverpod provider patterns for the new per-cell controller interfaces (pickCellImage / setCellScale / etc)."}

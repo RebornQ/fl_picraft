@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Isolate-safe rasterizer + domain/data/presentation layering for renderer & layout changes."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Canvas AspectRatio change from 1:1 to cols:rows must keep the height-first contract across all size classes."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Removing nineGridSocialMode / center* fields from GridEditorState; ensure copyWith semantics stay null-safe."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Timeline markers + benchmark conventions for the renderer rewrite."}
