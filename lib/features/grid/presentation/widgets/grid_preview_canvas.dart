@@ -62,7 +62,6 @@ class GridPreviewCanvas extends ConsumerWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.zero,
-        border: Border.all(color: colorScheme.outlineVariant),
         boxShadow: const [
           BoxShadow(
             color: Color(0x14000000),
