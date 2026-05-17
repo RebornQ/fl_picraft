@@ -879,3 +879,36 @@ Brainstormed the grid-slice editor revamp (per-cell replacement + square cells +
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: Finish Subtask B: square cells + canvas aspect=cols:rows
+
+**Date**: 2026-05-17
+**Task**: Finish Subtask B: square cells + canvas aspect=cols:rows
+**Branch**: `main`
+
+### Summary
+
+Architecture-core change for the grid-slice revamp. computeGridLayout now takes cellSide and emits uniform square rects; compute_source_crop accepts targetAspect; GridEditorState drops nineGridSocialMode + center* fields; GridRenderRequest mirrors that; renderer crops source to cols/rows then carves square cells; preview canvas + screen AspectRatio both read gridType.cols/rows reactively. CenterCellOverlay stubbed as passive placeholder for Subtask C. Tests: rewrote grid_layout for square assertions; new targetAspect cases on compute_source_crop; responsive AspectRatio asserted for g1x3 / g2x3 / g3x3; 4 social/center tests stubbed with deferral notes. flutter analyze clean · 300 passed / 3 skipped. Subtask C remains for per-cell replacement + CellOverlay generalization.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `64017b7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
