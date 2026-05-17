@@ -812,3 +812,36 @@ Closed the grid-canvas-drag-overwrite umbrella with ST-C. The grid editor canvas
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: Remove outline border from GridPreviewCanvas decoration
+
+**Date**: 2026-05-17
+**Task**: Remove outline border from GridPreviewCanvas decoration
+**Branch**: `main`
+
+### Summary
+
+宫格切图画布外缘的 outlineVariant 描边线视觉过重。删除 GridPreviewCanvas.build 中 BoxDecoration.border 单行，保留 color (surfaceContainer — gap-fill 视觉契约依赖)、borderRadius、boxShadow (轻微投影维持画布层级感) 与 clipBehavior。1 行删除、单文件改动、0 测试改动。三红线全绿：analyze 0 errors / format unchanged / 337 tests passed。surfaceContainer 视觉契约 (上一轮 05-17-grid-spacing-color-fix 引入) 完整保留，相关 gap fill / drag 测试全部通过、无回归。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1196e49` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
