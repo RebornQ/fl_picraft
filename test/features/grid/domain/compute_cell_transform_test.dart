@@ -1,4 +1,4 @@
-import 'package:fl_picraft/features/grid/domain/usecases/compute_center_transform.dart';
+import 'package:fl_picraft/features/grid/domain/usecases/compute_cell_transform.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -88,11 +88,11 @@ void main() {
     });
   });
 
-  group('clampCenterOffset', () {
+  group('clampCellOffset', () {
     test('pins offset to (0,0) when scaled image equals cell on both axes', () {
       // userScale=1.0 + same dims = no surplus = no allowed pan.
-      final clamped = clampCenterOffset(
-        offset: const CenterOffset(50, 50),
+      final clamped = clampCellOffset(
+        offset: const CellOffset(50, 50),
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
@@ -108,8 +108,8 @@ void main() {
       () {
         // 300x300 image, 300x300 cell, userScale=2.0 → effective extent
         // 600x600, surplus 300, half-surplus 150 on each axis.
-        final clamped = clampCenterOffset(
-          offset: const CenterOffset(100, -50),
+        final clamped = clampCellOffset(
+          offset: const CellOffset(100, -50),
           imageWidth: 300,
           imageHeight: 300,
           cellWidth: 300,
@@ -123,8 +123,8 @@ void main() {
 
     test('clamps overshoot back to ±half-surplus', () {
       // Same setup as above; offset 200 exceeds half-surplus 150.
-      final clamped = clampCenterOffset(
-        offset: const CenterOffset(200, -200),
+      final clamped = clampCellOffset(
+        offset: const CellOffset(200, -200),
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
@@ -139,8 +139,8 @@ void main() {
       // 100x300 image → cover for 300x300 cell is 3.0 (width-limited).
       // At userScale=1.0 effective extent is 300x900 — y surplus 600,
       // half-surplus 300; x surplus 0, half-surplus 0.
-      final clamped = clampCenterOffset(
-        offset: const CenterOffset(50, 200),
+      final clamped = clampCellOffset(
+        offset: const CellOffset(50, 200),
         imageWidth: 100,
         imageHeight: 300,
         cellWidth: 300,
@@ -153,26 +153,26 @@ void main() {
 
     test('zero/negative dims short-circuit to (0, 0)', () {
       expect(
-        clampCenterOffset(
-          offset: const CenterOffset(100, 100),
+        clampCellOffset(
+          offset: const CellOffset(100, 100),
           imageWidth: 0,
           imageHeight: 100,
           cellWidth: 100,
           cellHeight: 100,
           userScale: 1,
         ),
-        kCenterOffsetZero,
+        kCellOffsetZero,
       );
     });
   });
 
-  group('clampCenterTransform', () {
+  group('clampCellTransform', () {
     test('applies scale clamp before offset clamp', () {
       // userScale=0.5 → clamped to 1.0 cover-fit. Offset 100 with
       // 300x300/300x300/1.0 = 0 surplus → pinned to 0.
-      final clamped = clampCenterTransform(
+      final clamped = clampCellTransform(
         scale: 0.5,
-        offset: const CenterOffset(100, 100),
+        offset: const CellOffset(100, 100),
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
@@ -184,8 +184,8 @@ void main() {
     });
 
     test('preserves valid (scale, offset) pairs unchanged', () {
-      final input = const CenterOffset(50, -25);
-      final clamped = clampCenterTransform(
+      const input = CellOffset(50, -25);
+      final clamped = clampCellTransform(
         scale: 1.5,
         offset: input,
         imageWidth: 300,
@@ -200,9 +200,9 @@ void main() {
     });
 
     test('over-zoomed scale clamps to 2.0 ceiling', () {
-      final clamped = clampCenterTransform(
+      final clamped = clampCellTransform(
         scale: 5,
-        offset: const CenterOffset(1000, 0),
+        offset: const CellOffset(1000, 0),
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
@@ -215,15 +215,15 @@ void main() {
     });
   });
 
-  group('computeCenterSourceRect', () {
+  group('computeCellSourceRect', () {
     test('cover-fit (scale=1) on aspect-matching image picks full image', () {
-      final rect = computeCenterSourceRect(
+      final rect = computeCellSourceRect(
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
         cellHeight: 300,
         userScale: 1,
-        offset: kCenterOffsetZero,
+        offset: kCellOffsetZero,
       );
       expect(rect, isNotNull);
       expect(rect!.x, 0);
@@ -234,13 +234,13 @@ void main() {
 
     test('zoom-in (scale=2) on cover-fit image crops the center half', () {
       // userScale=2 → effective=2 → slice = cell / 2 → 150x150 from center.
-      final rect = computeCenterSourceRect(
+      final rect = computeCellSourceRect(
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
         cellHeight: 300,
         userScale: 2,
-        offset: kCenterOffsetZero,
+        offset: kCellOffsetZero,
       );
       expect(rect, isNotNull);
       expect(rect!.x, 75);
@@ -252,13 +252,13 @@ void main() {
     test('non-zero offset shifts the slice in source coords', () {
       // userScale=2, offset.dx=30 → source shift = -30 / 2 = -15.
       // Slice center moves 15 to the left, so x = 75 - 15 = 60.
-      final rect = computeCenterSourceRect(
+      final rect = computeCellSourceRect(
         imageWidth: 300,
         imageHeight: 300,
         cellWidth: 300,
         cellHeight: 300,
         userScale: 2,
-        offset: const CenterOffset(30, 0),
+        offset: const CellOffset(30, 0),
       );
       expect(rect, isNotNull);
       expect(rect!.x, 60);
@@ -272,13 +272,13 @@ void main() {
       // sliceW = 300 / 3 = 100. Image width is 200 — slice spans the
       // middle 100 horizontally (50..150). Vertically image height is
       // 100, slice height = 300 / 3 = 100 — full image height.
-      final rect = computeCenterSourceRect(
+      final rect = computeCellSourceRect(
         imageWidth: 200,
         imageHeight: 100,
         cellWidth: 300,
         cellHeight: 300,
         userScale: 1,
-        offset: kCenterOffsetZero,
+        offset: kCellOffsetZero,
       );
       expect(rect, isNotNull);
       expect(rect!.x, 50);
@@ -289,61 +289,52 @@ void main() {
 
     test('returns null on degenerate inputs', () {
       expect(
-        computeCenterSourceRect(
+        computeCellSourceRect(
           imageWidth: 0,
           imageHeight: 100,
           cellWidth: 100,
           cellHeight: 100,
           userScale: 1,
-          offset: kCenterOffsetZero,
+          offset: kCellOffsetZero,
         ),
         isNull,
       );
       expect(
-        computeCenterSourceRect(
+        computeCellSourceRect(
           imageWidth: 100,
           imageHeight: 100,
           cellWidth: 100,
           cellHeight: 100,
           userScale: 0,
-          offset: kCenterOffsetZero,
+          offset: kCellOffsetZero,
         ),
         isNull,
       );
     });
   });
 
-  group('CenterOffset value semantics', () {
+  group('CellOffset value semantics', () {
     test('equality and hashCode follow value semantics', () {
-      const a = CenterOffset(1, 2);
-      const b = CenterOffset(1, 2);
-      const c = CenterOffset(3, 2);
+      const a = CellOffset(1, 2);
+      const b = CellOffset(1, 2);
+      const c = CellOffset(3, 2);
       expect(a, b);
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(c));
     });
 
     test('copyWith preserves unspecified axis', () {
-      const a = CenterOffset(10, 20);
-      expect(a.copyWith(dx: 50), const CenterOffset(50, 20));
-      expect(a.copyWith(dy: -5), const CenterOffset(10, -5));
+      const a = CellOffset(10, 20);
+      expect(a.copyWith(dx: 50), const CellOffset(50, 20));
+      expect(a.copyWith(dy: -5), const CellOffset(10, -5));
     });
   });
 
-  group('ClampedCenterTransform', () {
+  group('ClampedCellTransform', () {
     test('equality covers both scale and offset', () {
-      const a = ClampedCenterTransform(
-        scale: 1.5,
-        offset: CenterOffset(10, 20),
-      );
-      const b = ClampedCenterTransform(
-        scale: 1.5,
-        offset: CenterOffset(10, 20),
-      );
-      const c = ClampedCenterTransform(
-        scale: 1.5,
-        offset: CenterOffset(11, 20),
-      );
+      const a = ClampedCellTransform(scale: 1.5, offset: CellOffset(10, 20));
+      const b = ClampedCellTransform(scale: 1.5, offset: CellOffset(10, 20));
+      const c = ClampedCellTransform(scale: 1.5, offset: CellOffset(11, 20));
       expect(a, b);
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(c));

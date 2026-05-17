@@ -8,6 +8,7 @@ import '../../domain/entities/grid_type.dart';
 import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../providers/grid_editor_provider.dart';
+import 'cell_overlay.dart';
 
 /// Live preview matching the central canvas in `_3_宫格切图/code.html`
 /// lines 119–141.
@@ -224,6 +225,29 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
                 },
               ),
             ),
+            // Per-cell overlays — siblings above the canvas-level
+            // detector so an opaque tap / pinch / longpress inside a
+            // cell rect wins the gesture arena (z-order rules in
+            // `component-guidelines.md`: stack hit-test runs top-down,
+            // an opaque hit stops propagation). Mounted for every
+            // cell, even empty ones, so the user can tap any cell to
+            // invoke the picker.
+            for (var i = 0; i < layout.rects.length; i++)
+              Positioned(
+                left: layout.rects[i].x * scaleX,
+                top: layout.rects[i].y * scaleY,
+                width: layout.rects[i].width * scaleX,
+                height: layout.rects[i].height * scaleY,
+                child: CellOverlay(
+                  cellIndex: i,
+                  rows: state.gridType.rows,
+                  cols: state.gridType.cols,
+                  cellWidth: layout.rects[i].width * scaleX,
+                  cellHeight: layout.rects[i].height * scaleY,
+                  sourceCellWidth: layout.rects[i].width.toDouble(),
+                  sourceCellHeight: layout.rects[i].height.toDouble(),
+                ),
+              ),
             // Translucent grid lines, mirroring the design mock's
             // `border-r border-b border-white/40` overlay. Fades out
             // during active gestures (R-DRAG-04) so the user can see

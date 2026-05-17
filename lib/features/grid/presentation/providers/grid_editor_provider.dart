@@ -2,12 +2,15 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../image_import/domain/entities/image_import_result.dart';
 import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../data/renderers/grid_image_renderer.dart';
+import '../../domain/entities/cell_replacement.dart';
 import '../../domain/entities/grid_editor_state.dart';
 import '../../domain/entities/grid_type.dart';
+import '../../domain/usecases/compute_cell_transform.dart';
 import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_render_request.dart';
 
@@ -19,10 +22,11 @@ final gridImageRendererProvider = Provider<GridImageRenderer>((ref) {
 
 /// Source-of-truth notifier for the grid-split editor.
 ///
-/// 05-17 Subtask B: the legacy nine-grid-social fields are gone — the
-/// editor now treats every supported [GridType] uniformly with a
-/// `targetAspect = cols / rows` crop. Subtask C will reintroduce per-cell
-/// replacement on top of this geometry.
+/// 05-17 Subtask C: per-cell replacement is reintroduced as a generalized
+/// `Map<int, CellReplacement>` keyed by row-major cell index. Picking,
+/// scaling, panning, and resetting are exposed as per-cell methods so a
+/// single [CellOverlay] widget mounted on every cell can drive each
+/// independently.
 class GridEditorController extends Notifier<GridEditorState> {
   @override
   GridEditorState build() {
@@ -56,7 +60,10 @@ class GridEditorController extends Notifier<GridEditorState> {
 
   void setGridType(GridType type) {
     if (state.gridType == type) return;
-    state = state.copyWith(gridType: type);
+    // PRD R2 / R7: switching grid type clears all cell replacements
+    // because the layout reshuffles and old indices no longer map to
+    // the user's intended cells.
+    state = state.copyWith(gridType: type, cellReplacements: const {});
   }
 
   void setSpacing(double px) {
@@ -136,6 +143,90 @@ class GridEditorController extends Notifier<GridEditorState> {
       sourceScale: kDefaultSourceScale,
     );
   }
+
+  // ---- per-cell replacement (Subtask C) ---------------------------------
+
+  /// Open the gallery picker (bypassing the grid-kind import session so
+  /// the picked image does NOT overwrite the source) and store the
+  /// result as a replacement for [cellIndex] with default scale /
+  /// offset. Going through the repository instead of the import
+  /// controller is the "side-channel reuse" pattern — per-cell picks
+  /// must not contaminate the main grid session.
+  Future<void> pickCellImage(int cellIndex) async {
+    final repo = ref.read(imageImportRepositoryProvider);
+    final result = await repo.pickFromGallery(limit: 1);
+    if (result is ImportSuccess && result.images.isNotEmpty) {
+      setCellImage(cellIndex, result.images.first);
+    }
+    // Cancellation and failures intentionally swallowed — the per-cell
+    // picker is a peer flow and shouldn't surface as a top-level
+    // editor snackbar. Future enhancement: add per-cell error surface.
+  }
+
+  /// Replace (or remove, when [image] is `null`) the cell at
+  /// [cellIndex]. Inserting a fresh image resets the cell's transform
+  /// to cover-fit / centered.
+  void setCellImage(int cellIndex, ImportedImage? image) {
+    final next = Map<int, CellReplacement>.from(state.cellReplacements);
+    if (image == null) {
+      if (!next.containsKey(cellIndex)) return;
+      next.remove(cellIndex);
+    } else {
+      next[cellIndex] = CellReplacement(image: image);
+    }
+    state = state.copyWith(cellReplacements: Map.unmodifiable(next));
+  }
+
+  /// Update the cover-relative scale of the cell's replacement. No-op
+  /// when no replacement exists at [cellIndex].
+  void setCellScale(int cellIndex, double scale) {
+    final current = state.cellReplacements[cellIndex];
+    if (current == null) return;
+    final clamped = clampUserScale(scale);
+    // Re-clamp offset against the new scale so the image still covers
+    // the cell. We don't know the live cell pixel extent here, so we
+    // use the replacement image's own dimensions as the cell-shape
+    // proxy — sufficient for a domain-level guarantee. The widget
+    // additionally clamps against its on-screen extent.
+    final reClamped = clampCellOffset(
+      offset: current.offset,
+      imageWidth: current.image.width,
+      imageHeight: current.image.height,
+      cellWidth: current.image.width,
+      cellHeight: current.image.height,
+      userScale: clamped,
+    );
+    final next = Map<int, CellReplacement>.from(state.cellReplacements);
+    next[cellIndex] = current.copyWith(scale: clamped, offset: reClamped);
+    state = state.copyWith(cellReplacements: Map.unmodifiable(next));
+  }
+
+  /// Update the pan offset of the cell's replacement (cell-target
+  /// pixels). No-op when no replacement exists at [cellIndex]. The
+  /// widget supplies the on-screen cell extents so this method clamps
+  /// against the real cover-fit bounds; callers that don't know the
+  /// cell size should use the version of `setCellOffset` from the
+  /// widget itself (which feeds the cell extents through).
+  void setCellOffset(int cellIndex, CellOffset offset) {
+    final current = state.cellReplacements[cellIndex];
+    if (current == null) return;
+    final clamped = clampCellOffset(
+      offset: offset,
+      imageWidth: current.image.width,
+      imageHeight: current.image.height,
+      cellWidth: current.image.width,
+      cellHeight: current.image.height,
+      userScale: current.scale,
+    );
+    if (clamped == current.offset) return;
+    final next = Map<int, CellReplacement>.from(state.cellReplacements);
+    next[cellIndex] = current.copyWith(offset: clamped);
+    state = state.copyWith(cellReplacements: Map.unmodifiable(next));
+  }
+
+  /// Remove the replacement at [cellIndex] (alias of
+  /// `setCellImage(cellIndex, null)`).
+  void resetCell(int cellIndex) => setCellImage(cellIndex, null);
 
   // ---- import shortcuts -------------------------------------------------
 

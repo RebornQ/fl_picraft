@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import '../../domain/entities/grid_type.dart';
+import '../../domain/usecases/compute_cell_transform.dart';
 import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../../domain/usecases/grid_render_request.dart';
@@ -104,7 +105,8 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
   final cells = <Uint8List>[];
   Timeline.startSync('grid.cell-render');
   try {
-    for (final rect in layout.rects) {
+    for (var i = 0; i < layout.rects.length; i++) {
+      final rect = layout.rects[i];
       if (rect.width <= 0 || rect.height <= 0) {
         // Degenerate cell (spacing ate the whole axis) — emit a 1x1
         // transparent placeholder so the output count still matches
@@ -118,29 +120,45 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
         }
         continue;
       }
-      // Map canvas-space rect → cropped-source-space rect 1:1 (the
-      // layout was built against the cropped source's own dimensions).
-      // Clamp width/height defensively in case the residual at the
-      // bottom-right edge would step a pixel past the cropped bounds.
-      final sx = rect.x;
-      final sy = rect.y;
-      final sw = math.min(rect.width, cropped.width - sx);
-      final sh = math.min(rect.height, cropped.height - sy);
-      if (sw <= 0 || sh <= 0) {
-        final blank = img.Image(
-          width: math.max(1, rect.width),
-          height: math.max(1, rect.height),
-          numChannels: 4,
+
+      // Per-cell replacement dispatch (Subtask C): when an entry for
+      // this index exists, compose the cell from the replacement image
+      // instead of slicing the cropped source.
+      final replacement = request.cellReplacements[i];
+      img.Image cell;
+      if (replacement != null) {
+        cell = _composeReplacementCell(
+          replacement,
+          cellWidth: rect.width,
+          cellHeight: rect.height,
         );
-        Timeline.startSync('grid.encode');
-        try {
-          cells.add(Uint8List.fromList(img.encodePng(blank)));
-        } finally {
-          Timeline.finishSync();
+      } else {
+        // Map canvas-space rect → cropped-source-space rect 1:1 (the
+        // layout was built against the cropped source's own
+        // dimensions). Clamp width/height defensively in case the
+        // residual at the bottom-right edge would step a pixel past
+        // the cropped bounds.
+        final sx = rect.x;
+        final sy = rect.y;
+        final sw = math.min(rect.width, cropped.width - sx);
+        final sh = math.min(rect.height, cropped.height - sy);
+        if (sw <= 0 || sh <= 0) {
+          final blank = img.Image(
+            width: math.max(1, rect.width),
+            height: math.max(1, rect.height),
+            numChannels: 4,
+          );
+          Timeline.startSync('grid.encode');
+          try {
+            cells.add(Uint8List.fromList(img.encodePng(blank)));
+          } finally {
+            Timeline.finishSync();
+          }
+          continue;
         }
-        continue;
+        cell = img.copyCrop(cropped, x: sx, y: sy, width: sw, height: sh);
       }
-      final cell = img.copyCrop(cropped, x: sx, y: sy, width: sw, height: sh);
+
       if (radius > 0) {
         _applyRoundedCorners(cell, radius: radius);
       }
@@ -155,6 +173,57 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
     Timeline.finishSync();
   }
   return cells;
+}
+
+/// Compose a single replacement cell from a [CellReplacementBytes]
+/// payload. Decodes the image, crops the slice that maps to the cell
+/// per [computeCellSourceRect], and resizes it to the target cell
+/// dimensions so the renderer's downstream encode path treats it
+/// identically to a source-slice cell.
+///
+/// Returns a fully-opaque, `cellWidth x cellHeight` `img.Image`. Falls
+/// back to a transparent blank when the replacement bytes fail to
+/// decode (rare — `ImportedImage` is validated at import time, but the
+/// fallback keeps the renderer crash-free).
+img.Image _composeReplacementCell(
+  CellReplacementBytes replacement, {
+  required int cellWidth,
+  required int cellHeight,
+}) {
+  final decoded = img.decodeImage(replacement.bytes);
+  if (decoded == null) {
+    return img.Image(width: cellWidth, height: cellHeight, numChannels: 4);
+  }
+
+  final sourceRect = computeCellSourceRect(
+    imageWidth: replacement.width,
+    imageHeight: replacement.height,
+    cellWidth: cellWidth,
+    cellHeight: cellHeight,
+    userScale: replacement.scale,
+    offset: replacement.offset,
+  );
+
+  if (sourceRect == null) {
+    return img.Image(width: cellWidth, height: cellHeight, numChannels: 4);
+  }
+
+  // Defensive clamping: integer rounding inside computeCellSourceRect
+  // can drift a pixel past the bounds on extreme inputs.
+  final maxXBound = math.max(0, decoded.width - 1);
+  final maxYBound = math.max(0, decoded.height - 1);
+  final x = sourceRect.x.clamp(0, maxXBound).toInt();
+  final y = sourceRect.y.clamp(0, maxYBound).toInt();
+  final maxW = math.max(1, decoded.width - x);
+  final maxH = math.max(1, decoded.height - y);
+  final w = math.min(sourceRect.width, maxW);
+  final h = math.min(sourceRect.height, maxH);
+
+  final cropped = img.copyCrop(decoded, x: x, y: y, width: w, height: h);
+  if (cropped.width == cellWidth && cropped.height == cellHeight) {
+    return cropped;
+  }
+  return img.copyResize(cropped, width: cellWidth, height: cellHeight);
 }
 
 /// Crop [src] to the rectangular region picked by the user

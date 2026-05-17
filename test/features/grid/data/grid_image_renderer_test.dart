@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fl_picraft/features/grid/data/renderers/grid_image_renderer.dart';
 import 'package:fl_picraft/features/grid/domain/entities/grid_type.dart';
+import 'package:fl_picraft/features/grid/domain/usecases/compute_cell_transform.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/compute_source_crop.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/grid_render_request.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -247,5 +248,80 @@ void main() {
         expect((px.r, px.g, px.b), (255, 0, 0));
       },
     );
+
+    test('per-cell replacement: replaced cells differ from source slice; '
+        'untouched cells keep source pixels', () async {
+      // Build a 300x300 source with 9 distinct color quadrants (one
+      // color per 3x3 cell). Replace cells 0 and 4 with a magenta
+      // image; expect cells 0, 4 to be magenta, and cells 1, 2, 3, 5,
+      // 6, 7, 8 to match the source crop colors.
+      final src = img.Image(width: 300, height: 300, numChannels: 4);
+      for (var r = 0; r < 3; r++) {
+        for (var c = 0; c < 3; c++) {
+          final color = img.ColorRgba8(20 + r * 60, 20 + c * 60, 100, 255);
+          for (var y = r * 100; y < (r + 1) * 100; y++) {
+            for (var x = c * 100; x < (c + 1) * 100; x++) {
+              src.setPixel(x, y, color);
+            }
+          }
+        }
+      }
+      final srcBytes = Uint8List.fromList(img.encodePng(src));
+
+      // 50x50 solid magenta replacement (smaller than the 100x100 cell
+      // → renderer cover-scales it up).
+      final replacement = img.Image(width: 50, height: 50, numChannels: 4);
+      img.fill(replacement, color: img.ColorRgba8(255, 0, 255, 255));
+      final replacementBytes = Uint8List.fromList(img.encodePng(replacement));
+
+      const renderer = GridImageRenderer();
+      final cells = await renderer.render(
+        GridRenderRequest(
+          sourceBytes: srcBytes,
+          gridType: GridType.g3x3,
+          spacing: 0,
+          cornerRadius: 0,
+          cellReplacements: {
+            0: CellReplacementBytes(
+              bytes: replacementBytes,
+              width: 50,
+              height: 50,
+              scale: kDefaultCellScale,
+              offset: kCellOffsetZero,
+            ),
+            4: CellReplacementBytes(
+              bytes: replacementBytes,
+              width: 50,
+              height: 50,
+              scale: kDefaultCellScale,
+              offset: kCellOffsetZero,
+            ),
+          },
+        ),
+      );
+
+      expect(cells, hasLength(9));
+      // Cell 0 and 4 should be magenta (replacement).
+      final cell0Px = img.decodeImage(cells[0])!.getPixel(50, 50);
+      final cell4Px = img.decodeImage(cells[4])!.getPixel(50, 50);
+      expect((cell0Px.r, cell0Px.g, cell0Px.b), (255, 0, 255));
+      expect((cell4Px.r, cell4Px.g, cell4Px.b), (255, 0, 255));
+
+      // Cells 1/2/3/5/6/7/8 should keep their source-slice colors —
+      // verify a few representative ones.
+      // Index 1 = row 0, col 1 → color (20, 80, 100)
+      final cell1Px = img.decodeImage(cells[1])!.getPixel(50, 50);
+      expect((cell1Px.r, cell1Px.g, cell1Px.b), (20, 80, 100));
+      // Index 8 = row 2, col 2 → color (140, 140, 100)
+      final cell8Px = img.decodeImage(cells[8])!.getPixel(50, 50);
+      expect((cell8Px.r, cell8Px.g, cell8Px.b), (140, 140, 100));
+
+      // Every output cell is still square.
+      for (final bytes in cells) {
+        final decoded = img.decodeImage(bytes)!;
+        expect(decoded.width, decoded.height);
+        expect(decoded.width, 100);
+      }
+    });
   });
 }

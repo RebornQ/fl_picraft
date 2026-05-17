@@ -1,29 +1,29 @@
 import 'dart:math' as math;
 
-/// User-facing scale bounds for the nine-grid-social replacement image
-/// (PRD §九宫格朋友圈 — "Scale range: 0.5x – 2x").
+/// User-facing scale bounds for a per-cell replacement image (PRD ST-C
+/// — "Scale range: 0.5x – 2x" for per-cell pinch / drag).
 ///
 /// **Convention**: scale is **cover-relative** — `1.0` means the image
 /// just fully covers the cell (no transparent borders); `2.0` means
 /// the image is twice that size (zoomed in, with cropping); `0.5`
 /// would mean half cover-fit, but that exposes transparent area and is
 /// clamped at the next-higher safe value by [clampUserScale].
-const double kMinCenterScale = 0.5;
-const double kMaxCenterScale = 2;
+const double kMinCellScale = 0.5;
+const double kMaxCellScale = 2;
 
 /// Default user-facing scale — image cover-fits the cell at first.
-const double kDefaultCenterScale = 1;
+const double kDefaultCellScale = 1;
 
 /// Default pan offset — image starts centered on the cell.
-const CenterOffset kCenterOffsetZero = CenterOffset(0, 0);
+const CellOffset kCellOffsetZero = CellOffset(0, 0);
 
 /// Effective lower bound for user-facing scale, post-clamp. Below 1.0
 /// the cell would expose transparent area, so the controller pins the
 /// scale to this floor regardless of the slider position. Surfaced as
 /// a helper so widget code reads intentional rather than magic-numbery.
-const double kEffectiveMinCenterScale = 1;
+const double kEffectiveMinCellScale = 1;
 
-/// Domain-only 2-D translation vector for the replacement image.
+/// Domain-only 2-D translation vector for a per-cell replacement image.
 ///
 /// Kept as a plain class (instead of `Offset` from `dart:ui`) so the
 /// `domain/` layer remains framework-free — UI code maps to/from
@@ -31,27 +31,27 @@ const double kEffectiveMinCenterScale = 1;
 /// pixels** (i.e. what the user sees / drags in the preview): `(0, 0)`
 /// means the scaled image is centered on the cell; positive `dx`
 /// shifts it right, positive `dy` shifts it down.
-class CenterOffset {
-  const CenterOffset(this.dx, this.dy);
+class CellOffset {
+  const CellOffset(this.dx, this.dy);
 
   final double dx;
   final double dy;
 
-  CenterOffset copyWith({double? dx, double? dy}) {
-    return CenterOffset(dx ?? this.dx, dy ?? this.dy);
+  CellOffset copyWith({double? dx, double? dy}) {
+    return CellOffset(dx ?? this.dx, dy ?? this.dy);
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CenterOffset && other.dx == dx && other.dy == dy;
+    return other is CellOffset && other.dx == dx && other.dy == dy;
   }
 
   @override
   int get hashCode => Object.hash(dx, dy);
 
   @override
-  String toString() => 'CenterOffset($dx, $dy)';
+  String toString() => 'CellOffset($dx, $dy)';
 }
 
 /// "Cover-fit" scale factor — the **absolute** multiplier on the
@@ -79,14 +79,14 @@ double coverScaleFactor({
   return math.max(sx, sy);
 }
 
-/// Clamp the user-requested [scale] to `[kEffectiveMinCenterScale,
-/// kMaxCenterScale]`.
+/// Clamp the user-requested [scale] to `[kEffectiveMinCellScale,
+/// kMaxCellScale]`.
 ///
 /// PRD's edge case "Scale at 0.5x exposes transparent area | Disallow
 /// — clamp scale lower bound to fit" — anything below 1.0 cover-fit
 /// pins to 1.0; anything above 2.0 pins to 2.0.
 double clampUserScale(double scale) {
-  return scale.clamp(kEffectiveMinCenterScale, kMaxCenterScale).toDouble();
+  return scale.clamp(kEffectiveMinCellScale, kMaxCellScale).toDouble();
 }
 
 /// Clamp the pan offset so the scaled replacement image always covers
@@ -103,16 +103,16 @@ double clampUserScale(double scale) {
 /// possible if [userScale] is itself below the cover-fit floor, which
 /// [clampUserScale] prevents in normal flow), the offset on that axis
 /// collapses to `0` so the image stays centered.
-CenterOffset clampCenterOffset({
-  required CenterOffset offset,
+CellOffset clampCellOffset({
+  required CellOffset offset,
   required int imageWidth,
   required int imageHeight,
   required int cellWidth,
   required int cellHeight,
   required double userScale,
 }) {
-  if (imageWidth <= 0 || imageHeight <= 0) return kCenterOffsetZero;
-  if (cellWidth <= 0 || cellHeight <= 0) return kCenterOffsetZero;
+  if (imageWidth <= 0 || imageHeight <= 0) return kCellOffsetZero;
+  if (cellWidth <= 0 || cellHeight <= 0) return kCellOffsetZero;
   final cover = coverScaleFactor(
     imageWidth: imageWidth,
     imageHeight: imageHeight,
@@ -126,23 +126,23 @@ CenterOffset clampCenterOffset({
   final maxDy = (scaledH - cellHeight) / 2;
   final clampedX = maxDx <= 0 ? 0.0 : offset.dx.clamp(-maxDx, maxDx);
   final clampedY = maxDy <= 0 ? 0.0 : offset.dy.clamp(-maxDy, maxDy);
-  return CenterOffset(clampedX.toDouble(), clampedY.toDouble());
+  return CellOffset(clampedX.toDouble(), clampedY.toDouble());
 }
 
 /// Result of resolving a user-requested transform against the bounds.
-class ClampedCenterTransform {
-  const ClampedCenterTransform({required this.scale, required this.offset});
+class ClampedCellTransform {
+  const ClampedCellTransform({required this.scale, required this.offset});
 
   /// User-facing scale, clamped to `[1.0, 2.0]`.
   final double scale;
 
   /// Pan offset, clamped so the scaled image always covers the cell.
-  final CenterOffset offset;
+  final CellOffset offset;
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ClampedCenterTransform &&
+    return other is ClampedCellTransform &&
         other.scale == scale &&
         other.offset == offset;
   }
@@ -156,16 +156,16 @@ class ClampedCenterTransform {
 ///
 /// Order of operations matters: the scale is clamped **first** because
 /// the offset bounds depend on the scaled image's effective dimensions.
-ClampedCenterTransform clampCenterTransform({
+ClampedCellTransform clampCellTransform({
   required double scale,
-  required CenterOffset offset,
+  required CellOffset offset,
   required int imageWidth,
   required int imageHeight,
   required int cellWidth,
   required int cellHeight,
 }) {
   final clampedScale = clampUserScale(scale);
-  final clampedOffset = clampCenterOffset(
+  final clampedOffset = clampCellOffset(
     offset: offset,
     imageWidth: imageWidth,
     imageHeight: imageHeight,
@@ -173,7 +173,7 @@ ClampedCenterTransform clampCenterTransform({
     cellHeight: cellHeight,
     userScale: clampedScale,
   );
-  return ClampedCenterTransform(scale: clampedScale, offset: clampedOffset);
+  return ClampedCellTransform(scale: clampedScale, offset: clampedOffset);
 }
 
 /// Compute the rectangle (in source-image pixels) of the replacement
@@ -189,13 +189,13 @@ ClampedCenterTransform clampCenterTransform({
 /// back to source pixels before shifting the slice.
 ///
 /// Returns `null` when the inputs collapse to a degenerate rect.
-CenterSourceRect? computeCenterSourceRect({
+CellSourceRect? computeCellSourceRect({
   required int imageWidth,
   required int imageHeight,
   required int cellWidth,
   required int cellHeight,
   required double userScale,
-  required CenterOffset offset,
+  required CellOffset offset,
 }) {
   if (imageWidth <= 0 || imageHeight <= 0) return null;
   if (cellWidth <= 0 || cellHeight <= 0) return null;
@@ -223,7 +223,7 @@ CenterSourceRect? computeCenterSourceRect({
   final centerY = imageHeight / 2 - offset.dy / effectiveScale;
   final x = centerX - sliceW / 2;
   final y = centerY - sliceH / 2;
-  return CenterSourceRect(
+  return CellSourceRect(
     x: x.round(),
     y: y.round(),
     width: math.max(1, sliceW.round()),
@@ -234,8 +234,8 @@ CenterSourceRect? computeCenterSourceRect({
 /// Integer-pixel rect carved out of the replacement image, in source
 /// coordinates. Mirrors the shape of `GridRect` so the renderer can
 /// pipe it straight into `img.copyCrop`.
-class CenterSourceRect {
-  const CenterSourceRect({
+class CellSourceRect {
+  const CellSourceRect({
     required this.x,
     required this.y,
     required this.width,
@@ -250,7 +250,7 @@ class CenterSourceRect {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CenterSourceRect &&
+    return other is CellSourceRect &&
         other.x == x &&
         other.y == y &&
         other.width == width &&
@@ -261,5 +261,5 @@ class CenterSourceRect {
   int get hashCode => Object.hash(x, y, width, height);
 
   @override
-  String toString() => 'CenterSourceRect(x: $x, y: $y, w: $width, h: $height)';
+  String toString() => 'CellSourceRect(x: $x, y: $y, w: $width, h: $height)';
 }
