@@ -234,6 +234,72 @@ intent, then record the decision in this table.
 
 **Don't**: Add the chrome inside the panel widget itself (`GridControlsPanel`, `StitchControlsPanel`). That breaks the "panel is bare" rule and forces a future bare-panel use-case to either fork the panel or hack around the chrome.
 
+### Convention: Cap bottom-sheet height on compact / medium with `max(floor, min(screenHeight * ratio, ceiling))` + internal scroll
+
+**What**: When the dual-form panel docks as a bottom `Material` sheet on compact / medium (e.g. `StitchControlsSheet`), wrap the inner panel in a `ConstrainedBox` whose `maxHeight` follows the three-layer clamp:
+
+```dart
+final screenHeight = MediaQuery.sizeOf(context).height;
+final maxHeight = math.max(
+  200.0,                               // floor — protects tiny windows (foldable outer ~400 dp tall)
+  math.min(screenHeight * 0.28, 360.0), // ratio + ceiling — keeps the canvas ≥ 60–70% of screen
+);
+```
+
+then nest a `SingleChildScrollView` so panel content can overflow and scroll within the cap instead of pushing the canvas off-screen.
+
+```dart
+class StitchControlsSheet extends StatelessWidget {
+  const StitchControlsSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxHeight = math.max(
+      200.0,
+      math.min(screenHeight * 0.28, 360.0),
+    );
+    return Material(
+      elevation: 8,
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: const SingleChildScrollView(
+          child: StitchControlsPanel(),
+        ),
+      ),
+    );
+  }
+}
+```
+
+**Why each layer is load-bearing**:
+
+| Layer | What it solves | What happens without it |
+|---|---|---|
+| `ratio` (`* 0.28`) | Anchors the sheet to a fraction of the actual viewport so it reads consistently across phones / foldables / desktops | A fixed `maxHeight: 360` looks fine on 800 dp phones but reads as a huge slab on a 600 dp foldable outer screen |
+| `ceiling` (`360.0`) | Prevents the sheet from inflating on very tall windows where 28% would be 500 dp+ | On a tablet portrait 1366 dp tall, `* 0.28` = 382 dp without a ceiling — the sheet starts feeling like a half-page modal |
+| `floor` (`200.0`) | Guarantees the sheet stays usable on ultra-short windows (foldable outer ~400 dp, web with browser chrome stealing height) | `400 * 0.28 = 112 dp` — the sheet collapses to a strip that can barely show one slider row before scroll |
+| Internal `SingleChildScrollView` | Lets panel content overflow gracefully when the user opens a mode that adds more sliders | Without it, Flutter logs a `RenderFlex overflowed by N pixels` and the bottom controls visually vanish |
+
+**Why not `LayoutBuilder`**: a `LayoutBuilder` placed inside a parent that hands the sheet an unbounded vertical extent reports `maxHeight: ∞`, so the math fails. Read the viewport height directly via `MediaQuery.sizeOf(context).height` — it's the actual paint surface height regardless of the parent's intrinsic-height story.
+
+**Why this lives on the sheet wrapper, not the panel**: the same `StitchControlsPanel` is reused by the expanded / large side-panel branch, where the cap doesn't apply (the row's `crossAxisAlignment: stretch` already bounds the panel's height — see the height-first row variant). Keeping the cap on the sheet means the panel itself stays size-agnostic.
+
+**How to apply** (adding a new editor with a bottom sheet):
+
+1. Pick a `ratio` between `0.25` and `0.4`. Closer to `0.25` favors the canvas; closer to `0.4` favors the controls. `stitch_editor` uses `0.28` because the canvas is the primary work surface.
+2. Set the `ceiling` to roughly `(maximum reasonable slider count) * (per-row height ~56 dp) + padding`. For 6 sliders + 2 toggle rows + swatch row ≈ 360 dp.
+3. Set the `floor` to roughly `(2 essential rows) * 56 dp + padding ≈ 200 dp` — what the user MUST be able to see even on an outer foldable screen.
+4. Always wrap the panel in `SingleChildScrollView` inside the `ConstrainedBox`. The cap is a hard ceiling; the scroll lets content extend past it.
+5. Do NOT pull the same cap into the side-panel path — that branch is already bounded by `Row(crossAxisAlignment: stretch)` + its own `SingleChildScrollView`.
+
+**Where this is used**: `stitch_editor_screen.dart` (via `StitchControlsSheet`) — `floor=200, ratio=0.28, ceiling=360`. Add a row here when a new editor adopts the pattern.
+
+**Don't**: Reach for `DraggableScrollableSheet` for this case. It's intended for user-pullable modals (think Google Maps' place card). Editor controls are persistent, not dismissible; a `ConstrainedBox + SingleChildScrollView` keeps the contract explicit and avoids accidentally introducing a drag gesture that fights with the slider drags inside.
+
 ---
 
 ## Pattern: Editor body — height-first `Column` skeleton (single-column + side-panel variants)
@@ -464,7 +530,7 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 |---|---|---|---|---|
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
-| stitch_editor | scrollable canvas + bottom `StitchControlsSheet` | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
+| stitch_editor | scrollable canvas + bottom `StitchControlsSheet` capped at `max(200, min(screenHeight * 0.28, 360))` dp with internal `SingleChildScrollView` (see "Cap bottom-sheet height" convention) | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
 | grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Expanded(chrome[GridControlsPanel])` — chrome (`surfaceContainerLow` + `outlineVariant` + 16 dp rounded; matches the side-panel chrome at expanded / large) fills the column's remaining height so no bare page background leaks below it. The outer `Padding` uses 16 dp on every side; FAB clearance lives **inside** the chrome's `SingleChildScrollView` (`hasSource ? 80 : 16` dp) so the chrome's visible bottom rests on body bottom − 16 dp (no page bleed under the bottom nav). See "Editor body — height-first Column skeleton" pattern + "FAB clearance for chrome-wrapped controls slots lives in the scrollview" convention. | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in the **same** surface chrome that fills the row height, scrolls internally (default 16 dp scrollview bottom padding — FAB floats over the canvas column, not the docked panel). | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
 
 When adding a new top-level screen, fill in this table for it.
