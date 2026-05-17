@@ -233,6 +233,14 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
             // during active gestures (R-DRAG-04) so the user can see
             // the crop region without grid clutter. `IgnorePointer`
             // keeps the painter from claiming hits.
+            //
+            // When `state.spacing > 0`, the painter also fills the gap
+            // bands between cells with `colorScheme.surfaceContainer`
+            // so the preview visualizes the spacing instead of letting
+            // the source image bleed through. This makes the preview
+            // visually equivalent to the exported per-cell PNGs (whose
+            // gap region is *omitted* — i.e. the canvas backdrop shows
+            // through). See task `05-17-grid-spacing-color-fix`.
             AnimatedOpacity(
               opacity: _isGesturing ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 150),
@@ -243,6 +251,8 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
                     cornerRadius: state.cornerRadius,
                     scaleX: scaleX,
                     scaleY: scaleY,
+                    spacing: state.spacing,
+                    gapColor: Theme.of(context).colorScheme.surfaceContainer,
                   ),
                 ),
               ),
@@ -352,6 +362,8 @@ class _GridOverlayPainter extends CustomPainter {
     required this.cornerRadius,
     required this.scaleX,
     required this.scaleY,
+    required this.spacing,
+    required this.gapColor,
   });
 
   final List<GridRect> rects;
@@ -359,17 +371,21 @@ class _GridOverlayPainter extends CustomPainter {
   final double scaleX;
   final double scaleY;
 
+  /// Logical spacing (in source pixels) between adjacent cells. Used
+  /// only as a gate — the geometry of the gap bands is implicit in
+  /// the difference between [rects] and the painter's `size`, so we
+  /// don't need to multiply this by `scaleX/Y` ourselves.
+  final double spacing;
+
+  /// Fill color for the gap bands between cells. Sourced from
+  /// `Theme.of(context).colorScheme.surfaceContainer` at the call
+  /// site so the gap visually matches the canvas backdrop (and the
+  /// "no-pixel" region of the exported per-cell PNGs).
+  final Color gapColor;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (rects.isEmpty || scaleX == 0 || scaleY == 0) return;
-
-    // Outline stroke around every cell, plus a translucent inner
-    // shadow at the corners so the radius visualization reads at a
-    // glance even on busy source images.
-    final stroke = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
 
     // Average scale for radius mapping — keeps the rendered radius
     // proportional even when the canvas aspect deviates from the
@@ -377,6 +393,47 @@ class _GridOverlayPainter extends CustomPainter {
     // and scaleY agree in practice — but average is the safe form).
     final radiusScale = (scaleX + scaleY) / 2;
     final scaledRadius = (cornerRadius * radiusScale).clamp(0.0, 64.0);
+
+    // ── Gap fill (only when spacing > 0) ─────────────────────────
+    // Mask the source image's bleed-through in the inter-cell bands
+    // by (1) saveLayer-fill the whole viewport with [gapColor], then
+    // (2) cut out every cell's RRect with `BlendMode.clear`. This
+    // single saveLayer is O(rects) and pays one composite cost per
+    // frame — far cheaper than `Path.combine(difference, …)` on
+    // large grids, and it lets BlendMode.clear honor the cell
+    // corner radius automatically.
+    if (spacing > 0) {
+      final layerBounds = Offset.zero & size;
+      canvas.saveLayer(layerBounds, Paint());
+      canvas.drawRect(layerBounds, Paint()..color = gapColor);
+      final clearPaint = Paint()..blendMode = BlendMode.clear;
+      for (final r in rects) {
+        final rect = Rect.fromLTWH(
+          r.x * scaleX,
+          r.y * scaleY,
+          r.width * scaleX,
+          r.height * scaleY,
+        );
+        if (scaledRadius > 0) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, Radius.circular(scaledRadius)),
+            clearPaint,
+          );
+        } else {
+          canvas.drawRect(rect, clearPaint);
+        }
+      }
+      canvas.restore();
+    }
+
+    // ── Cell outline stroke ──────────────────────────────────────
+    // Outline stroke around every cell, plus a translucent inner
+    // shadow at the corners so the radius visualization reads at a
+    // glance even on busy source images.
+    final stroke = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.6)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
 
     for (final r in rects) {
       final rect = Rect.fromLTWH(
@@ -401,6 +458,8 @@ class _GridOverlayPainter extends CustomPainter {
     return old.rects != rects ||
         old.cornerRadius != cornerRadius ||
         old.scaleX != scaleX ||
-        old.scaleY != scaleY;
+        old.scaleY != scaleY ||
+        old.spacing != spacing ||
+        old.gapColor != gapColor;
   }
 }
