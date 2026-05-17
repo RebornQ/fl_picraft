@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 29
-- **Last Active**: 2026-05-17
+- **Total Sessions**: 30
+- **Last Active**: 2026-05-18
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~980 | Active |
+| `journal-1.md` | ~1013 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 30 | 2026-05-18 | Fix: tap on replaced cell re-picks image | `b0bf9d3` | `main` |
 | 29 | 2026-05-17 | Cell add-circle hint icon | `2fd162c` | `main` |
 | 28 | 2026-05-17 | Finish Subtask C + close grid-slice-revamp umbrella | `40d6bbc` | `main` |
 | 27 | 2026-05-17 | Finish Subtask B: square cells + canvas aspect=cols:rows | `64017b7` | `main` |

@@ -978,3 +978,36 @@ Added Icons.add_circle_outline as a persistent affordance hint on every grid cel
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: Fix: tap on replaced cell re-picks image
+
+**Date**: 2026-05-18
+**Task**: Fix: tap on replaced cell re-picks image
+**Branch**: `main`
+
+### Summary
+
+User reported 'cells can only be covered once'. Root cause: _ReplacedCell had no onTap handler — only longpress menu → '替换图片' offered the re-replace path. Controller (setCellImage) was already correct. Fix: added onTap to _ReplacedCell.GestureDetector calling pickCellImage(cellIndex); Flutter gesture arena routes tap vs scale vs longpress automatically. New regression widget test seeds imageA, queues imageB on a fake picker repo, taps the CellOverlay, asserts the stub was invoked + state image is imageB. flutter analyze clean · flutter test 326 passed / 3 skipped (+1 new test).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b0bf9d3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
