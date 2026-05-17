@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本任务直接改动 compact / medium chrome 填满分支以及 chrome 内置 SingleChildScrollView padding 语义，必须对照 spec 中 'Caller decoration variants' / 'side-panel variant' / chrome 填满段落，确保 FAB clearance 由外层 Padding 改到 scrollview internal padding 后 spec 与实现同步"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "_buildControlsPanelChrome 签名扩展为命名参 (bottomPadding)，需符合组件 helper 抽取 + theme token 用法规范；FAB endFloat 悬浮于内容上方属于 Material 3 idiomatic layering 模式"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "新增 widget 测试断言 chrome 底部贴近 body 底（compact + medium），需复核 quality red line（analyze / format / test 三红线全绿 + 测试可重复）规范"}
+{"file": ".trellis/tasks/archive/2026-05/05-17-grid-compact-panel-chrome-fill/prd.md", "reason": "本任务是该任务的补丁：上一轮 chrome 填满但漏掉 96 dp FAB clearance，需对照其 AC / decoration 参数继承的部分（surfaceContainerLow + outlineVariant + 16 dp radius + kGridControlsPanelChromeKey 仍要复用）"}
+{"file": ".trellis/tasks/archive/2026-05/05-17-grid-reactive-canvas-and-panel-chrome/prd.md", "reason": "侧边栏 chrome 的原始任务，确认 expanded / large 分支不受本改动影响（bottomPadding 默认 16 dp，行为完全不变）"}

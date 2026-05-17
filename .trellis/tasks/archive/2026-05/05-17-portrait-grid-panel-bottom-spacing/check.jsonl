@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终验收三红线：flutter analyze / dart format . / flutter test 全绿；新增 chrome 底部距离断言测试稳定通过"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "复核 chrome 填满 + scrollview internal padding 段落已经描述了 FAB clearance 内置 pattern，与 _buildControlsPanelChrome 签名一致；compact / medium / expanded / large 四种 size class 行为表已经反映新约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 _buildControlsPanelChrome 抽取 helper 与命名参 (bottomPadding) 用法符合组件规范，FAB endFloat layering 语义没有违反任何 M3 / accessibility convention"}
+{"file": ".trellis/tasks/05-17-portrait-grid-panel-bottom-spacing/prd.md", "reason": "对照本任务 AC + DoD 逐项验证：chrome 视觉下沿 ≤ 16 dp 距离 nav bar，hasSource 时 FAB 不遮挡末张 card，expanded / large 行为不变，kGridControlsPanelChromeKey 仍可定位"}
