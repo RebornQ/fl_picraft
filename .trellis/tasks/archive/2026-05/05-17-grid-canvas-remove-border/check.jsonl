@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终验收三红线：flutter analyze / dart format . / flutter test 全绿"}
+{"file": ".trellis/tasks/05-17-grid-canvas-remove-border/prd.md", "reason": "对照本任务 AC + DoD 逐项验证：border 字段已删、color/clipBehavior/boxShadow 保留、其他文件 border 未动、gap fill 视觉契约未受影响"}

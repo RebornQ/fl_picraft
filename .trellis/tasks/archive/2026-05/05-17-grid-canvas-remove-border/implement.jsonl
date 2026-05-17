@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "删除 BoxDecoration.border 属于 widget 视觉约定改动，需对照 spec 的 MD3 token sourcing 与 widget 结构规范确认改动只动 border 字段、不破坏其他装饰；同时确认无需引入新 hex literal 或破坏 colorScheme 注入约束"}
+{"file": ".trellis/tasks/archive/2026-05/05-17-grid-spacing-color-fix/prd.md", "reason": "刚完成的相邻任务依赖 GridPreviewCanvas Container 的 color=surfaceContainer 作为 gap fill 视觉契约，本任务删除 border 时绝不能动 color/clipBehavior — 复核其 ADR 与 AC 段以避免回归"}
