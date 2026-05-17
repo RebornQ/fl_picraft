@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 32
+- **Total Sessions**: 33
 - **Last Active**: 2026-05-18
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1080 | Active |
+| `journal-1.md` | ~1113 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 33 | 2026-05-18 | 改进长图拼接模式 UX | `a5aafda` | `main` |
 | 32 | 2026-05-18 | fix grid cell image pan freeze at default scale | `e545551`, `13e30ba` | `main` |
 | 31 | 2026-05-18 | Fix: cell hint icon fades with grid lines | `8ca307d` | `main` |
 | 30 | 2026-05-18 | Fix: tap on replaced cell re-picks image | `b0bf9d3` | `main` |

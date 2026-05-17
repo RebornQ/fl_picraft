@@ -1078,3 +1078,36 @@ Fixed grid-mode replaced cells being unable to pan/drag at default userScale=1.0
 ### Next Steps
 
 - None - task complete
+
+
+## Session 33: 改进长图拼接模式 UX
+
+**Date**: 2026-05-18
+**Task**: 改进长图拼接模式 UX
+**Branch**: `main`
+
+### Summary
+
+为长图拼接编辑器添加一键清空（AlertDialog 二次确认）、已选图片板块折叠/展开（默认展开）、底部导航 + 首页 feature card 的「长图拼接」图标由 photo_library 改为 view_agenda、预览画布灰底 surface 撑满 Expanded 高度并保留长图滚动；配套 widget 测试覆盖 AC1–AC7，flutter analyze / test 全绿。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a5aafda` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
