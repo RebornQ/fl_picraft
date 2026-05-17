@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "umbrella 收尾时三红线 (analyze / format / test) 必须全绿；该 spec 是质量门槛的唯一权威"}
-{"file": ".trellis/tasks/05-17-grid-canvas-drag-overwrite/prd.md", "reason": "AC1~AC10 + DoD 是 umbrella 验收的对照表，check 阶段逐项核对子任务是否兑现"}
