@@ -745,3 +745,37 @@ Shipped ST-B of grid-canvas-drag-overwrite. AppBar import action now guards re-i
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: ST-C: drag+pinch-zoom canvas crop; umbrella closed
+
+**Date**: 2026-05-17
+**Task**: ST-C: drag+pinch-zoom canvas crop; umbrella closed
+**Branch**: `main`
+
+### Summary
+
+Closed the grid-canvas-drag-overwrite umbrella with ST-C. The grid editor canvas now drives an explicit square crop region via one-finger pan + two-finger pinch-zoom; the same crop math (compute_source_crop.dart, isolate-safe) feeds both the preview transform and the renderer's cell-slicing path, so what the user drags into view byte-matches what exports (RGB-band integration test on 600x300 source). Per umbrella D2 this is a breaking change: every cell is now 1:1 regardless of grid type / source aspect. R-DRAG-05 (overlay gesture priority) implementation revealed a Flutter gesture-handling subtlety: ancestor HitTestBehavior.deferToChild does NOT short-circuit hit-test the way intuition suggests; the correct pattern is sibling z-order with overlay's HitTestBehavior.opaque blocking propagation. Captured into component-guidelines.md as a new Gotcha next to the existing focalPointDelta entry. 334 tests passing (+30 new), three red lines green.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `53994d4` | (see git log) |
+| `2b749da` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
