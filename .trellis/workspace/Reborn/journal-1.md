@@ -678,3 +678,37 @@ Eliminated the 96 dp page-bg strip between the grid editor chrome and the bottom
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: Brainstorm grid drag/overwrite/chrome umbrella + ship ST-A chrome
+
+**Date**: 2026-05-17
+**Task**: Brainstorm grid drag/overwrite/chrome umbrella + ship ST-A chrome
+**Branch**: `main`
+
+### Summary
+
+Ran trellis-brainstorm to decompose 三宫格切图三项改动 (canvas drag-select / overwrite-import / borderRadius=0) into an umbrella + 3 subtasks. Locked D1 pan+zoom, D2 unified square crop (breaking: non-social 3x3 cells become square-derived), D3 confirm-then-overwrite, D4 four MVP edge enhancements (clamp / reset button / hide-grid-on-drag / center-cell gesture priority). Then shipped ST-A: GridPreviewCanvas chrome borderRadius 16→0; three red lines green, no test migration needed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `aa75f21` | (see git log) |
+| `0aaa43c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
