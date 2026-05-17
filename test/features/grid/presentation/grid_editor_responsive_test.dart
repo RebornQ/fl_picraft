@@ -442,17 +442,17 @@ void main() {
       // `Expanded` slot the chrome should fill its share of the
       // column's free space (≈ free_height / 2).
       //
-      // Body height ≈ 900 − 56 (AppBar) − 16 (top pad) − 96 (bottom
-      // FAB clearance) = 732 dp. Non-flex children inside the Column:
-      // a single 16 dp SizedBox between the canvas and the chrome
-      // (the source-size warning is not rendered for the test's
-      // 1024×1024 stub image). Free space = 732 − 16 = 716 dp,
-      // distributed evenly between the canvas `Expanded` and the
-      // chrome `Expanded` → each gets ≈ 358 dp. The loose [200, 500]
-      // band covers minor padding / chrome variance while still
-      // catching a regression to "chrome collapses to panel
-      // intrinsic" (~350 dp would still pass; but a collapse to a
-      // ~0 dp slot or growth past 500 would fail).
+      // Body height ≈ 900 − 56 (AppBar) − 16 (top pad) − 16 (bottom
+      // pad; FAB clearance moved inside the chrome's scrollview) =
+      // 812 dp. Non-flex children inside the Column: a single 16 dp
+      // SizedBox between the canvas and the chrome (the source-size
+      // warning is not rendered for the test's 1024×1024 stub image).
+      // Free space = 812 − 16 = 796 dp, distributed evenly between
+      // the canvas `Expanded` and the chrome `Expanded` → each gets
+      // ≈ 398 dp. The loose [200, 500] band covers minor padding /
+      // chrome variance while still catching a regression to "chrome
+      // collapses to panel intrinsic" (~350 dp would still pass; but
+      // a collapse to a ~0 dp slot or growth past 500 would fail).
       await _setViewportSize(tester, const Size(360, 900));
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
@@ -464,7 +464,7 @@ void main() {
         chromeSize.height,
         greaterThan(200),
         reason:
-            'compact chrome should fill ~free_height/2 (≈ 358 dp on a '
+            'compact chrome should fill ~free_height/2 (≈ 398 dp on a '
             '900 dp viewport), actually ${chromeSize.height}',
       );
       expect(
@@ -472,7 +472,7 @@ void main() {
         lessThan(500),
         reason:
             'compact chrome should not exceed its Expanded share '
-            '(~358 dp). Actually ${chromeSize.height} — has the canvas '
+            '(~398 dp). Actually ${chromeSize.height} — has the canvas '
             'lost its Expanded slot?',
       );
 
@@ -516,7 +516,7 @@ void main() {
     ) async {
       // 720×1200 medium width (phone landscape / small tablet). Same
       // single-column skeleton as compact, so the chrome should also
-      // fill ~free_height/2 ≈ (1200 − 56 − 112 − 16) / 2 = 508 dp.
+      // fill ~free_height/2 ≈ (1200 − 56 − 16 − 16 − 16) / 2 = 548 dp.
       // The [300, 700] band covers minor variance.
       await _setViewportSize(tester, const Size(720, 1200));
       await tester.pumpWidget(_gridHarness());
@@ -533,5 +533,166 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'compact chrome bottom edge sits ~16 dp above the body bottom (hasSource)',
+      (tester) async {
+        // With a source image imported (`hasSource == true`), the
+        // extended FAB is visible. The 05-17-portrait-grid-panel-bottom-
+        // spacing refactor moved FAB clearance from the outer Padding
+        // (was 96 dp on the bottom) into the chrome's scrollview
+        // internal padding (now 80 dp). The chrome's visible bottom
+        // edge should therefore rest on the body bottom − 16 dp (the
+        // outer Padding's new bottom inset). Body bottom in this test
+        // harness = viewport_height − AppBar_height (~56 dp).
+        await _setViewportSize(tester, const Size(360, 900));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        final view = tester.view;
+        final viewportHeight = view.physicalSize.height / view.devicePixelRatio;
+        final chromeBottom = tester
+            .getBottomLeft(find.byKey(kGridControlsPanelChromeKey))
+            .dy;
+        final gap = viewportHeight - chromeBottom;
+
+        // Outer Padding bottom = 16; tolerance 16 dp absorbs minor
+        // chrome rendering variance. A regression that restores the
+        // 96 dp outer-Padding inset would fail this with gap ≈ 96.
+        expect(
+          gap,
+          lessThan(32),
+          reason:
+              'chrome bottom should sit ≤ 32 dp above the viewport bottom; '
+              'gap = $gap. A larger gap means the FAB clearance leaked '
+              'back into the outer Padding.',
+        );
+      },
+    );
+
+    testWidgets(
+      'compact chrome bottom edge sits ~16 dp above the body bottom (no source)',
+      (tester) async {
+        // Without a source image (`hasSource == false`), the FAB is
+        // hidden. The chrome should still extend to body bottom − 16 dp
+        // — the outer Padding doesn't reserve FAB clearance at all.
+        await _setViewportSize(tester, const Size(360, 900));
+        await tester.pumpWidget(_gridHarness(images: const []));
+        await tester.pumpAndSettle();
+
+        final view = tester.view;
+        final viewportHeight = view.physicalSize.height / view.devicePixelRatio;
+        final chromeBottom = tester
+            .getBottomLeft(find.byKey(kGridControlsPanelChromeKey))
+            .dy;
+        final gap = viewportHeight - chromeBottom;
+
+        expect(
+          gap,
+          lessThan(32),
+          reason:
+              'chrome bottom should sit ≤ 32 dp above the viewport bottom '
+              'even when the FAB is hidden; gap = $gap',
+        );
+      },
+    );
+
+    testWidgets('medium chrome bottom edge sits ~16 dp above the body bottom', (
+      tester,
+    ) async {
+      // Same FAB-clearance contract at medium width.
+      await _setViewportSize(tester, const Size(720, 1200));
+      await tester.pumpWidget(_gridHarness());
+      await tester.pumpAndSettle();
+
+      final view = tester.view;
+      final viewportHeight = view.physicalSize.height / view.devicePixelRatio;
+      final chromeBottom = tester
+          .getBottomLeft(find.byKey(kGridControlsPanelChromeKey))
+          .dy;
+      final gap = viewportHeight - chromeBottom;
+
+      expect(gap, lessThan(32));
+    });
+
+    testWidgets(
+      'compact scrollview bottom padding is 80 dp when FAB is visible',
+      (tester) async {
+        // FAB clearance lives in the chrome's SingleChildScrollView
+        // internal padding (not the outer Padding) so the chrome's
+        // background fills the slot's bottom edge while the scrollable
+        // content still stops 80 dp above the chrome bottom — enough
+        // to keep the last GridParameterCards bento card clear of the
+        // floating FAB.
+        await _setViewportSize(tester, const Size(360, 900));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        final scrollview = tester.widget<SingleChildScrollView>(
+          find.descendant(
+            of: find.byKey(kGridControlsPanelChromeKey),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        final padding = scrollview.padding as EdgeInsets;
+        expect(
+          padding.bottom,
+          80,
+          reason:
+              'scrollview bottom padding should be 80 dp when the FAB is '
+              'visible (hasSource == true), got ${padding.bottom}',
+        );
+        // Symmetry on the other three sides — the inner 16 dp padding
+        // wrapping the controls is unchanged.
+        expect(padding.left, 16);
+        expect(padding.top, 16);
+        expect(padding.right, 16);
+      },
+    );
+
+    testWidgets(
+      'compact scrollview bottom padding is 16 dp when FAB is hidden',
+      (tester) async {
+        // No source image → FAB hidden → scrollview reverts to a
+        // symmetric 16 dp internal padding.
+        await _setViewportSize(tester, const Size(360, 900));
+        await tester.pumpWidget(_gridHarness(images: const []));
+        await tester.pumpAndSettle();
+
+        final scrollview = tester.widget<SingleChildScrollView>(
+          find.descendant(
+            of: find.byKey(kGridControlsPanelChromeKey),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        final padding = scrollview.padding as EdgeInsets;
+        expect(padding.bottom, 16);
+        expect(padding.left, 16);
+        expect(padding.top, 16);
+        expect(padding.right, 16);
+      },
+    );
+
+    testWidgets(
+      'expanded scrollview bottom padding stays 16 dp (side panel branch)',
+      (tester) async {
+        // Side-panel branch: the FAB floats over the canvas column,
+        // not the docked panel, so the panel's scrollview uses the
+        // default 16 dp regardless of hasSource.
+        await _setViewportSize(tester, const Size(1280, 800));
+        await tester.pumpWidget(_gridHarness());
+        await tester.pumpAndSettle();
+
+        final scrollview = tester.widget<SingleChildScrollView>(
+          find.descendant(
+            of: find.byKey(kGridControlsPanelChromeKey),
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        final padding = scrollview.padding as EdgeInsets;
+        expect(padding.bottom, 16);
+        expect(padding.top, 16);
+      },
+    );
   });
 }

@@ -246,7 +246,10 @@ intent, then record the decision in this table.
 
 ```dart
 return Padding(
-  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96), // 96 = FAB clearance
+  // 16 dp on every side. FAB clearance is NOT applied here — see the
+  // "FAB clearance lives in the scrollview, not the outer Padding"
+  // convention below.
+  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
@@ -272,6 +275,11 @@ return Padding(
       // Chrome variant (grid_editor): Expanded forces the chrome to
       // fill the column's remaining height, so the chrome background
       // (not bare page bg) covers everything below the canvas.
+      //
+      // The chrome's [SingleChildScrollView] takes a dynamic
+      // `bottomPadding`: 80 dp when the extended FAB is visible
+      // (`hasSource == true`), 16 dp otherwise. See the FAB-clearance
+      // convention below.
       Expanded(
         child: Container(
           decoration: BoxDecoration(
@@ -280,9 +288,9 @@ return Padding(
             border: Border.all(color: colorScheme.outlineVariant),
           ),
           clipBehavior: Clip.antiAlias,
-          child: const SingleChildScrollView(
-            padding: EdgeInsets.all(16),
-            child: GridControlsPanel(),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, hasSource ? 80 : 16),
+            child: const GridControlsPanel(),
           ),
         ),
       ),
@@ -299,6 +307,69 @@ return Padding(
   ),
 );
 ```
+
+### Convention: FAB clearance for chrome-wrapped controls slots lives in the scrollview, not the outer `Padding`
+
+**What**: When an editor's controls slot is wrapped in surface chrome (a tinted container with a border / rounded corners) **and** the screen has a floating action button that floats above the chrome, the FAB clearance MUST be applied as **internal padding on the chrome's [SingleChildScrollView]**, not as a bottom inset on the screen's outer `Padding`.
+
+```dart
+// ✅ Correct — clearance on the scrollview
+Padding(
+  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+  child: Column(
+    children: [
+      // ...canvas / warning...
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(/* chrome */),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            // FAB clearance lives here.
+            padding: EdgeInsets.fromLTRB(16, 16, 16, hasSource ? 80 : 16),
+            child: const ControlsPanel(),
+          ),
+        ),
+      ),
+    ],
+  ),
+)
+
+// ❌ Wrong — clearance on the outer Padding
+Padding(
+  // 96 dp here forces the chrome's bottom to stop 96 dp above the
+  // body bottom, exposing a strip of bare page bg between the chrome
+  // and the bottom nav.
+  padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+  child: Column(
+    children: [
+      // ...
+      Expanded(
+        child: Container(
+          decoration: BoxDecoration(/* chrome */),
+          child: const SingleChildScrollView(
+            padding: EdgeInsets.all(16),
+            child: ControlsPanel(),
+          ),
+        ),
+      ),
+    ],
+  ),
+)
+```
+
+**Why**: With clearance on the outer `Padding`, the chrome's bottom edge stops `clearance` dp above the body bottom. Between the chrome's bottom and the `AppBottomNavBar` (owned by `AppShell`), Flutter paints whatever sits behind the chrome — the screen's page background. The result is a visible page-background strip the height of the FAB clearance (≈ 96 dp on phones), exactly the bleed the chrome is supposed to prevent. Moving the clearance inside the scrollview lets the chrome's outer dimensions stay anchored to its `Expanded` slot — the chrome's visible bottom rests at body bottom − 16 dp — while the scrollable content still stops `clearance` dp above the chrome's bottom edge, leaving the last card clear of the FAB when scrolled to the bottom. The FAB still floats over the chrome via `FloatingActionButtonLocation.endFloat`; the M3 idiom is for the FAB's rounded square to overlap the chrome's rounded corner, which is the intended look.
+
+**How to apply**:
+
+1. Outer `Padding` for the body uses a symmetric inset (typically 16 dp on every side).
+2. The chrome-builder helper (e.g. `_buildControlsPanelChrome`) takes a named `bottomPadding` parameter, defaulting to the symmetric value (16 dp).
+3. The size-class branch that hosts the FAB watches the visibility predicate (e.g. `hasSource` for the grid editor) and passes a larger `bottomPadding` (≈ extended-FAB height + ~32 dp safe buffer ≈ 80 dp) when the FAB is visible; the default 16 dp otherwise.
+4. Size-class branches that **don't** sit under the FAB (e.g. the expanded / large side-panel branch in `grid_editor_screen.dart` — the FAB floats over the canvas column, not the docked panel) keep the default and need no special handling.
+
+**Where this is used** (current call sites):
+- `grid_editor_screen.dart`: compact / medium passes `bottomPadding: hasSource ? 80 : 16`; expanded / large uses the default 16 dp.
+
+**Don't**: Reserve the FAB clearance as an outer-Padding bottom inset. Don't pad the chrome decoration itself with bottom margin either — the chrome must stay flush against the slot's bottom edge so its background covers what would otherwise be page bleed.
 
 ### Side-panel variant (expanded / large)
 
@@ -394,7 +465,7 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
 | stitch_editor | scrollable canvas + bottom `StitchControlsSheet` | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
-| grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Expanded(chrome[GridControlsPanel])` — chrome (`surfaceContainerLow` + `outlineVariant` + 16 dp rounded; matches the side-panel chrome at expanded / large) fills the column's remaining height so no bare page background leaks below it (see "Editor body — height-first Column skeleton" pattern) | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in the **same** surface chrome that fills the row height, scrolls internally | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
+| grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Expanded(chrome[GridControlsPanel])` — chrome (`surfaceContainerLow` + `outlineVariant` + 16 dp rounded; matches the side-panel chrome at expanded / large) fills the column's remaining height so no bare page background leaks below it. The outer `Padding` uses 16 dp on every side; FAB clearance lives **inside** the chrome's `SingleChildScrollView` (`hasSource ? 80 : 16` dp) so the chrome's visible bottom rests on body bottom − 16 dp (no page bleed under the bottom nav). See "Editor body — height-first Column skeleton" pattern + "FAB clearance for chrome-wrapped controls slots lives in the scrollview" convention. | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in the **same** surface chrome that fills the row height, scrolls internally (default 16 dp scrollview bottom padding — FAB floats over the canvas column, not the docked panel). | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
 
 When adding a new top-level screen, fill in this table for it.
 

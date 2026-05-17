@@ -66,7 +66,24 @@ const Key kGridControlsPanelChromeKey = ValueKey('grid_controls_panel_chrome');
 ///
 /// The shared [kGridControlsPanelChromeKey] lets widget tests locate
 /// the chrome in either branch.
-Widget _buildControlsPanelChrome(BuildContext context) {
+///
+/// **FAB clearance**: callers pass a larger [bottomPadding] (e.g.
+/// `80` dp) when the floating action button is visible **and** the
+/// chrome's footprint sits underneath the FAB (compact / medium
+/// single-column). The extra space is applied as **scrollview internal
+/// padding** so the chrome's outer dimensions stay anchored to its
+/// [Expanded] / [SizedBox] slot — only the scrollable content stops
+/// 80 dp above the chrome's bottom edge, leaving the last
+/// [GridControlsPanel] card visible above the FAB when scrolled to
+/// the bottom. The chrome's visible bottom edge still rests on the
+/// outer [Padding]'s bottom inset (16 dp), so no page background
+/// leaks below the chrome. The expanded / large side-panel branch
+/// keeps the default 16 dp because the FAB floats over the canvas
+/// column, not the docked panel.
+Widget _buildControlsPanelChrome(
+  BuildContext context, {
+  double bottomPadding = 16,
+}) {
   final colorScheme = Theme.of(context).colorScheme;
   return Container(
     key: kGridControlsPanelChromeKey,
@@ -76,9 +93,9 @@ Widget _buildControlsPanelChrome(BuildContext context) {
       border: Border.all(color: colorScheme.outlineVariant),
     ),
     clipBehavior: Clip.antiAlias,
-    child: const SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: GridControlsPanel(),
+    child: SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
+      child: const GridControlsPanel(),
     ),
   );
 }
@@ -112,9 +129,9 @@ Widget _buildControlsPanelChrome(BuildContext context) {
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(1, canvas)))` + optional source-size warning + `Expanded(chrome > SingleChildScrollView > GridControlsPanel)`. The chrome (`kGridControlsPanelChromeKey`) is a `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab matching the expanded / large side panel; `Expanded` (not `Flexible(loose)`) makes the chrome fill the column's remaining height so no bare page background leaks below it. Overflow scrolls inside the chrome; no page-level scroll. |
-/// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton + chrome. |
-/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp inside the **same** chrome container built by `_buildControlsPanelChrome`, stretched to fill the row's full height and scrolls internally. |
+/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(1, canvas)))` + optional source-size warning + `Expanded(chrome > SingleChildScrollView > GridControlsPanel)`. The chrome (`kGridControlsPanelChromeKey`) is a `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab matching the expanded / large side panel; `Expanded` (not `Flexible(loose)`) makes the chrome fill the column's remaining height so no bare page background leaks below it. The outer [Padding] uses 16 dp on every side; FAB clearance for the extended FAB lives **inside** the chrome's [SingleChildScrollView] (80 dp when `hasSource` else 16 dp), so the chrome's visible bottom rests on the body bottom − 16 dp and no page background bleeds between the chrome and the [AppBottomNavBar] owned by `AppShell`. Overflow scrolls inside the chrome; no page-level scroll. |
+/// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton + chrome + scrollview-internal FAB clearance. |
+/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp inside the **same** chrome container built by `_buildControlsPanelChrome` (default 16 dp scrollview bottom padding — the FAB floats over the canvas column, not the docked panel, so no extra clearance is needed), stretched to fill the row's full height and scrolls internally. |
 /// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp with the surface chrome, canvas square is `min(leftColWidth, rowHeight)`. |
 ///
 /// The square (1:1) shape of the canvas is the caller's responsibility
@@ -201,6 +218,9 @@ class _GridEditorBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sourceTooSmall = ref.watch(
       gridEditorControllerProvider.select((s) => s.sourceTooSmall),
+    );
+    final hasSource = ref.watch(
+      gridEditorControllerProvider.select((s) => s.hasSource),
     );
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -321,9 +341,23 @@ class _GridEditorBody extends ConsumerWidget {
     //   Expanded" gotcha in `.trellis/spec/frontend/responsive-layout.md`
     //   applies to **bare** controls slots; with chrome, the reverse is
     //   correct.
+    //
+    // **FAB clearance** lives **inside** the chrome's
+    // [SingleChildScrollView] (via the `bottomPadding` argument to
+    // [_buildControlsPanelChrome]), not on this outer [Padding]. The
+    // earlier implementation reserved 96 dp on the outer [Padding]'s
+    // bottom inset to clear the FAB, which forced the chrome's bottom
+    // edge to stop 96 dp above the body bottom and exposed a strip of
+    // bare page background between the chrome and the [AppBottomNavBar]
+    // owned by `AppShell`. Moving the clearance into the scrollview's
+    // internal padding lets the chrome's visible bottom rest at body
+    // bottom − 16 dp (no page bleed) while still scrolling the last
+    // parameter card clear of the floating FAB. The 80 dp value covers
+    // the extended FAB's ~48 dp height plus a ~32 dp safe buffer.
     return Padding(
-      // Bottom 96 dp clears the floating action button.
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+      // 16 dp on every side — FAB clearance lives in the chrome's
+      // scrollview internal padding (see [_buildControlsPanelChrome]).
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -337,7 +371,15 @@ class _GridEditorBody extends ConsumerWidget {
             _SourceSizeWarning(colorScheme: colorScheme, textTheme: textTheme),
           ],
           const SizedBox(height: 16),
-          Expanded(child: _buildControlsPanelChrome(context)),
+          Expanded(
+            child: _buildControlsPanelChrome(
+              context,
+              // 80 dp clears the extended FAB (~48 dp) plus a ~32 dp
+              // safe buffer; 16 dp when no FAB is rendered so the
+              // chrome's internal padding stays symmetric.
+              bottomPadding: hasSource ? 80 : 16,
+            ),
+          ),
         ],
       ),
     );
