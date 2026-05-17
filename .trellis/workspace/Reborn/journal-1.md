@@ -645,3 +645,36 @@ Follow-up 修复上一轮 task (05-16-grid-canvas-height-first-fit) 的 Out-of-S
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: Portrait grid panel bottom spacing fix
+
+**Date**: 2026-05-17
+**Task**: Portrait grid panel bottom spacing fix
+**Branch**: `main`
+
+### Summary
+
+Eliminated the 96 dp page-bg strip between the grid editor chrome and the bottom nav on compact/medium widths by inlining FAB clearance into the chrome SingleChildScrollView bottom padding (hasSource ? 80 : 16). Outer Padding dropped from 96 to 16. Side-panel branch unchanged. Added 6 widget tests and a new spec convention block.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0ed8f34` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

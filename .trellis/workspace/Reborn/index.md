@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 19
+- **Total Sessions**: 20
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~647 | Active |
+| `journal-1.md` | ~680 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 20 | 2026-05-17 | Portrait grid panel bottom spacing fix | `0ed8f34` | `main` |
 | 19 | 2026-05-17 | Extend side-panel chrome to compact and medium | `08f575f` | `main` |
 | 18 | 2026-05-17 | Grid side-panel surface chrome + viewport reactivity test | `ef0448c` | `main` |
 | 17 | 2026-05-17 | Extend grid canvas height-first to expanded/large windows | `af0e667` | `main` |
