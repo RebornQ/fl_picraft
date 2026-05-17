@@ -22,7 +22,7 @@ final stitchImageRendererProvider = Provider<StitchImageRenderer>((ref) {
 /// Mode-specific fields owned by the sibling `05-08-movie-subtitle`
 /// task live in [StitchEditorState] but are inert here — that task
 /// will extend this notifier with its own `setSubtitleOnlyMode` /
-/// `setSubtitleBandHeight` methods (and corresponding UI hooks).
+/// `setSubtitleBandHeightPercent` methods (and corresponding UI hooks).
 class StitchEditorController extends Notifier<StitchEditorState> {
   @override
   StitchEditorState build() {
@@ -83,14 +83,23 @@ class StitchEditorController extends Notifier<StitchEditorState> {
     state = state.copyWith(subtitleOnlyMode: enabled);
   }
 
-  /// Update the bottom subtitle band height (in scaled-canvas pixels).
-  /// Clamped to [kMinSubtitleBandHeight] – [kMaxSubtitleBandHeight].
-  void setSubtitleBandHeight(double px) {
-    final clamped = px
-        .clamp(kMinSubtitleBandHeight, kMaxSubtitleBandHeight)
+  /// Update the bottom subtitle band height (as a fraction of the
+  /// first image's scaled height). Clamped to
+  /// [kMinSubtitleBandHeightPercent] – [kMaxSubtitleBandHeightPercent].
+  void setSubtitleBandHeightPercent(double pct) {
+    final clamped = pct
+        .clamp(kMinSubtitleBandHeightPercent, kMaxSubtitleBandHeightPercent)
         .toDouble();
-    if (state.subtitleBandHeight == clamped) return;
-    state = state.copyWith(subtitleBandHeight: clamped);
+    if (state.subtitleBandHeightPercent == clamped) return;
+    state = state.copyWith(subtitleBandHeightPercent: clamped);
+  }
+
+  /// Toggle the "auto-trim black bars" overlay. Inert outside subtitle
+  /// mode; the renderer / preview ignore the flag unless the
+  /// movie-subtitle path is active.
+  void setAutoTrimBlackBars(bool enabled) {
+    if (state.autoTrimBlackBars == enabled) return;
+    state = state.copyWith(autoTrimBlackBars: enabled);
   }
 
   // ---- image list management --------------------------------------------

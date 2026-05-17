@@ -97,6 +97,18 @@ class _PreviewSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Convert the percent-based subtitle band height into the absolute
+    // scaled pixels the layout consumes. Mirrors the math in
+    // [StitchRenderRequest.fromState] so the preview and the exported
+    // image agree.
+    final firstScaledHeight = state.images.isEmpty
+        ? 0
+        : state.images.first.height;
+    final bandPx = firstScaledHeight <= 0
+        ? 1.0
+        : (firstScaledHeight * state.subtitleBandHeightPercent)
+              .clamp(1.0, double.infinity)
+              .toDouble();
     final layout = computeStitchLayout(
       sizes: [
         for (final i in state.images)
@@ -106,7 +118,7 @@ class _PreviewSurface extends StatelessWidget {
       spacing: state.spacing,
       borderWidth: state.border.width,
       subtitleOnlyMode: state.subtitleOnlyMode,
-      subtitleBandHeight: state.subtitleBandHeight,
+      subtitleBandHeight: bandPx,
     );
     if (layout.canvasWidth == 0 || layout.canvasHeight == 0) {
       return const SizedBox.shrink();

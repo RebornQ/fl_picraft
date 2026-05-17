@@ -28,8 +28,15 @@ import 'stitch_mode_segmented.dart';
 ///   plain vertical anyway.
 /// * "字幕高度" slider — visible only when subtitle mode is actually
 ///   active (toggle on AND vertical AND ≥2 images), per the PRD edge
-///   cases.
-/// * Spacing / border-width / corner-radius sliders
+///   cases. Expressed as a percentage of the first image's scaled
+///   height.
+/// * "自动剪裁黑边" toggle — only visible when subtitle mode is
+///   actually rendering bands. Drives the renderer-side letterbox
+///   detection / trim.
+/// * "图片间距" slider — hidden while subtitle mode renders bands
+///   because the algorithm ignores spacing (bands butt up against each
+///   other) and showing a no-op slider was a source of user confusion.
+/// * Border-width / corner-radius sliders
 /// * Border color picker (compact, 6 swatches)
 class StitchControlsPanel extends ConsumerWidget {
   const StitchControlsPanel({super.key});
@@ -86,25 +93,50 @@ class StitchControlsPanel extends ConsumerWidget {
               ],
             ),
           // Band-height slider — only meaningful while subtitle mode
-          // is actually rendering bands.
+          // is actually rendering bands. Expressed as a percentage of
+          // the first image's scaled height so it stays meaningful
+          // across different source resolutions.
           if (subtitleEffective)
             _SliderRow(
               label: '字幕高度',
-              value: state.subtitleBandHeight,
-              min: kMinSubtitleBandHeight,
-              max: kMaxSubtitleBandHeight,
-              valueText: '${state.subtitleBandHeight.round()} px',
-              onChanged: notifier.setSubtitleBandHeight,
+              value: state.subtitleBandHeightPercent,
+              min: kMinSubtitleBandHeightPercent,
+              max: kMaxSubtitleBandHeightPercent,
+              valueText: '${(state.subtitleBandHeightPercent * 100).round()}%',
+              onChanged: notifier.setSubtitleBandHeightPercent,
+            ),
+          // Auto-trim toggle — same visibility rules as the band-height
+          // slider so the two stay grouped in the subtitle-mode block.
+          if (subtitleEffective)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '自动剪裁黑边',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                Switch(
+                  value: state.autoTrimBlackBars,
+                  onChanged: (v) => _onToggleAutoTrim(context, notifier, v),
+                ),
+              ],
             ),
           const Divider(height: 24),
-          _SliderRow(
-            label: '图片间距',
-            value: state.spacing,
-            min: 0,
-            max: kMaxStitchSpacing,
-            valueText: '${state.spacing.round()} px',
-            onChanged: notifier.setSpacing,
-          ),
+          // Spacing slider — hidden in subtitle mode because the layout
+          // algorithm butts bands together and the slider would have
+          // no visible effect.
+          if (!subtitleEffective)
+            _SliderRow(
+              label: '图片间距',
+              value: state.spacing,
+              min: 0,
+              max: kMaxStitchSpacing,
+              valueText: '${state.spacing.round()} px',
+              onChanged: notifier.setSpacing,
+            ),
           _SliderRow(
             label: '边框宽度',
             value: state.border.width,
@@ -165,10 +197,16 @@ class StitchControlsPanel extends ConsumerWidget {
   ) {
     notifier.setSubtitleOnlyMode(enabled);
     if (!enabled) return;
+    if (state.images.isEmpty) return;
 
-    final bandPx = state.subtitleBandHeight;
+    // Recompute the band height in pixels from the percent — the state
+    // field is percent-relative, so the truncation check has to lift
+    // the percent into the same scaled space the layout uses.
     final firstW = state.images.first.width;
-    if (firstW <= 0) return;
+    final firstH = state.images.first.height;
+    if (firstW <= 0 || firstH <= 0) return;
+    final bandPx = (firstH * state.subtitleBandHeightPercent).round();
+    if (bandPx <= 0) return;
     var anyTruncated = false;
     for (var i = 1; i < state.images.length; i++) {
       final img = state.images[i];
@@ -184,6 +222,22 @@ class StitchControlsPanel extends ConsumerWidget {
         context,
       )?.showSnackBar(const SnackBar(content: Text('部分图片高度小于字幕条高度，将使用其完整高度')));
     }
+  }
+
+  /// Toggle handler for the auto-trim switch. Shows a one-shot hint
+  /// snackbar every time the user flips the toggle ON so they know to
+  /// double-check the preview — black-bar detection is a heuristic and
+  /// can false-positive on dark scenes.
+  void _onToggleAutoTrim(
+    BuildContext context,
+    StitchEditorController notifier,
+    bool enabled,
+  ) {
+    notifier.setAutoTrimBlackBars(enabled);
+    if (!enabled) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(const SnackBar(content: Text('已开启自动剪裁黑边，请检查预览效果')));
   }
 }
 

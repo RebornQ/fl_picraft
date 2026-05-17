@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../entities/stitch_mode.dart';
+import 'detect_letterbox.dart';
 
 /// Pure rectangle in canvas coordinates. Ints because the rasterizer
 /// works in integer pixels.
@@ -83,6 +84,11 @@ class StitchImageSize {
 ///   its width-normalized form. `spacing` is ignored in this mode
 ///   (bands butt up against each other to mimic the layered overlay
 ///   effect from PRD §3.3).
+/// * [letterboxInsets] is optional and only consumed by the
+///   movie-subtitle path. When supplied with a list whose length
+///   matches [sizes], every per-image `srcCrop` excludes the supplied
+///   top / bottom inset before the band crop is applied. Passing
+///   `null` is byte-identical to the legacy behavior.
 ///
 /// Returns an empty layout (`canvasWidth`/`canvasHeight` = 0,
 /// `imageRects` = []) when [sizes] is empty so callers can render an
@@ -94,6 +100,7 @@ StitchLayout computeStitchLayout({
   required double borderWidth,
   bool subtitleOnlyMode = false,
   double subtitleBandHeight = 120,
+  List<LetterboxInsets>? letterboxInsets,
 }) {
   if (sizes.isEmpty) {
     return const StitchLayout(canvasWidth: 0, canvasHeight: 0, imageRects: []);
@@ -105,10 +112,17 @@ StitchLayout computeStitchLayout({
   // task `05-08-movie-subtitle`). With <2 images there is nothing to
   // overlay, so we degrade to plain vertical silently.
   if (subtitleOnlyMode && mode == StitchMode.vertical && sizes.length >= 2) {
+    // Only forward the insets when the list matches the sizes 1:1;
+    // any mismatch falls back to "no trim" for safety.
+    final insets =
+        (letterboxInsets != null && letterboxInsets.length == sizes.length)
+        ? letterboxInsets
+        : null;
     return _layoutMovieSubtitle(
       sizes,
       border: border,
       bandHeight: math.max(1, subtitleBandHeight.round()),
+      letterboxInsets: insets,
     );
   }
 
@@ -203,10 +217,16 @@ StitchLayout _layoutHorizontal(
 /// **source** image whose height ratio matches the dest band's ratio
 /// inside the scaled image. The renderer then crops + scales to the
 /// dest rect.
+///
+/// When [letterboxInsets] is supplied, each image's usable source
+/// rectangle is shrunk by the matching top / bottom inset before the
+/// band crop math runs. Passing `null` skips the letterbox path
+/// entirely and the output matches the legacy byte-for-byte.
 StitchLayout _layoutMovieSubtitle(
   List<StitchImageSize> sizes, {
   required int border,
   required int bandHeight,
+  List<LetterboxInsets>? letterboxInsets,
 }) {
   final targetWidth = sizes.first.width;
   if (targetWidth <= 0) {
@@ -217,11 +237,19 @@ StitchLayout _layoutMovieSubtitle(
   final crops = <StitchRect?>[];
   var cursorY = border;
 
-  // First image renders fully (no source crop).
+  // First image renders fully (no source crop unless letterbox trims
+  // the top / bottom). Trimming the first image yields a shorter dest
+  // row + a srcCrop that excludes the bars.
   final first = sizes.first;
-  final firstScaledHeight = first.height <= 0
+  final firstInset = letterboxInsets?.first ?? LetterboxInsets.zero;
+  final firstUsableSrcHeight =
+      first.height - firstInset.topPx - firstInset.bottomPx;
+  final firstHeightForLayout = firstUsableSrcHeight > 0
+      ? firstUsableSrcHeight
+      : first.height;
+  final firstScaledHeight = firstHeightForLayout <= 0 || first.width <= 0
       ? 0
-      : math.max(1, (first.height * targetWidth / first.width).round());
+      : math.max(1, (firstHeightForLayout * targetWidth / first.width).round());
   rects.add(
     StitchRect(
       x: border,
@@ -230,10 +258,26 @@ StitchLayout _layoutMovieSubtitle(
       height: firstScaledHeight,
     ),
   );
-  crops.add(null);
+  if (letterboxInsets != null &&
+      firstUsableSrcHeight > 0 &&
+      (firstInset.topPx > 0 || firstInset.bottomPx > 0)) {
+    crops.add(
+      StitchRect(
+        x: 0,
+        y: firstInset.topPx,
+        width: first.width,
+        height: firstUsableSrcHeight,
+      ),
+    );
+  } else {
+    crops.add(null);
+  }
   cursorY += firstScaledHeight;
 
-  // Subsequent images contribute only their bottom band.
+  // Subsequent images contribute only their bottom band — letterbox
+  // insets shrink the band's pool of source pixels but don't affect
+  // the destination band height (which is anchored to the requested
+  // [bandHeight] in scaled-canvas coords).
   for (var i = 1; i < sizes.length; i++) {
     final s = sizes[i];
     if (s.width <= 0 || s.height <= 0) {
@@ -245,19 +289,35 @@ StitchLayout _layoutMovieSubtitle(
       crops.add(const StitchRect(x: 0, y: 0, width: 0, height: 0));
       continue;
     }
+    final inset = letterboxInsets != null && i < letterboxInsets.length
+        ? letterboxInsets[i]
+        : LetterboxInsets.zero;
+    final usableSrcHeight = s.height - inset.topPx - inset.bottomPx;
+    // If trimming would erase the whole image, fall back to the full
+    // height so the band crop math stays well-defined.
+    final effSrcHeight = usableSrcHeight > 0 ? usableSrcHeight : s.height;
+    // Effective scaled height after trimming.
     final scaledHeight = math.max(
       1,
-      (s.height * targetWidth / s.width).round(),
+      (effSrcHeight * targetWidth / s.width).round(),
     );
     // Effective band height in scaled-canvas coords. If the scaled
     // image is shorter than the requested band, we use its full height
     // (PRD edge case: "Image height < band height").
     final effBand = math.min(scaledHeight, bandHeight);
-    // Map the effective band back to source pixels.
+    // Map the effective band back to source pixels inside the usable
+    // region (i.e. excluding the bottom letterbox bar).
     final srcCropHeight = math
-        .max(1, (effBand * s.height / scaledHeight).round())
-        .clamp(1, s.height);
-    final srcCropY = (s.height - srcCropHeight).clamp(0, s.height - 1);
+        .max(1, (effBand * effSrcHeight / scaledHeight).round())
+        .clamp(1, effSrcHeight)
+        .toInt();
+    final usableBottom = inset.bottomPx;
+    // Anchor the crop to the bottom of the usable region — i.e. the
+    // bottom of the source image minus any letterbox we just clipped.
+    final maxBottom = s.height - usableBottom;
+    final srcCropY = (maxBottom - srcCropHeight)
+        .clamp(inset.topPx, math.max(inset.topPx, s.height - 1))
+        .toInt();
 
     rects.add(
       StitchRect(x: border, y: cursorY, width: targetWidth, height: effBand),

@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
+import '../../domain/entities/stitch_mode.dart';
+import '../../domain/usecases/detect_letterbox.dart';
 import '../../domain/usecases/stitch_layout.dart';
 import '../../domain/usecases/stitch_render_request.dart';
 
@@ -81,6 +83,23 @@ Uint8List _renderInIsolate(StitchRenderRequest request) {
   Timeline.startSync('stitch.compose');
   late final img.Image canvas;
   try {
+    // Auto-trim letterbox bars before layout when the request opts in
+    // and the movie-subtitle path is going to be taken. Detection runs
+    // inside the same isolate that already decoded the bytes — no
+    // extra hop, no double-decode.
+    List<LetterboxInsets>? letterboxInsets;
+    if (request.autoTrimBlackBars &&
+        request.subtitleOnlyMode &&
+        request.mode == StitchMode.vertical &&
+        decoded.length >= 2) {
+      Timeline.startSync('stitch.letterbox');
+      try {
+        letterboxInsets = [for (final d in decoded) detectLetterbox(d)];
+      } finally {
+        Timeline.finishSync();
+      }
+    }
+
     final layout = computeStitchLayout(
       sizes: [
         for (final d in decoded)
@@ -91,6 +110,7 @@ Uint8List _renderInIsolate(StitchRenderRequest request) {
       borderWidth: request.borderWidth,
       subtitleOnlyMode: request.subtitleOnlyMode,
       subtitleBandHeight: request.subtitleBandHeight,
+      letterboxInsets: letterboxInsets,
     );
 
     if (layout.canvasWidth == 0 || layout.canvasHeight == 0) {

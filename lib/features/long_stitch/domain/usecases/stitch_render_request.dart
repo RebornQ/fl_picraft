@@ -20,6 +20,7 @@ class StitchRenderRequest {
     required this.jpegQuality,
     required this.subtitleOnlyMode,
     required this.subtitleBandHeight,
+    this.autoTrimBlackBars = false,
   });
 
   final List<Uint8List> imageBytes;
@@ -37,6 +38,12 @@ class StitchRenderRequest {
   final bool subtitleOnlyMode;
   final double subtitleBandHeight;
 
+  /// When `true` and the movie-subtitle path is active, the renderer
+  /// scans each decoded image for top / bottom letterbox bars and
+  /// shrinks the band crops to skip them. Off by default; the field
+  /// is inert outside subtitle mode.
+  final bool autoTrimBlackBars;
+
   /// Convenience: build from the editor state.
   ///
   /// The stitch renderer always produces a working PNG (with optional
@@ -50,6 +57,17 @@ class StitchRenderRequest {
     StitchExportFormat format = StitchExportFormat.png,
     int jpegQuality = 92,
   }) {
+    // Convert the percent-based band height into the absolute scaled
+    // pixels the layout / renderer consume. The first image's width is
+    // the targetWidth, so its scaled height equals its native height.
+    final firstScaledHeight = state.images.isEmpty
+        ? 0
+        : state.images.first.height;
+    final bandPx = firstScaledHeight <= 0
+        ? 1.0
+        : (firstScaledHeight * state.subtitleBandHeightPercent)
+              .clamp(1.0, double.infinity)
+              .toDouble();
     return StitchRenderRequest(
       imageBytes: [for (final i in state.images) i.bytes],
       mode: state.mode,
@@ -60,7 +78,8 @@ class StitchRenderRequest {
       format: format,
       jpegQuality: jpegQuality,
       subtitleOnlyMode: state.subtitleOnlyMode,
-      subtitleBandHeight: state.subtitleBandHeight,
+      subtitleBandHeight: bandPx,
+      autoTrimBlackBars: state.autoTrimBlackBars,
     );
   }
 

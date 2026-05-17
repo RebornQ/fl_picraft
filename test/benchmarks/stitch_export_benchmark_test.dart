@@ -22,7 +22,6 @@ library;
 import 'dart:typed_data';
 
 import 'package:fl_picraft/features/long_stitch/data/renderers/stitch_image_renderer.dart';
-import 'package:fl_picraft/features/long_stitch/domain/entities/stitch_editor_state.dart';
 import 'package:fl_picraft/features/long_stitch/domain/entities/stitch_mode.dart';
 import 'package:fl_picraft/features/long_stitch/domain/usecases/stitch_render_request.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,7 +69,7 @@ void main() {
         format: StitchExportFormat.png,
         jpegQuality: 92,
         subtitleOnlyMode: false,
-        subtitleBandHeight: kDefaultSubtitleBandHeight,
+        subtitleBandHeight: 120,
       );
       final pngBytes = await renderer.render(request);
       renderSw.stop();
@@ -109,7 +108,7 @@ void main() {
         format: StitchExportFormat.jpeg,
         jpegQuality: 85,
         subtitleOnlyMode: false,
-        subtitleBandHeight: kDefaultSubtitleBandHeight,
+        subtitleBandHeight: 120,
       );
       final jpegBytes = await renderer.render(request);
       renderSw.stop();

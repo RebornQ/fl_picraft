@@ -84,7 +84,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('字幕高度'), findsOneWidget);
-    expect(find.text('120 px'), findsOneWidget);
+    // Default percent is 12% → "12%".
+    expect(find.text('12%'), findsOneWidget);
   });
 
   testWidgets('dragging the band-height slider updates the controller state', (
@@ -116,12 +117,13 @@ void main() {
 
     // Initial value reflects the default.
     expect(
-      container.read(stitchEditorControllerProvider).subtitleBandHeight,
-      kDefaultSubtitleBandHeight,
+      container.read(stitchEditorControllerProvider).subtitleBandHeightPercent,
+      kDefaultSubtitleBandHeightPercent,
     );
 
     // Find the band-height slider (the only one visible labelled
-    // "字幕高度"). Sliders below it are spacing/border/corner.
+    // "字幕高度"). Sliders below it are border/corner (spacing is
+    // hidden because subtitle mode is effective).
     final sliders = find.byType(Slider);
     expect(sliders.evaluate().length, greaterThanOrEqualTo(2));
 
@@ -129,17 +131,17 @@ void main() {
     // simulating a drag is brittle in widget tests.
     container
         .read(stitchEditorControllerProvider.notifier)
-        .setSubtitleBandHeight(200);
+        .setSubtitleBandHeightPercent(0.25);
     await tester.pumpAndSettle();
 
     expect(
-      container.read(stitchEditorControllerProvider).subtitleBandHeight,
-      200,
+      container.read(stitchEditorControllerProvider).subtitleBandHeightPercent,
+      0.25,
     );
-    expect(find.text('200 px'), findsOneWidget);
+    expect(find.text('25%'), findsOneWidget);
   });
 
-  testWidgets('setSubtitleBandHeight clamps to [kMin, kMax] limits', (
+  testWidgets('setSubtitleBandHeightPercent clamps to [kMin, kMax] limits', (
     tester,
   ) async {
     final container = ProviderContainer(
@@ -159,15 +161,15 @@ void main() {
     );
 
     final notifier = container.read(stitchEditorControllerProvider.notifier);
-    notifier.setSubtitleBandHeight(0);
+    notifier.setSubtitleBandHeightPercent(0);
     expect(
-      container.read(stitchEditorControllerProvider).subtitleBandHeight,
-      kMinSubtitleBandHeight,
+      container.read(stitchEditorControllerProvider).subtitleBandHeightPercent,
+      kMinSubtitleBandHeightPercent,
     );
-    notifier.setSubtitleBandHeight(99999);
+    notifier.setSubtitleBandHeightPercent(99999);
     expect(
-      container.read(stitchEditorControllerProvider).subtitleBandHeight,
-      kMaxSubtitleBandHeight,
+      container.read(stitchEditorControllerProvider).subtitleBandHeightPercent,
+      kMaxSubtitleBandHeightPercent,
     );
   });
 }
