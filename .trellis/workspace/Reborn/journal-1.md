@@ -1044,3 +1044,37 @@ User reported visual inconsistency — during source-image drag the grid lines f
 ### Next Steps
 
 - None - task complete
+
+
+## Session 32: fix grid cell image pan freeze at default scale
+
+**Date**: 2026-05-18
+**Task**: fix grid cell image pan freeze at default scale
+**Branch**: `main`
+
+### Summary
+
+Fixed grid-mode replaced cells being unable to pan/drag at default userScale=1.0. Root cause: setCellOffset/setCellScale called clampCellOffset with the replacement image's own width/height as cellWidth/cellHeight (shape-proxy anti-pattern), collapsing maxD to zero. Fix: made cellWidth/cellHeight required source-pixel parameters; widget supplies sourceCellWidth/Height from layout.rects[i]. Added grid_cell_image_pan_test regression coverage (AC6 non-same-aspect scale=1.0, AC7 diagonal at scale>1.0). Documented the shape-proxy anti-pattern as Mistake 6 in cross-layer-thinking-guide.md.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e545551` | (see git log) |
+| `13e30ba` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
