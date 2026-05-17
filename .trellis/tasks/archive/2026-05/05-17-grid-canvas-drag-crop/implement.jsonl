@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新文件 compute_source_crop.dart 属 domain/usecases 层；renderer 改动属 data/renderers；必须对照 'Isolate-safe rasterizer in data/' / 'Pure-Dart usecases in domain/' 的分层契约，避免误把 Flutter import 引入 domain 文件"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "GridEditorState 扩展 sourceOffset / sourceScale，以及新增 setSourceOffset / setSourceScale / resetCrop notifier 方法；spec 给出 Notifier 内 state.copyWith 调用顺序 + 副作用规约"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "GestureDetector vs RawGestureDetector 决策、AnimatedOpacity timing、ScaleGestureRecognizer 与同层 GestureDetector 的 arena 行为，都在 component-guidelines"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "新增 SourceSquareRect / Offset 字段、sealed result 类型的命名约定；clampSourceOffset 的 null-safety 边界 (degenerate input → null vs throw) 需对齐 spec"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "新增多套测试：unit (crop 数学)、widget (手势驱动)、renderer 集成；spec 给出三红线 + Timeline marker + isolate-safe 测试的稳定性策略"}
+{"file": ".trellis/tasks/05-17-grid-canvas-drag-crop/prd.md", "reason": "本子任务 PRD：触点矩阵、R-DRAG-01~05 + R-RENDER-01、迁移测试清单 (landscapeSource 200×100 → 100×100)"}
+{"file": ".trellis/tasks/05-17-grid-canvas-drag-overwrite/prd.md", "reason": "umbrella PRD 提供 D1 (pan+zoom)、D2 (统一正方形裁剪 = breaking change)、D4 (四项边界增强) 的完整决策上下文"}
