@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "改动 grid_editor_provider 的 addFromGallery 签名 + 跨 provider 调用 imageImportControllerProvider(.grid).notifier.clear()，必须对照 Riverpod 调用顺序 / 副作用规约，避免在 Notifier 内部触发 BuildContext 操作"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "showDialog 与 AlertDialog 的 Material 3 idiomatic 用法、destructive confirmation 的 button hierarchy (Text vs FilledButton.tonal)、对话框 copy 的 a11y 规范都在这份 spec"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "导入流程已有 snackbar 失败兜底 (grid_editor_screen line 154-164)；新增 dialog 不能破坏失败 snackbar 流；error-handling.md 给出叠加层的处理顺序"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "widget test 编写规范 (pumpAndSettle / dialog 查找 / 测试稳定性) — 新增 grid_editor_screen_overwrite_import_test.dart 必须遵守"}
+{"file": ".trellis/tasks/05-17-grid-overwrite-import-confirm/prd.md", "reason": "本子任务 PRD：R-IMPORT-01~04、AC2 矩阵、dialog signature 模板"}
+{"file": ".trellis/tasks/05-17-grid-canvas-drag-overwrite/prd.md", "reason": "umbrella 中 D3 决策与 ST-C 的耦合点 (Note: sourceOffset/Scale 重置代码在 ST-C 落地)"}

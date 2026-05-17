@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "umbrella 任务跨 chrome/import/state/render 四个维度，先让实现者过一遍 frontend spec 索引以判断每个子任务进入哪几份指南；index.md 是导航根，避免直接套错档"}
+{"file": ".trellis/tasks/05-17-grid-canvas-drag-overwrite/prd.md", "reason": "umbrella PRD 本身是跨子任务的契约源 — D1~D4 决策、R-* 编号体系、AC 列表必须随时可参照；子任务实现者按 R-编号回溯"}

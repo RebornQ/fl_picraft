@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "三红线 + golden / pixel-pinned 测试的扫描清单 — 检查是否有 widget test 把旧的 16 dp 圆角写进了 expect"}
+{"file": ".trellis/tasks/05-17-grid-canvas-square-chrome/prd.md", "reason": "AC1 / AC10 验收对照"}

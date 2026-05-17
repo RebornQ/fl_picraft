@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "三红线 + 多套测试 (unit / widget / renderer 集成) 的稳定性扫描"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 sourceOffset/sourceScale 在 grid-type / spacing / radius 改动下的持久性 (R-DRAG-03)、reset 路径与 ST-B 的耦合"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "复核 compute_source_crop.dart 没有引入 Flutter import；renderer 保持 isolate-safe (no dart:ui)"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 CenterCellOverlay 手势优先级 (R-DRAG-05) 通过 hit-test stacking 实现，没有违反 Material gesture conventions"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "复核 SourceSquareRect 等新类型的 == / hashCode / toString、null-safety 边界处理"}
+{"file": ".trellis/tasks/05-17-grid-canvas-drag-crop/prd.md", "reason": "AC3~AC9 + DoD 逐项核对，含 byte-match 容差与迁移测试清单"}
+{"file": ".trellis/tasks/05-17-grid-canvas-drag-overwrite/prd.md", "reason": "umbrella AC10 与四子任务联动的最终验收"}

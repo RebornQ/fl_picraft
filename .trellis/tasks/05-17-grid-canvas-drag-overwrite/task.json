@@ -1,0 +1,30 @@
+{
+  "id": "grid-canvas-drag-overwrite",
+  "name": "grid-canvas-drag-overwrite",
+  "title": "brainstorm: grid canvas drag-select & overwrite import",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-17-grid-canvas-square-chrome",
+    "05-17-grid-overwrite-import-confirm",
+    "05-17-grid-canvas-drag-crop"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
