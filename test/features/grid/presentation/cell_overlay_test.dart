@@ -86,6 +86,30 @@ void main() {
       // Ignore platform exceptions from the missing image_picker plugin.
       tester.takeException();
     });
+
+    testWidgets('empty cell shows add-circle hint icon', (tester) async {
+      await tester.pumpWidget(
+        _harness(
+          child: const CellOverlay(
+            cellIndex: 0,
+            rows: 3,
+            cols: 3,
+            cellWidth: 100,
+            cellHeight: 100,
+            sourceCellWidth: 100,
+            sourceCellHeight: 100,
+          ),
+        ),
+      );
+
+      expect(
+        find.descendant(
+          of: find.byType(CellOverlay),
+          matching: find.byIcon(Icons.add_circle_outline),
+        ),
+        findsOneWidget,
+      );
+    });
   });
 
   group('CellOverlay — replaced state', () {
@@ -129,6 +153,43 @@ void main() {
 
       // Indexed semantics label.
       expect(find.bySemanticsLabel('第5格（第2行 第2列）图片，双指缩放或拖动调整'), findsOneWidget);
+    });
+
+    testWidgets('replaced cell still shows add-circle hint icon', (
+      tester,
+    ) async {
+      final image = _image();
+      late WidgetRef capturedRef;
+      await tester.pumpWidget(
+        _harness(
+          child: Consumer(
+            builder: (ctx, ref, _) {
+              capturedRef = ref;
+              return const CellOverlay(
+                cellIndex: 2,
+                rows: 3,
+                cols: 3,
+                cellWidth: 100,
+                cellHeight: 100,
+                sourceCellWidth: 100,
+                sourceCellHeight: 100,
+              );
+            },
+          ),
+        ),
+      );
+      capturedRef
+          .read(gridEditorControllerProvider.notifier)
+          .setCellImage(2, image);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(CellOverlay),
+          matching: find.byIcon(Icons.add_circle_outline),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('resetCell removes the replacement entry', (tester) async {

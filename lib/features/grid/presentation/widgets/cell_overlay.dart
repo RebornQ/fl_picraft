@@ -104,7 +104,7 @@ class _EmptyCellTarget extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: onTap,
-      child: const SizedBox.expand(),
+      child: const Stack(children: [SizedBox.expand(), _CellAddHint()]),
     );
   }
 }
@@ -195,6 +195,7 @@ class _ReplacedCellState extends ConsumerState<_ReplacedCell> {
                 gaplessPlayback: true,
               ),
             ),
+            const _CellAddHint(),
           ],
         ),
       ),
@@ -274,4 +275,38 @@ String _cellLabel(int index, {required int rows, required int cols}) {
   final r = cols > 0 ? index ~/ cols : 0;
   final c = cols > 0 ? index % cols : 0;
   return '第${index + 1}格（第${r + 1}行 第${c + 1}列）图片，双指缩放或拖动调整';
+}
+
+/// Decorative "tap to replace" affordance painted on top of every cell.
+///
+/// * Always visible — both empty and replaced states render the same
+///   hint so users learn that every cell can be swapped.
+/// * Wrapped in [IgnorePointer] so the hint never claims hit events;
+///   the outer per-state [GestureDetector] keeps the gesture arena.
+/// * [ExcludeSemantics] prevents screen readers from announcing this
+///   decoration on top of the parent cell's semantics label.
+class _CellAddHint extends StatelessWidget {
+  const _CellAddHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return const IgnorePointer(
+      child: ExcludeSemantics(
+        child: Center(
+          child: Icon(
+            Icons.add_circle_outline,
+            size: 32,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Colors.black54,
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

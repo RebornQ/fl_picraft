@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Decorative Icon overlay must follow MD3 widget pattern + a11y rules (ExcludeSemantics on decorative hints)."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Widget test coverage requirements for the new decorative hint."}
