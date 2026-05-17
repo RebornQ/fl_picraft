@@ -12,6 +12,7 @@ import '../../../image_import/presentation/widgets/image_drop_zone.dart';
 import '../providers/grid_editor_provider.dart';
 import '../widgets/grid_controls_panel.dart';
 import '../widgets/grid_preview_canvas.dart';
+import '../widgets/overwrite_confirm_dialog.dart';
 
 /// Lower bound for the docked controls panel on expanded / large windows.
 ///
@@ -145,7 +146,6 @@ class GridEditorScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(gridEditorControllerProvider);
-    final notifier = ref.read(gridEditorControllerProvider.notifier);
 
     // Surface image-import failures (same rationale as the stitch
     // editor — see `stitch_editor_screen.dart`). The grid editor
@@ -180,7 +180,7 @@ class GridEditorScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.add_photo_alternate_outlined),
             tooltip: '导入图片',
-            onPressed: () => notifier.addFromGallery(),
+            onPressed: () => _onImportPressed(context, ref),
           ),
         ],
       ),
@@ -208,6 +208,26 @@ class GridEditorScreen extends ConsumerWidget {
     ref.read(currentExportSourceKindProvider.notifier).state =
         ExportSourceKind.grid;
     context.go('/export');
+  }
+
+  /// Handle the AppBar "导入图片" action.
+  ///
+  /// When the editor already has a source image, prompt for
+  /// confirmation before overwriting (`R-IMPORT-01` / `R-IMPORT-02`).
+  /// When the editor has no source, skip the dialog and go straight
+  /// to the picker (`R-IMPORT-04`). Cancelling the dialog leaves
+  /// state untouched (`R-IMPORT-03`).
+  Future<void> _onImportPressed(BuildContext context, WidgetRef ref) async {
+    final notifier = ref.read(gridEditorControllerProvider.notifier);
+    final hasSource = ref.read(gridEditorControllerProvider).hasSource;
+    if (!hasSource) {
+      await notifier.addFromGallery();
+      return;
+    }
+    final confirmed = await showOverwriteConfirmDialog(context);
+    if (!confirmed) return;
+    if (!context.mounted) return;
+    await notifier.addFromGallery(replace: true);
   }
 }
 

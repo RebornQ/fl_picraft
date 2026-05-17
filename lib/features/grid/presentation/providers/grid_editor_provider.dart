@@ -196,15 +196,30 @@ class GridEditorController extends Notifier<GridEditorState> {
 
   // ---- import shortcuts -------------------------------------------------
 
-  /// Append images via the gallery picker. The first imported image
-  /// will become the source (existing imports + new ones combine
-  /// through the import controller's session cap).
-  Future<void> addFromGallery() async {
-    await ref
-        .read(
-          imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
-        )
-        .pickFromGallery();
+  /// Append images via the gallery picker.
+  ///
+  /// When [replace] is `false` (default), the picked image is appended
+  /// to the current grid-kind import session — the first image stays
+  /// the source if one is already present. This matches the legacy
+  /// behavior used by camera / clipboard / drag-drop import paths.
+  ///
+  /// When [replace] is `true`, the current grid-kind import session is
+  /// cleared **before** the picker opens so the picked image lands as
+  /// a fresh `next.first` and overwrites the previous source. Callers
+  /// (see [GridEditorScreen]'s AppBar action) gate this branch behind
+  /// a confirm dialog so a stray tap can't destroy work.
+  ///
+  /// The crop-state reset (offset / scale) that will accompany this
+  /// flow lands in the ST-C subtask; here `replace=true` only clears
+  /// the session.
+  Future<void> addFromGallery({bool replace = false}) async {
+    final importNotifier = ref.read(
+      imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
+    );
+    if (replace) {
+      importNotifier.clear();
+    }
+    await importNotifier.pickFromGallery();
   }
 
   Future<void> addFromCamera() async {
