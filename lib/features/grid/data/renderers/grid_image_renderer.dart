@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 
 import '../../domain/entities/grid_type.dart';
 import '../../domain/usecases/compute_center_transform.dart';
+import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../../domain/usecases/grid_render_request.dart';
 
@@ -80,13 +81,16 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
     throw StateError('GridImageRenderer: failed to decode source image.');
   }
 
-  // PRD §4.2 algorithm step 1: "Crop source to square (longest side =
-  // min(srcW, srcH); center crop)" — only applied when the request
-  // explicitly opts into the nine-grid-social pipeline so the regular
-  // 3x3 mode keeps showing the full source as before.
-  final source = request.nineGridSocialMode
-      ? _centerCropToSquare(decoded)
-      : decoded;
+  // PRD ST-C R-RENDER-01 / D2: crop the source to the user-selected
+  // square **first** so every grid mode operates on a 1:1 region. The
+  // social-mode branch is now a degenerate case of this helper (offset
+  // = (0.5, 0.5), scale = 1.0 → centered shortest-side square, matching
+  // the legacy `_centerCropToSquare` behaviour).
+  final source = _cropToSelectedSquare(
+    decoded,
+    offset: request.sourceOffset,
+    scale: request.sourceScale,
+  );
 
   final layout = computeGridLayout(
     sourceWidth: source.width,
@@ -157,21 +161,29 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
   return cells;
 }
 
-/// Returns a centred minimum-side square crop of [src]. Used by the
-/// nine-grid-social pipeline (PRD §4.2 step 1) so the resulting 9 cells
-/// are themselves squares regardless of the original aspect ratio.
-img.Image _centerCropToSquare(img.Image src) {
-  if (src.width == src.height) return src;
-  final shortSide = math.min(src.width, src.height);
-  final cropX = (src.width - shortSide) ~/ 2;
-  final cropY = (src.height - shortSide) ~/ 2;
-  return img.copyCrop(
-    src,
-    x: cropX,
-    y: cropY,
-    width: shortSide,
-    height: shortSide,
+/// Crop [src] to the square region picked by the user (`offset` /
+/// `scale`). Replaces the legacy `_centerCropToSquare` helper — the
+/// default `offset = (0.5, 0.5)` / `scale = 1.0` reproduces a centered
+/// shortest-side crop exactly (so the previous social-mode behaviour is
+/// preserved as a degenerate case).
+img.Image _cropToSelectedSquare(
+  img.Image src, {
+  required SourceOffset offset,
+  required double scale,
+}) {
+  final rect = computeSourceSquareRect(
+    sourceWidth: src.width,
+    sourceHeight: src.height,
+    offset: offset,
+    scale: scale,
   );
+  if (rect == null) return src;
+  // Defensive: the math should already guarantee in-bounds, but integer
+  // rounding on degenerate inputs (1x1, etc.) can drift by a pixel.
+  final maxSide = math.min(src.width - rect.x, src.height - rect.y);
+  final side = math.min(rect.side, maxSide);
+  if (side <= 0) return src;
+  return img.copyCrop(src, x: rect.x, y: rect.y, width: side, height: side);
 }
 
 /// Crop the replacement [center] image with the user-controlled

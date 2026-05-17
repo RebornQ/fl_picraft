@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:fl_picraft/features/grid/data/renderers/grid_image_renderer.dart';
 import 'package:fl_picraft/features/grid/domain/entities/grid_type.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/compute_center_transform.dart';
+import 'package:fl_picraft/features/grid/domain/usecases/compute_source_crop.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/grid_render_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -266,8 +267,8 @@ void main() {
       }
     });
 
-    test('socialMode=false on the same non-square source preserves the '
-        'non-square 200×100 cell shape (regular 3x3 behaviour)', () async {
+    test('socialMode=false on the same non-square source carves a centered '
+        'square (per D2: all cells are 1:1)', () async {
       const renderer = GridImageRenderer();
       final cells = await renderer.render(
         GridRenderRequest(
@@ -275,15 +276,58 @@ void main() {
           gridType: GridType.g3x3,
           spacing: 0,
           cornerRadius: 0,
-          // nineGridSocialMode defaults to false.
+          // nineGridSocialMode defaults to false; sourceOffset / sourceScale
+          // default to (0.5,0.5) / 1.0 — i.e. a centered 300×300 crop of
+          // the 600×300 source, then 3×3 → 100×100 cells.
         ),
       );
       expect(cells, hasLength(9));
       for (final bytes in cells) {
         final decoded = img.decodeImage(bytes)!;
-        expect(decoded.width, 200);
+        expect(decoded.width, 100);
         expect(decoded.height, 100);
       }
+    });
+
+    test('non-social with sourceOffset=(0, 0.5) carves from the left of the '
+        'source (drag-select propagates through to the renderer)', () async {
+      // Build a 600×300 source with the left third red, middle green, right
+      // blue. A default (centered) crop picks x=150..450, so cell[0]'s
+      // 100×100 region (col 0, row 0 of the cropped 300×300) maps back to
+      // source x=150..250 (red→green transition; center pixel at source
+      // x=200 = green). A left-aligned crop (dx=0) picks x=0..300, so
+      // cell[0] maps to source x=0..100 (entirely red).
+      final canvas = img.Image(width: 600, height: 300, numChannels: 4);
+      for (var y = 0; y < 300; y++) {
+        for (var x = 0; x < 600; x++) {
+          if (x < 200) {
+            canvas.setPixelRgba(x, y, 255, 0, 0, 255);
+          } else if (x < 400) {
+            canvas.setPixelRgba(x, y, 0, 255, 0, 255);
+          } else {
+            canvas.setPixelRgba(x, y, 0, 0, 255, 255);
+          }
+        }
+      }
+      final src = Uint8List.fromList(img.encodePng(canvas));
+
+      const renderer = GridImageRenderer();
+      final cells = await renderer.render(
+        GridRenderRequest(
+          sourceBytes: src,
+          gridType: GridType.g3x3,
+          spacing: 0,
+          cornerRadius: 0,
+          sourceOffset: const SourceOffset(0, 0.5),
+        ),
+      );
+      expect(cells, hasLength(9));
+      final cell0 = img.decodeImage(cells[0])!;
+      expect(cell0.width, 100);
+      expect(cell0.height, 100);
+      // Left-aligned crop → cell[0] is entirely red.
+      final px = cell0.getPixel(50, 50);
+      expect((px.r, px.g, px.b), (255, 0, 0));
     });
 
     test(

@@ -10,6 +10,7 @@ import '../../data/renderers/grid_image_renderer.dart';
 import '../../domain/entities/grid_editor_state.dart';
 import '../../domain/entities/grid_type.dart';
 import '../../domain/usecases/compute_center_transform.dart';
+import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_render_request.dart';
 
 /// DI seam for the renderer so widget tests can inject a fake without
@@ -194,6 +195,63 @@ class GridEditorController extends Notifier<GridEditorState> {
     return (short ~/ 3).clamp(1, short);
   }
 
+  // ---- canvas drag-select crop (ST-C) -----------------------------------
+
+  /// Update the normalized center of the user-selected square crop.
+  /// Re-clamped against the current scale / source aspect so the crop
+  /// can never expose pixels outside the source.
+  void setSourceOffset(SourceOffset offset) {
+    final source = state.source;
+    if (source == null) return;
+    if (source.height <= 0) return;
+    final clamped = clampSourceOffset(
+      offset: offset,
+      scale: state.sourceScale,
+      sourceAspect: source.width / source.height,
+    );
+    if (clamped == state.sourceOffset) return;
+    state = state.copyWith(sourceOffset: clamped);
+  }
+
+  /// Update the cover-relative scale of the user-selected square crop.
+  /// Clamped to `[kMinSourceScale, kMaxSourceScale]`. The offset is
+  /// re-clamped against the new scale so the crop stays inside the
+  /// source.
+  void setSourceScale(double scale) {
+    final source = state.source;
+    if (source == null) return;
+    final clampedScale = clampSourceScale(scale);
+    final clampedOffset = source.height <= 0
+        ? state.sourceOffset
+        : clampSourceOffset(
+            offset: state.sourceOffset,
+            scale: clampedScale,
+            sourceAspect: source.width / source.height,
+          );
+    if (clampedScale == state.sourceScale &&
+        clampedOffset == state.sourceOffset) {
+      return;
+    }
+    state = state.copyWith(
+      sourceScale: clampedScale,
+      sourceOffset: clampedOffset,
+    );
+  }
+
+  /// Reset the drag-select crop to defaults (cover-fit, centered).
+  /// Wired into the controls panel's "重置裁剪" button (PRD ST-C, AC6)
+  /// and into [addFromGallery] when `replace: true`.
+  void resetCrop() {
+    if (state.sourceOffset == kDefaultSourceOffset &&
+        state.sourceScale == kDefaultSourceScale) {
+      return;
+    }
+    state = state.copyWith(
+      sourceOffset: kDefaultSourceOffset,
+      sourceScale: kDefaultSourceScale,
+    );
+  }
+
   // ---- import shortcuts -------------------------------------------------
 
   /// Append images via the gallery picker.
@@ -205,19 +263,18 @@ class GridEditorController extends Notifier<GridEditorState> {
   ///
   /// When [replace] is `true`, the current grid-kind import session is
   /// cleared **before** the picker opens so the picked image lands as
-  /// a fresh `next.first` and overwrites the previous source. Callers
-  /// (see [GridEditorScreen]'s AppBar action) gate this branch behind
-  /// a confirm dialog so a stray tap can't destroy work.
-  ///
-  /// The crop-state reset (offset / scale) that will accompany this
-  /// flow lands in the ST-C subtask; here `replace=true` only clears
-  /// the session.
+  /// a fresh `next.first` and overwrites the previous source. The
+  /// drag-select crop is reset alongside the session clear (PRD ST-C,
+  /// R-DRAG-03) so the new image starts in cover-fit at the centre.
+  /// Callers (see [GridEditorScreen]'s AppBar action) gate this branch
+  /// behind a confirm dialog so a stray tap can't destroy work.
   Future<void> addFromGallery({bool replace = false}) async {
     final importNotifier = ref.read(
       imageImportControllerProvider(ImageImportSessionKind.grid).notifier,
     );
     if (replace) {
       importNotifier.clear();
+      resetCrop();
     }
     await importNotifier.pickFromGallery();
   }

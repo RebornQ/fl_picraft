@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import '../entities/grid_editor_state.dart';
 import '../entities/grid_type.dart';
 import 'compute_center_transform.dart';
+import 'compute_source_crop.dart';
 
 /// Serializable render request handed off to an isolate.
 ///
@@ -20,6 +21,8 @@ class GridRenderRequest {
     this.centerImageBytes,
     this.centerScale = kDefaultCenterScale,
     this.centerOffset = kCenterOffsetZero,
+    this.sourceOffset = kDefaultSourceOffset,
+    this.sourceScale = kDefaultSourceScale,
   });
 
   final Uint8List sourceBytes;
@@ -50,6 +53,16 @@ class GridRenderRequest {
   /// [centerImageBytes] is `null`.
   final CenterOffset centerOffset;
 
+  /// Normalized center of the user-selected square crop (PRD ST-C,
+  /// R-RENDER-01). The renderer carves this square out of the source
+  /// **before** running `computeGridLayout`, so every grid mode (social
+  /// or not) operates on a 1:1 region.
+  final SourceOffset sourceOffset;
+
+  /// Cover-relative scale of the user-selected square crop, in `[1.0,
+  /// 4.0]`. `1.0` = the largest inscribed square; `4.0` = zoom in 4x.
+  final double sourceScale;
+
   /// `true` when the renderer should compose [centerImageBytes] into
   /// the 5th cell. Implied — kept as a computed getter rather than a
   /// separate flag so callers can't accidentally desync the two.
@@ -77,6 +90,8 @@ class GridRenderRequest {
       centerImageBytes: usesCenter ? state.centerImage!.bytes : null,
       centerScale: state.centerScale,
       centerOffset: state.centerOffset,
+      sourceOffset: state.sourceOffset,
+      sourceScale: state.sourceScale,
     );
   }
 }

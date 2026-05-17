@@ -42,6 +42,21 @@ class GridControlsPanel extends ConsumerWidget {
           lockedTo: state.nineGridSocialMode ? GridType.g3x3 : null,
         ),
         const SizedBox(height: 16),
+        // PRD ST-C AC6: a "重置裁剪" button restores the drag-select
+        // crop to its defaults. Only visible when the user has moved
+        // the crop off-default to avoid panel clutter.
+        if (state.hasNonDefaultCrop) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('resetCropButton'),
+              onPressed: notifier.resetCrop,
+              icon: const Icon(Icons.crop_free),
+              label: const Text('重置裁剪'),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         const GridParameterCards(),
       ],
     );

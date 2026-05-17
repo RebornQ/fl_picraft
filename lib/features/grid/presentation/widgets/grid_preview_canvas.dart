@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/grid_editor_state.dart';
 import '../../domain/entities/grid_type.dart';
+import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../providers/grid_editor_provider.dart';
 import 'center_cell_overlay.dart';
@@ -108,31 +109,62 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _PreviewSurface extends StatelessWidget {
+class _PreviewSurface extends ConsumerStatefulWidget {
   const _PreviewSurface({required this.state});
 
   final GridEditorState state;
 
   @override
+  ConsumerState<_PreviewSurface> createState() => _PreviewSurfaceState();
+}
+
+class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
+  /// `true` while the user is actively dragging / pinching the canvas.
+  /// Drives the grid-overlay fade-out (R-DRAG-04).
+  bool _isGesturing = false;
+
+  // Live state captured at gesture start so [_onScaleUpdate] can
+  // compute "since-start" deltas. `details.scale` is cumulative since
+  // start, but `focalPointDelta` is per-event — we use
+  // `localFocalPoint - startLocalFocalPoint` to keep pan additive in
+  // lock-step with the scale (mirrors the convention in
+  // `center_cell_overlay.dart`).
+  SourceOffset? _gestureStartOffset;
+  double? _gestureStartScale;
+  Offset? _gestureStartFocal;
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
     final source = state.source!;
     final isSocial =
         state.nineGridSocialMode && state.gridType == GridType.g3x3;
 
-    // PRD §4.2 step 1: when the social mode is on, the renderer centre-
-    // crops the source to its shortest-side square before splitting.
-    // Mirror that here so the grid overlay reads in the same coordinate
-    // space as the export. For the regular grid mode we keep the full
-    // source dimensions (matching the renderer's untouched path).
+    // PRD ST-C D2: the renderer carves a user-selected square crop out
+    // of the source before splitting. Mirror that here so the preview's
+    // grid overlay and image rendering both read against the same
+    // coordinate system the renderer uses.
     final shortSide = math.min(source.width, source.height);
-    final effectiveWidth = isSocial ? shortSide : source.width;
-    final effectiveHeight = isSocial ? shortSide : source.height;
+    final clampedScale = clampSourceScale(state.sourceScale);
+    final aspect = source.height <= 0 ? 1.0 : source.width / source.height;
+    final clampedOffset = clampSourceOffset(
+      offset: state.sourceOffset,
+      scale: clampedScale,
+      sourceAspect: aspect,
+    );
+    final cropSideSource = shortSide / clampedScale;
+    final cropCenterX = clampedOffset.dx * source.width;
+    final cropCenterY = clampedOffset.dy * source.height;
+    final cropXSource = cropCenterX - cropSideSource / 2;
+    final cropYSource = cropCenterY - cropSideSource / 2;
+    final cropSideInt = math.max(1, cropSideSource.round());
 
-    // Compute the layout in (effective) source coordinates so the
-    // overlay matches what the renderer will produce exactly.
+    // Compute the layout against the cropped square (square × square)
+    // so the overlay rectangles map straight onto the cells the
+    // renderer will produce.
     final layout = computeGridLayout(
-      sourceWidth: effectiveWidth,
-      sourceHeight: effectiveHeight,
+      sourceWidth: cropSideInt,
+      sourceHeight: cropSideInt,
       type: state.gridType,
       spacing: state.spacing,
     );
@@ -140,39 +172,78 @@ class _PreviewSurface extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
-        final scaleX = effectiveWidth == 0 ? 0.0 : size.width / effectiveWidth;
-        final scaleY = effectiveHeight == 0
-            ? 0.0
-            : size.height / effectiveHeight;
+        final viewportSide = math.min(size.width, size.height);
+        if (viewportSide <= 0 || cropSideSource <= 0) {
+          return const SizedBox.shrink();
+        }
+        final widgetPerSource = viewportSide / cropSideSource;
+        final scaleX = widgetPerSource;
+        final scaleY = widgetPerSource;
 
         final showCenterOverlay =
             isSocial && layout.rects.length > _kCenterCellIndex;
 
         return Stack(
+          clipBehavior: Clip.hardEdge,
           fit: StackFit.expand,
           children: [
-            Image.memory(
-              source.bytes,
-              // BoxFit.cover on a square canvas centre-crops a non-
-              // square source to the shortest-side square — which
-              // matches the renderer's social-mode crop. For non-social
-              // (free-aspect) the overlay computes against the full
-              // source so cells map back to the visible region the
-              // user already sees via cover.
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
+            // Render the full source positioned/sized so the
+            // user-selected square crop fills the viewport. Using
+            // explicit `Positioned` (rather than `BoxFit.cover`)
+            // keeps preview and export byte-for-byte aligned at any
+            // (offset, scale) combination.
+            Positioned(
+              left: -cropXSource * widgetPerSource,
+              top: -cropYSource * widgetPerSource,
+              width: source.width * widgetPerSource,
+              height: source.height * widgetPerSource,
+              child: Image.memory(
+                source.bytes,
+                fit: BoxFit.fill,
+                gaplessPlayback: true,
+              ),
+            ),
+            // Canvas-level pan/pinch detector. Sits below
+            // [CenterCellOverlay] in z-order so the overlay's
+            // `HitTestBehavior.opaque` recognizer blocks the canvas
+            // drag inside the center cell (R-DRAG-05). When social
+            // mode is off (or no center image is picked) the overlay
+            // isn't mounted and this detector covers the entire
+            // canvas.
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onScaleStart: (details) {
+                  _gestureStartOffset = state.sourceOffset;
+                  _gestureStartScale = clampedScale;
+                  _gestureStartFocal = details.localFocalPoint;
+                  setState(() => _isGesturing = true);
+                },
+                onScaleUpdate: (details) => _onScaleUpdate(details),
+                onScaleEnd: (_) {
+                  _gestureStartOffset = null;
+                  _gestureStartScale = null;
+                  _gestureStartFocal = null;
+                  setState(() => _isGesturing = false);
+                },
+              ),
             ),
             // Translucent grid lines, mirroring the design mock's
-            // `border-r border-b border-white/40` overlay (line 122–
-            // 140) but driven by the layout rectangles so spacing /
-            // type changes reflect immediately.
-            IgnorePointer(
-              child: CustomPaint(
-                painter: _GridOverlayPainter(
-                  rects: layout.rects,
-                  cornerRadius: state.cornerRadius,
-                  scaleX: scaleX,
-                  scaleY: scaleY,
+            // `border-r border-b border-white/40` overlay. Fades out
+            // during active gestures (R-DRAG-04) so the user can see
+            // the crop region without grid clutter. `IgnorePointer`
+            // keeps the painter from claiming hits.
+            AnimatedOpacity(
+              opacity: _isGesturing ? 0.0 : 1.0,
+              duration: const Duration(milliseconds: 150),
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _GridOverlayPainter(
+                    rects: layout.rects,
+                    cornerRadius: state.cornerRadius,
+                    scaleX: scaleX,
+                    scaleY: scaleY,
+                  ),
                 ),
               ),
             ),
@@ -187,11 +258,57 @@ class _PreviewSurface extends StatelessWidget {
       },
     );
   }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    final src = widget.state.source;
+    if (src == null) return;
+    final startScale =
+        _gestureStartScale ?? clampSourceScale(widget.state.sourceScale);
+    final startOffset = _gestureStartOffset ?? widget.state.sourceOffset;
+    final startFocal = _gestureStartFocal ?? details.localFocalPoint;
+
+    // Apply the new scale first so the offset clamp uses the right
+    // cropSide. `details.scale` is cumulative since gesture start.
+    final newScale = clampSourceScale(startScale * details.scale);
+
+    // Translate the widget-pixel focal delta back into normalized
+    // source coordinates. Moving the finger right by `dxWidget` should
+    // make the image follow visually (right), which means the crop
+    // window moves **left** in source coords — so we subtract.
+    final dxWidget = details.localFocalPoint.dx - startFocal.dx;
+    final dyWidget = details.localFocalPoint.dy - startFocal.dy;
+    final viewportSide = _viewportSide() ?? 1.0;
+    final shortSide = math.min(src.width, src.height);
+    final startCropSide = shortSide / startScale;
+    final startWidgetPerSource = startCropSide <= 0
+        ? 0.0
+        : viewportSide / startCropSide;
+    final dxSource = startWidgetPerSource <= 0
+        ? 0.0
+        : dxWidget / startWidgetPerSource;
+    final dySource = startWidgetPerSource <= 0
+        ? 0.0
+        : dyWidget / startWidgetPerSource;
+    final newOffset = SourceOffset(
+      startOffset.dx - dxSource / math.max(1, src.width),
+      startOffset.dy - dySource / math.max(1, src.height),
+    );
+
+    final notifier = ref.read(gridEditorControllerProvider.notifier);
+    notifier.setSourceScale(newScale);
+    notifier.setSourceOffset(newOffset);
+  }
+
+  double? _viewportSide() {
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return math.min(box.size.width, box.size.height);
+  }
 }
 
 /// Anchors the interactive [CenterCellOverlay] to the 5th cell's
-/// rendered position in the preview canvas (after the BoxFit.cover
-/// scaling).
+/// rendered position in the preview canvas (after the user-selected
+/// square crop is mapped into the viewport).
 class _PositionedCenterOverlay extends StatelessWidget {
   const _PositionedCenterOverlay({
     required this.cellRect,
@@ -255,8 +372,9 @@ class _GridOverlayPainter extends CustomPainter {
       ..strokeWidth = 1;
 
     // Average scale for radius mapping — keeps the rendered radius
-    // proportional even when the preview slightly distorts the
-    // aspect ratio (BoxFit.cover may letterbox).
+    // proportional even when the canvas aspect deviates from the
+    // cropped-source aspect (cropped source is always square, so scaleX
+    // and scaleY agree in practice — but average is the safe form).
     final radiusScale = (scaleX + scaleY) / 2;
     final scaledRadius = (cornerRadius * radiusScale).clamp(0.0, 64.0);
 

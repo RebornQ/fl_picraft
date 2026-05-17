@@ -1,5 +1,6 @@
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../usecases/compute_center_transform.dart';
+import '../usecases/compute_source_crop.dart';
 import 'grid_type.dart';
 
 /// Slider bounds surfaced to the UI. Centralizing keeps the parameter
@@ -30,6 +31,8 @@ class GridEditorState {
     required this.centerImage,
     required this.centerScale,
     required this.centerOffset,
+    required this.sourceOffset,
+    required this.sourceScale,
   });
 
   /// Default initial state. No source image, 3x3 grid, spacing 0,
@@ -44,6 +47,8 @@ class GridEditorState {
     centerImage: null,
     centerScale: kDefaultCenterScale,
     centerOffset: kCenterOffsetZero,
+    sourceOffset: kDefaultSourceOffset,
+    sourceScale: kDefaultSourceScale,
   );
 
   /// The source image being split. `null` until the user imports an
@@ -78,8 +83,25 @@ class GridEditorState {
   /// pixels measured in cell-local coordinates. Centered = `(0, 0)`.
   final CenterOffset centerOffset;
 
+  /// Normalized [0,1] offset of the **center** of the square crop that
+  /// the user picked via the canvas drag gesture (PRD ST-C, R-DRAG-01).
+  /// `(0.5, 0.5)` = source center (default cover-fit crop).
+  final SourceOffset sourceOffset;
+
+  /// Cover-relative scale of the user-selected square crop. `1.0` = the
+  /// largest inscribed square fits the source's shortest side; `4.0` =
+  /// zoom in 4x. Bounded by [kMinSourceScale] / [kMaxSourceScale].
+  final double sourceScale;
+
   bool get hasSource => source != null;
   bool get hasCenterImage => centerImage != null;
+
+  /// `true` when the user's crop selection deviates from the defaults
+  /// (cover-fit, centered). Used by the controls panel to gate the
+  /// visibility of the "重置裁剪" button (PRD ST-C, AC6).
+  bool get hasNonDefaultCrop =>
+      sourceOffset != kDefaultSourceOffset ||
+      sourceScale != kDefaultSourceScale;
 
   /// `true` when the social toggle is on **and** a replacement image
   /// has been picked. Convenience for the renderer / preview.
@@ -106,6 +128,8 @@ class GridEditorState {
     bool clearCenterImage = false,
     double? centerScale,
     CenterOffset? centerOffset,
+    SourceOffset? sourceOffset,
+    double? sourceScale,
   }) {
     return GridEditorState(
       source: clearSource ? null : (source ?? this.source),
@@ -116,6 +140,8 @@ class GridEditorState {
       centerImage: clearCenterImage ? null : (centerImage ?? this.centerImage),
       centerScale: centerScale ?? this.centerScale,
       centerOffset: centerOffset ?? this.centerOffset,
+      sourceOffset: sourceOffset ?? this.sourceOffset,
+      sourceScale: sourceScale ?? this.sourceScale,
     );
   }
 
@@ -130,7 +156,9 @@ class GridEditorState {
         other.nineGridSocialMode == nineGridSocialMode &&
         other.centerImage == centerImage &&
         other.centerScale == centerScale &&
-        other.centerOffset == centerOffset;
+        other.centerOffset == centerOffset &&
+        other.sourceOffset == sourceOffset &&
+        other.sourceScale == sourceScale;
   }
 
   @override
@@ -143,5 +171,7 @@ class GridEditorState {
     centerImage,
     centerScale,
     centerOffset,
+    sourceOffset,
+    sourceScale,
   );
 }
