@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "三红线 + dialog 类 widget test 的稳定性扫描 (pumpAndSettle / context.mounted 守卫)"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 addFromGallery(replace:) 的 Riverpod 副作用 — clear() 必须在 pickFromGallery() 之前；session sync (importedImagesProvider listener) 应能正确响应"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 dialog copy / button hierarchy / destructive style 符合 Material 3 a11y"}
-{"file": ".trellis/tasks/05-17-grid-overwrite-import-confirm/prd.md", "reason": "AC2 / AC2.1 / AC2.2 / AC2.3 + DoD 逐项核对"}
