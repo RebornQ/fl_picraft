@@ -48,8 +48,8 @@ class AppBottomNavBar extends StatelessWidget {
     ),
     AppNavDestination(
       label: '长图拼接',
-      icon: Icons.photo_library_outlined,
-      selectedIcon: Icons.photo_library,
+      icon: Icons.view_agenda_outlined,
+      selectedIcon: Icons.view_agenda,
       location: '/stitch',
     ),
     AppNavDestination(

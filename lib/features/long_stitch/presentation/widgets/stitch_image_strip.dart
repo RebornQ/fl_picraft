@@ -12,14 +12,62 @@ import '../providers/stitch_editor_provider.dart';
 ///
 /// Mirrors the "已选图片" panel in the design mock
 /// (`_2_长图拼接/code.html` lines ~80–155).
-class StitchImageStrip extends ConsumerWidget {
+///
+/// Header trailing affordances appear only when `imageCount > 0`:
+/// * 「清空」 — opens a confirmation dialog before calling
+///   [StitchEditorController.clear].
+/// * Collapse / expand toggle — purely local UI state (no controller
+///   field) that hides the [ReorderableRow] card row while keeping the
+///   header + count visible. Default state is expanded.
+class StitchImageStrip extends ConsumerStatefulWidget {
   const StitchImageStrip({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StitchImageStrip> createState() => _StitchImageStripState();
+}
+
+class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
+  /// Whether the card row is currently expanded. Local to the widget —
+  /// the collapse state is **not** part of [StitchEditorState] (see
+  /// task PRD: "状态归属：`StatefulWidget` 内的 `bool _expanded`").
+  bool _expanded = true;
+
+  Future<void> _confirmClear(BuildContext context, int imageCount) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('清空已选图片'),
+          content: Text('将移除当前 $imageCount 张图片，此操作不可撤销。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+              ),
+              child: const Text('清空'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == true) {
+      ref.read(stitchEditorControllerProvider.notifier).clear();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(stitchEditorControllerProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final hasImages = state.images.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -47,12 +95,51 @@ class StitchImageStrip extends ConsumerWidget {
                   ),
                 ],
               ),
-              TextButton.icon(
-                onPressed: () => ref
-                    .read(stitchEditorControllerProvider.notifier)
-                    .addFromGallery(),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('添加'),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => ref
+                        .read(stitchEditorControllerProvider.notifier)
+                        .addFromGallery(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('添加'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 36),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                  if (hasImages) ...[
+                    TextButton.icon(
+                      onPressed: () => _confirmClear(context, state.imageCount),
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                      label: const Text('清空'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.error,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: _expanded ? '收起' : '展开',
+                      icon: Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                      ),
+                      iconSize: 20,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -66,7 +153,7 @@ class StitchImageStrip extends ConsumerWidget {
                   .read(stitchEditorControllerProvider.notifier)
                   .pasteFromClipboard(),
             )
-          else
+          else if (_expanded)
             SizedBox(
               height: 140,
               child: ReorderableRow(
@@ -96,7 +183,9 @@ class StitchImageStrip extends ConsumerWidget {
                     ),
                 ],
               ),
-            ),
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );

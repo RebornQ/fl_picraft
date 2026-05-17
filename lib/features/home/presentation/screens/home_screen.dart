@@ -136,7 +136,7 @@ class _FeatureCardsLayout extends StatelessWidget {
       title: '长图拼接',
       description: '将多张图片无缝拼接为竖向、横向或电影台词长图。',
       actionLabel: '导入新图片',
-      icon: Icons.photo_library_outlined,
+      icon: Icons.view_agenda_outlined,
       onActionPressed: () => context.go('/stitch'),
     );
     final gridCard = FeatureCard(

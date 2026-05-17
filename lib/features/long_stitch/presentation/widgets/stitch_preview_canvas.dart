@@ -13,6 +13,13 @@ import '../providers/stitch_editor_provider.dart';
 /// slider response stays well under the 100ms budget the PRD calls for.
 /// The actual export pipeline goes through [StitchImageRenderer] when
 /// the user taps "导出".
+///
+/// Owns its own scroll behavior — the grey surface always fills the
+/// height supplied by the surrounding [Expanded] (no dead band below
+/// the canvas when the assembled image is short), and a tall-aspect
+/// canvas overflows the viewport upward via the inner
+/// [SingleChildScrollView]. Callers MUST NOT wrap this widget in
+/// another [SingleChildScrollView].
 class StitchPreviewCanvas extends ConsumerWidget {
   const StitchPreviewCanvas({super.key});
 
@@ -22,30 +29,63 @@ class StitchPreviewCanvas extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Container(
-      decoration: BoxDecoration(color: colorScheme.surfaceContainerHighest),
-      padding: const EdgeInsets.all(16),
-      child: state.hasImages
-          ? Center(child: _PreviewSurface(state: state))
-          : Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.image_outlined,
-                    size: 48,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '导入图片以预览拼接效果',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The grey surface MUST fill the full height that the parent
+        // Expanded gives us — without `minHeight: constraints.maxHeight`
+        // short-aspect canvases collapse the Container to the assembled
+        // image's intrinsic height and leave dead space below it. The
+        // SingleChildScrollView wraps the ConstrainedBox so the surface
+        // still scrolls when the (long-aspect) canvas grows past the
+        // viewport.
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Container(
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: state.hasImages
+                    ? _PreviewSurface(state: state)
+                    : _EmptyHint(
+                        textTheme: textTheme,
+                        colorScheme: colorScheme,
+                      ),
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint({required this.textTheme, required this.colorScheme});
+
+  final TextTheme textTheme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.image_outlined,
+          size: 48,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '导入图片以预览拼接效果',
+          style: textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -133,10 +173,12 @@ class _PreviewSurface extends StatelessWidget {
         // fixed `ConstrainedBox(maxWidth: 360, maxHeight: 480)` look
         // but lets the preview scale up with the surrounding panel
         // (tablet / desktop / 4K). When constraints are unbounded on
-        // either axis (compact layout puts the canvas in a
-        // SingleChildScrollView whose maxHeight is infinity), we fall
-        // back to the cross-axis bound so the canvas still has a
-        // well-defined size.
+        // either axis (the outer canvas now owns its own
+        // SingleChildScrollView, so this _PreviewSurface receives a
+        // maxHeight of infinity), we fall back to the cross-axis bound
+        // so the canvas still has a well-defined size — and tall-aspect
+        // canvases overflow the viewport upward, scrolling via the
+        // outer canvas widget's SingleChildScrollView.
         final aspect = canvasWidth / canvasHeight;
         final maxWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth

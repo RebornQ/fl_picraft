@@ -31,7 +31,10 @@ const double _kStitchControlsPanelMaxWidth = 480;
 /// Layout (top → bottom on compact / medium widths):
 /// 1. AppBar with back + title + export action
 /// 2. Image strip (horizontal, drag-reorder)
-/// 3. Preview canvas (scrollable, fills remaining space)
+/// 3. Preview canvas (fills remaining space — owns its own scroll;
+///    the grey surface ALWAYS fills the Expanded height regardless of
+///    canvas aspect ratio, so short canvases no longer leave dead
+///    space below them)
 /// 4. Sticky controls sheet (mode segmented + parameter sliders)
 ///
 /// The whole body is wrapped in [ImageDropZone] so desktop / web
@@ -48,9 +51,9 @@ const double _kStitchControlsPanelMaxWidth = 480;
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | image strip on top, scrollable canvas in the middle, controls docked as a bottom [StitchControlsSheet] |
+/// | compact (<600 dp) | image strip on top, canvas in the middle (fills the Expanded slot, surface scrolls internally for tall canvases), controls docked as a bottom [StitchControlsSheet] |
 /// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the touch sheet reachable |
-/// | expanded (840–1200 dp) | image strip on top; below it a two-column [Row] with the canvas on the left and a fluid [StitchControlsPanel] docked on the right (width = `clamp(380, container * 0.25, 480)`) |
+/// | expanded (840–1200 dp) | image strip on top; below it a two-column [Row] with the canvas on the left (fills the Expanded slot) and a fluid [StitchControlsPanel] docked on the right (width = `clamp(380, container * 0.25, 480)`) |
 /// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp |
 class StitchEditorScreen extends ConsumerWidget {
   const StitchEditorScreen({super.key});
@@ -150,11 +153,7 @@ class _StitchEditorBody extends StatelessWidget {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Expanded(
-                      child: SingleChildScrollView(
-                        child: StitchPreviewCanvas(),
-                      ),
-                    ),
+                    const Expanded(child: StitchPreviewCanvas()),
                     SizedBox(
                       width: panelWidth,
                       child: const SingleChildScrollView(
@@ -173,7 +172,7 @@ class _StitchEditorBody extends StatelessWidget {
     return const Column(
       children: [
         StitchImageStrip(),
-        Expanded(child: SingleChildScrollView(child: StitchPreviewCanvas())),
+        Expanded(child: StitchPreviewCanvas()),
         StitchControlsSheet(),
       ],
     );
