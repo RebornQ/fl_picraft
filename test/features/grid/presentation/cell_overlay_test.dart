@@ -92,6 +92,7 @@ void main() {
             cellHeight: 100,
             sourceCellWidth: 100,
             sourceCellHeight: 100,
+            isGesturing: false,
           ),
         ),
       );
@@ -114,6 +115,7 @@ void main() {
             cellHeight: 100,
             sourceCellWidth: 100,
             sourceCellHeight: 100,
+            isGesturing: false,
           ),
         ),
       );
@@ -135,6 +137,7 @@ void main() {
             cellHeight: 100,
             sourceCellWidth: 100,
             sourceCellHeight: 100,
+            isGesturing: false,
           ),
         ),
       );
@@ -147,6 +150,66 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('add-circle hint fades to opacity 0 when isGesturing is true', (
+      tester,
+    ) async {
+      // Visual sync with the grid-line fade in GridPreviewCanvas:
+      // the "+" icon overlaid on every cell must vanish while the
+      // source image is being dragged so the user sees a clean
+      // crop region.
+      await tester.pumpWidget(
+        _harness(
+          child: const CellOverlay(
+            cellIndex: 0,
+            rows: 3,
+            cols: 3,
+            cellWidth: 100,
+            cellHeight: 100,
+            sourceCellWidth: 100,
+            sourceCellHeight: 100,
+            isGesturing: true,
+          ),
+        ),
+      );
+
+      final animatedOpacity = tester.widget<AnimatedOpacity>(
+        find.ancestor(
+          of: find.byIcon(Icons.add_circle_outline),
+          matching: find.byType(AnimatedOpacity),
+        ),
+      );
+      expect(animatedOpacity.opacity, 0.0);
+      expect(animatedOpacity.duration, const Duration(milliseconds: 150));
+    });
+
+    testWidgets(
+      'add-circle hint shows at opacity 1 when isGesturing is false',
+      (tester) async {
+        await tester.pumpWidget(
+          _harness(
+            child: const CellOverlay(
+              cellIndex: 0,
+              rows: 3,
+              cols: 3,
+              cellWidth: 100,
+              cellHeight: 100,
+              sourceCellWidth: 100,
+              sourceCellHeight: 100,
+              isGesturing: false,
+            ),
+          ),
+        );
+
+        final animatedOpacity = tester.widget<AnimatedOpacity>(
+          find.ancestor(
+            of: find.byIcon(Icons.add_circle_outline),
+            matching: find.byType(AnimatedOpacity),
+          ),
+        );
+        expect(animatedOpacity.opacity, 1.0);
+      },
+    );
   });
 
   group('CellOverlay — replaced state', () {
@@ -168,6 +231,7 @@ void main() {
                 cellHeight: 100,
                 sourceCellWidth: 100,
                 sourceCellHeight: 100,
+                isGesturing: false,
               );
             },
           ),
@@ -210,6 +274,7 @@ void main() {
                 cellHeight: 100,
                 sourceCellWidth: 100,
                 sourceCellHeight: 100,
+                isGesturing: false,
               );
             },
           ),
@@ -245,6 +310,7 @@ void main() {
                 cellHeight: 100,
                 sourceCellWidth: 100,
                 sourceCellHeight: 100,
+                isGesturing: false,
               );
             },
           ),
@@ -323,6 +389,7 @@ void main() {
                 cellHeight: 100,
                 sourceCellWidth: 100,
                 sourceCellHeight: 100,
+                isGesturing: false,
               );
             },
           ),

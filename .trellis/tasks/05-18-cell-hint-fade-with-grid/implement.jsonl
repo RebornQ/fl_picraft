@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "AnimatedOpacity + IgnorePointer composition for the decorative hint; widget API additions for the new isGesturing prop."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Widget test conventions for the new opacity assertions."}

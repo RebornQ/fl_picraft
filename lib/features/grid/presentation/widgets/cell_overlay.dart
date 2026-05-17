@@ -34,6 +34,7 @@ class CellOverlay extends ConsumerWidget {
     required this.cellHeight,
     required this.sourceCellWidth,
     required this.sourceCellHeight,
+    required this.isGesturing,
   });
 
   /// Row-major index of this cell within the current grid.
@@ -52,6 +53,13 @@ class CellOverlay extends ConsumerWidget {
   /// Source-pixel size of the cell (the renderer's `cellSide`).
   final double sourceCellWidth;
   final double sourceCellHeight;
+
+  /// `true` while the user is actively dragging / pinching the canvas
+  /// source image. Threads through to [_CellAddHint] so the "+" icon
+  /// fades in lock-step with the grid lines (R-DRAG-04 visual
+  /// consistency). The replacement image itself MUST stay fully
+  /// opaque — only the decorative hint fades.
+  final bool isGesturing;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,6 +82,7 @@ class CellOverlay extends ConsumerWidget {
                 onTap: () => ref
                     .read(gridEditorControllerProvider.notifier)
                     .pickCellImage(cellIndex),
+                isGesturing: isGesturing,
               )
             : _ReplacedCell(
                 cellIndex: cellIndex,
@@ -82,6 +91,7 @@ class CellOverlay extends ConsumerWidget {
                 cellHeight: cellHeight,
                 sourceCellWidth: sourceCellWidth,
                 sourceCellHeight: sourceCellHeight,
+                isGesturing: isGesturing,
               ),
       ),
     );
@@ -95,16 +105,22 @@ class CellOverlay extends ConsumerWidget {
 /// this layer. A drag inside an empty cell continues to drive the
 /// crop-pan on the source image.
 class _EmptyCellTarget extends StatelessWidget {
-  const _EmptyCellTarget({required this.onTap});
+  const _EmptyCellTarget({required this.onTap, required this.isGesturing});
 
   final VoidCallback onTap;
+  final bool isGesturing;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: onTap,
-      child: const Stack(children: [SizedBox.expand(), _CellAddHint()]),
+      child: Stack(
+        children: [
+          const SizedBox.expand(),
+          _CellAddHint(isGesturing: isGesturing),
+        ],
+      ),
     );
   }
 }
@@ -120,6 +136,7 @@ class _ReplacedCell extends ConsumerStatefulWidget {
     required this.cellHeight,
     required this.sourceCellWidth,
     required this.sourceCellHeight,
+    required this.isGesturing,
   });
 
   final int cellIndex;
@@ -128,6 +145,7 @@ class _ReplacedCell extends ConsumerStatefulWidget {
   final double cellHeight;
   final double sourceCellWidth;
   final double sourceCellHeight;
+  final bool isGesturing;
 
   @override
   ConsumerState<_ReplacedCell> createState() => _ReplacedCellState();
@@ -205,7 +223,7 @@ class _ReplacedCellState extends ConsumerState<_ReplacedCell> {
                 gaplessPlayback: true,
               ),
             ),
-            const _CellAddHint(),
+            _CellAddHint(isGesturing: widget.isGesturing),
           ],
         ),
       ),
@@ -295,25 +313,36 @@ String _cellLabel(int index, {required int rows, required int cols}) {
 ///   the outer per-state [GestureDetector] keeps the gesture arena.
 /// * [ExcludeSemantics] prevents screen readers from announcing this
 ///   decoration on top of the parent cell's semantics label.
+/// * The icon fades to fully transparent while [isGesturing] is true,
+///   in lock-step with the grid-lines fade in [GridPreviewCanvas]
+///   (matched 150 ms duration). The replacement image (rendered by
+///   the parent [_ReplacedCell]) stays fully opaque so the user can
+///   still see the user-picked content while dragging the source.
 class _CellAddHint extends StatelessWidget {
-  const _CellAddHint();
+  const _CellAddHint({required this.isGesturing});
+
+  final bool isGesturing;
 
   @override
   Widget build(BuildContext context) {
-    return const IgnorePointer(
+    return IgnorePointer(
       child: ExcludeSemantics(
-        child: Center(
-          child: Icon(
-            Icons.add_circle_outline,
-            size: 32,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                color: Colors.black54,
-                blurRadius: 4,
-                offset: Offset(0, 1),
-              ),
-            ],
+        child: AnimatedOpacity(
+          opacity: isGesturing ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          child: const Center(
+            child: Icon(
+              Icons.add_circle_outline,
+              size: 32,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black54,
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
           ),
         ),
       ),

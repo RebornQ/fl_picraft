@@ -246,6 +246,7 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
                   cellHeight: layout.rects[i].height * scaleY,
                   sourceCellWidth: layout.rects[i].width.toDouble(),
                   sourceCellHeight: layout.rects[i].height.toDouble(),
+                  isGesturing: _isGesturing,
                 ),
               ),
             // Translucent grid lines, mirroring the design mock's

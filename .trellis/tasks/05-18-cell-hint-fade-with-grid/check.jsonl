@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Build gates + opacity test conventions."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify the fade contract matches the grid-lines AnimatedOpacity duration (150 ms) and stays a11y-safe."}
