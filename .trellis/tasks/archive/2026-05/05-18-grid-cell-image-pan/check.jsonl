@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Build gates (analyze / format / test) and widget test patterns."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify cell-overlay HitTestBehavior + gesture arena rules still hold after the change."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Confirm source-pixel unit consistency across widget → provider → domain → renderer paths."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Verify Riverpod state-mutation contract unchanged beyond the new cellWidth/Height parameters."}

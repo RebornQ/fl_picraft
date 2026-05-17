@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Cell-level GestureDetector composition (HitTestBehavior.opaque), tap/scale/longpress arena disambiguation, and the widget→provider data-flow contract for source-pixel units."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod NotifierProvider mutation patterns; setCellOffset / setCellScale signature change affects state mutation contract."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Widget test conventions for gesture simulation + state assertion; regression-test mindset for API-changing fixes."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Why widget transparently feeds source-pixel cellWidth/Height through to provider, and why domain (clampCellOffset) layer signature stays untouched."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Provider API change should still reuse existing clampCellOffset/clampCellTransform helpers — no need to invent a new clamp formula."}
