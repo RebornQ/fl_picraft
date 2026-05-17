@@ -582,6 +582,56 @@ pan. Only reach for `focalPointDelta` when you genuinely want a
 per-frame velocity / impulse (rare — usually for inertial physics, not
 for direct manipulation).
 
+### Gotcha: Gesture priority via sibling z-order, not ancestor `HitTestBehavior`
+
+**Symptom**: A canvas has a background pan gesture **and** a smaller
+overlay child with its own gesture (e.g. `CenterCellOverlay` on top of
+`GridPreviewCanvas`). The overlay's gesture should win inside its hit
+bounds, but the background drag also fires — or wins outright — when
+the user drags within the overlay area.
+
+**Cause**: `HitTestBehavior.deferToChild` on the **outer** detector +
+`HitTestBehavior.opaque` on the **inner** child does NOT short-circuit
+hit-test. Ancestor-vs-descendant `HitTestBehavior` only controls whether
+a node participates in its own hit-test pass; it does **not** stop the
+ancestor from also winning the gesture arena. Both detectors enter the
+arena and the outer (wider hit region, often higher accept-priority for
+pan) frequently steals the gesture.
+
+**Fix**: Make the canvas detector a **sibling** of the overlay inside
+the same `Stack`, z-ordered below it, and let the overlay's
+`HitTestBehavior.opaque` block hit propagation:
+
+```dart
+Stack(
+  fit: StackFit.expand,
+  children: [
+    Image.memory(...),
+    // ❌ WRONG — outer detector wrapping the Stack still enters the arena
+    // GestureDetector(behavior: deferToChild, child: Stack(...))
+
+    // ✅ CORRECT — canvas drag as a Positioned.fill sibling below overlay
+    Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onScaleStart: ..., onScaleUpdate: ..., onScaleEnd: ...,
+      ),
+    ),
+    AnimatedOpacity(child: IgnorePointer(child: CustomPaint(...))),
+    if (showOverlay) _PositionedOverlay(...), // self-contained GestureDetector(opaque)
+  ],
+)
+```
+
+**Rule of thumb**: Stack hit-test runs top-down (highest z first); an
+opaque hit stops propagation. So z-order alone — not ancestor behavior
+— decides who sees the gesture inside the overlay's bounds.
+
+**Prevention**: When two gestures must coexist on overlapping regions,
+reach for sibling layering first; only fall back to custom arena logic
+(`RawGestureDetector` + `TeamGestureRecognizer`) when the regions truly
+overlap pointer-wise and z-order can't disambiguate.
+
 ### Gotcha: `withValues(alpha: x)` on tertiary surfaces breaks dark-mode contrast
 
 **Symptom**: A custom surface (e.g. `TipsBanner` tertiary container, an inline warning) looks fine in light mode but in dark mode the text becomes hard to read against the background, or the surface itself becomes nearly invisible.
