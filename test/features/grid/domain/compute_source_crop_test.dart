@@ -2,9 +2,9 @@ import 'package:fl_picraft/features/grid/domain/usecases/compute_source_crop.dar
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('computeSourceSquareRect — cover-fit (scale=1, offset=(0.5,0.5))', () {
-    test('square source returns the full image', () {
-      final rect = computeSourceSquareRect(
+  group('computeSourceCropRect — cover-fit (scale=1, offset=(0.5,0.5))', () {
+    test('square source @ targetAspect=1 returns the full image', () {
+      final rect = computeSourceCropRect(
         sourceWidth: 300,
         sourceHeight: 300,
         offset: kDefaultSourceOffset,
@@ -13,151 +13,189 @@ void main() {
       expect(rect, isNotNull);
       expect(rect!.x, 0);
       expect(rect.y, 0);
-      expect(rect.side, 300);
+      expect(rect.width, 300);
+      expect(rect.height, 300);
     });
 
-    test('landscape source returns the centered shortest-side square', () {
-      final rect = computeSourceSquareRect(
+    test('landscape source @ targetAspect=1 returns centered square', () {
+      final rect = computeSourceCropRect(
         sourceWidth: 600,
         sourceHeight: 300,
         offset: kDefaultSourceOffset,
         scale: kDefaultSourceScale,
       );
       expect(rect, isNotNull);
-      expect(rect!.side, 300);
+      expect(rect!.width, 300);
+      expect(rect.height, 300);
       // Center of 300x300 inside 600x300 → x=(600-300)/2=150.
       expect(rect.x, 150);
       expect(rect.y, 0);
     });
 
-    test('portrait source returns the centered shortest-side square', () {
-      final rect = computeSourceSquareRect(
+    test('portrait source @ targetAspect=1 returns centered square', () {
+      final rect = computeSourceCropRect(
         sourceWidth: 300,
         sourceHeight: 600,
         offset: kDefaultSourceOffset,
         scale: kDefaultSourceScale,
       );
       expect(rect, isNotNull);
-      expect(rect!.side, 300);
+      expect(rect!.width, 300);
+      expect(rect.height, 300);
       expect(rect.x, 0);
       expect(rect.y, 150);
     });
   });
 
-  group('computeSourceSquareRect — scale > 1 shrinks the square', () {
-    test('scale=2 on 400x400 → 200x200 from center', () {
-      final rect = computeSourceSquareRect(
+  group('computeSourceCropRect — targetAspect != 1', () {
+    test(
+      'square source @ targetAspect=2 (1×2 grid) returns full-width strip',
+      () {
+        // sourceAspect = 1, targetAspect = 2 → source is "taller" relative
+        // to target → width-bound. baseW=300, baseH=150.
+        final rect = computeSourceCropRect(
+          sourceWidth: 300,
+          sourceHeight: 300,
+          offset: kDefaultSourceOffset,
+          scale: 1.0,
+          targetAspect: 2.0,
+        );
+        expect(rect, isNotNull);
+        expect(rect!.width, 300);
+        expect(rect.height, 150);
+        // Centered vertically.
+        expect(rect.x, 0);
+        expect(rect.y, 75);
+      },
+    );
+
+    test(
+      'landscape 600x300 @ targetAspect=3 (1×3 grid) returns full width',
+      () {
+        // sourceAspect = 2, targetAspect = 3 → source is taller → width-bound.
+        // baseW = 600, baseH = 200.
+        final rect = computeSourceCropRect(
+          sourceWidth: 600,
+          sourceHeight: 300,
+          offset: kDefaultSourceOffset,
+          scale: 1.0,
+          targetAspect: 3.0,
+        );
+        expect(rect, isNotNull);
+        expect(rect!.width, 600);
+        expect(rect.height, 200);
+        expect(rect.x, 0);
+        expect(rect.y, 50);
+      },
+    );
+
+    test('landscape 600x300 @ targetAspect=1.5 (2×3 grid) returns 450x300', () {
+      // sourceAspect = 2, targetAspect = 1.5 → sourceAspect >= target →
+      // height-bound. baseH = 300, baseW = 300 * 1.5 = 450.
+      final rect = computeSourceCropRect(
+        sourceWidth: 600,
+        sourceHeight: 300,
+        offset: kDefaultSourceOffset,
+        scale: 1.0,
+        targetAspect: 1.5,
+      );
+      expect(rect, isNotNull);
+      expect(rect!.width, 450);
+      expect(rect.height, 300);
+      // Center crop horizontally: x = (600-450)/2 = 75.
+      expect(rect.x, 75);
+      expect(rect.y, 0);
+    });
+  });
+
+  group('computeSourceCropRect — scale > 1 shrinks the rect', () {
+    test('scale=2 on 400x400 @ aspect=1 → 200x200 from center', () {
+      final rect = computeSourceCropRect(
         sourceWidth: 400,
         sourceHeight: 400,
         offset: kDefaultSourceOffset,
         scale: 2.0,
       );
       expect(rect, isNotNull);
-      expect(rect!.side, 200);
-      expect(rect.x, 100); // (400-200)/2
+      expect(rect!.width, 200);
+      expect(rect.height, 200);
+      expect(rect.x, 100);
       expect(rect.y, 100);
     });
 
-    test('scale=4 on 400x400 → 100x100 from center', () {
-      final rect = computeSourceSquareRect(
+    test('scale=2 on 400x400 @ aspect=2 → 200x100 from center', () {
+      final rect = computeSourceCropRect(
         sourceWidth: 400,
         sourceHeight: 400,
         offset: kDefaultSourceOffset,
-        scale: 4.0,
+        scale: 2.0,
+        targetAspect: 2.0,
       );
       expect(rect, isNotNull);
-      expect(rect!.side, 100);
-      expect(rect.x, 150);
+      expect(rect!.width, 200);
+      expect(rect.height, 100);
+      // Centered.
+      expect(rect.x, 100);
       expect(rect.y, 150);
     });
 
     test('scale clamped above 4.0', () {
-      final rect = computeSourceSquareRect(
+      final rect = computeSourceCropRect(
         sourceWidth: 400,
         sourceHeight: 400,
         offset: kDefaultSourceOffset,
         scale: 10.0,
       );
       expect(rect, isNotNull);
-      // Stays at scale=4 → side=100.
-      expect(rect!.side, 100);
+      expect(rect!.width, 100);
+      expect(rect.height, 100);
     });
 
     test('scale clamped below 1.0', () {
-      final rect = computeSourceSquareRect(
+      final rect = computeSourceCropRect(
         sourceWidth: 400,
         sourceHeight: 400,
         offset: kDefaultSourceOffset,
         scale: 0.5,
       );
       expect(rect, isNotNull);
-      // Stays at scale=1 → side=400.
-      expect(rect!.side, 400);
+      expect(rect!.width, 400);
+      expect(rect.height, 400);
     });
   });
 
-  group('computeSourceSquareRect — offset shifts the crop', () {
+  group('computeSourceCropRect — offset shifts the crop', () {
     test('landscape 600x300 + offset.dx=0 (left-most) → x=0', () {
-      // At scale=1 on landscape, halfX = 0.25 so dx=0 clamps to 0.25,
-      // putting the crop's center at x=150 → x=0 (left-aligned).
-      final rect = computeSourceSquareRect(
+      final rect = computeSourceCropRect(
         sourceWidth: 600,
         sourceHeight: 300,
         offset: const SourceOffset(0, 0.5),
         scale: 1.0,
       );
       expect(rect, isNotNull);
-      expect(rect!.side, 300);
+      expect(rect!.width, 300);
       expect(rect.x, 0);
       expect(rect.y, 0);
     });
 
     test('landscape 600x300 + offset.dx=1.0 (right-most) → x=300', () {
-      // Symmetric to the left-aligned case; dx clamps to 0.75 → center
-      // at x=450 → x=300 (right-aligned).
-      final rect = computeSourceSquareRect(
+      final rect = computeSourceCropRect(
         sourceWidth: 600,
         sourceHeight: 300,
         offset: const SourceOffset(1.0, 0.5),
         scale: 1.0,
       );
       expect(rect, isNotNull);
-      expect(rect!.side, 300);
+      expect(rect!.width, 300);
       expect(rect.x, 300);
       expect(rect.y, 0);
     });
-
-    test('portrait 300x600 + offset.dy=0 (top-most) → y=0', () {
-      final rect = computeSourceSquareRect(
-        sourceWidth: 300,
-        sourceHeight: 600,
-        offset: const SourceOffset(0.5, 0.0),
-        scale: 1.0,
-      );
-      expect(rect, isNotNull);
-      expect(rect!.side, 300);
-      expect(rect.x, 0);
-      expect(rect.y, 0);
-    });
-
-    test('portrait 300x600 + offset.dy=1.0 (bottom-most) → y=300', () {
-      final rect = computeSourceSquareRect(
-        sourceWidth: 300,
-        sourceHeight: 600,
-        offset: const SourceOffset(0.5, 1.0),
-        scale: 1.0,
-      );
-      expect(rect, isNotNull);
-      expect(rect!.side, 300);
-      expect(rect.x, 0);
-      expect(rect.y, 300);
-    });
   });
 
-  group('computeSourceSquareRect — degenerate inputs', () {
+  group('computeSourceCropRect — degenerate inputs', () {
     test('zero width returns null', () {
       expect(
-        computeSourceSquareRect(
+        computeSourceCropRect(
           sourceWidth: 0,
           sourceHeight: 300,
           offset: kDefaultSourceOffset,
@@ -169,7 +207,7 @@ void main() {
 
     test('zero height returns null', () {
       expect(
-        computeSourceSquareRect(
+        computeSourceCropRect(
           sourceWidth: 300,
           sourceHeight: 0,
           offset: kDefaultSourceOffset,
@@ -181,7 +219,7 @@ void main() {
 
     test('zero scale returns null', () {
       expect(
-        computeSourceSquareRect(
+        computeSourceCropRect(
           sourceWidth: 300,
           sourceHeight: 300,
           offset: kDefaultSourceOffset,
@@ -193,7 +231,7 @@ void main() {
 
     test('NaN scale returns null', () {
       expect(
-        computeSourceSquareRect(
+        computeSourceCropRect(
           sourceWidth: 300,
           sourceHeight: 300,
           offset: kDefaultSourceOffset,
@@ -202,12 +240,33 @@ void main() {
         isNull,
       );
     });
+
+    test('zero / negative targetAspect returns null', () {
+      expect(
+        computeSourceCropRect(
+          sourceWidth: 300,
+          sourceHeight: 300,
+          offset: kDefaultSourceOffset,
+          scale: 1.0,
+          targetAspect: 0,
+        ),
+        isNull,
+      );
+      expect(
+        computeSourceCropRect(
+          sourceWidth: 300,
+          sourceHeight: 300,
+          offset: kDefaultSourceOffset,
+          scale: 1.0,
+          targetAspect: -1.0,
+        ),
+        isNull,
+      );
+    });
   });
 
-  group('clampSourceOffset', () {
+  group('clampSourceOffset — targetAspect=1 (default)', () {
     test('square source at scale=1 forces center', () {
-      // At scale=1 on a square, the crop already covers the source so
-      // the only legal offset is the center.
       final offset = clampSourceOffset(
         offset: const SourceOffset(0.0, 0.0),
         scale: 1.0,
@@ -223,7 +282,7 @@ void main() {
         sourceAspect: 2.0, // 600x300
       );
       expect(left.dx, 0.25);
-      expect(left.dy, 0.5); // halfY = 0.5, only legal value
+      expect(left.dy, 0.5);
       final right = clampSourceOffset(
         offset: const SourceOffset(1.0, 1.0),
         scale: 1.0,
@@ -237,16 +296,13 @@ void main() {
       final top = clampSourceOffset(
         offset: const SourceOffset(0.0, 0.0),
         scale: 1.0,
-        sourceAspect: 9.0 / 16.0, // 9:16 portrait
+        sourceAspect: 9.0 / 16.0,
       );
       expect(top.dx, 0.5);
-      // halfY = aspect/2 = 0.28125
       expect(top.dy, closeTo(0.28125, 1e-9));
     });
 
     test('scale=2 expands the legal offset range', () {
-      // At scale=2 on landscape aspect 2.0, cropNormX=0.25, halfX=0.125;
-      // cropNormY=0.5, halfY=0.25.
       final offset = clampSourceOffset(
         offset: const SourceOffset(0.0, 0.0),
         scale: 2.0,
@@ -262,6 +318,62 @@ void main() {
           offset: const SourceOffset(0.1, 0.1),
           scale: 1.0,
           sourceAspect: 0,
+        ),
+        kDefaultSourceOffset,
+      );
+    });
+  });
+
+  group('clampSourceOffset — targetAspect != 1', () {
+    test('square source @ targetAspect=2 (1×2 grid) allows vertical pan', () {
+      // sourceAspect = 1, targetAspect = 2 → source is taller → width-bound.
+      // cropNormX = 1, cropNormY = 1/2 → only dy can move.
+      final offset = clampSourceOffset(
+        offset: const SourceOffset(0.0, 0.0),
+        scale: 1.0,
+        sourceAspect: 1.0,
+        targetAspect: 2.0,
+      );
+      expect(offset.dx, 0.5); // pinned (halfX=0.5)
+      expect(offset.dy, 0.25); // halfY = 1/4 → clamp to 0.25
+    });
+
+    test(
+      'landscape 600x300 (aspect=2) @ targetAspect=1.5 (2×3) allows horizontal pan',
+      () {
+        // sourceAspect >= targetAspect → height-bound.
+        // cropNormX = 1.5 / 2 = 0.75; halfX = 0.375. cropNormY = 1; halfY = 0.5.
+        final left = clampSourceOffset(
+          offset: const SourceOffset(0.0, 0.0),
+          scale: 1.0,
+          sourceAspect: 2.0,
+          targetAspect: 1.5,
+        );
+        expect(left.dx, 0.375);
+        expect(left.dy, 0.5);
+      },
+    );
+
+    test('square source @ targetAspect=3 (1×3) gives a thin strip', () {
+      // sourceAspect=1, targetAspect=3 → width-bound. cropNormY = 1/3.
+      // halfY = 1/6.
+      final offset = clampSourceOffset(
+        offset: const SourceOffset(0.5, 0.0),
+        scale: 1.0,
+        sourceAspect: 1.0,
+        targetAspect: 3.0,
+      );
+      expect(offset.dx, 0.5);
+      expect(offset.dy, closeTo(1.0 / 6.0, 1e-9));
+    });
+
+    test('targetAspect=0 yields default offset (degenerate)', () {
+      expect(
+        clampSourceOffset(
+          offset: const SourceOffset(0.1, 0.1),
+          scale: 1.0,
+          sourceAspect: 1.0,
+          targetAspect: 0,
         ),
         kDefaultSourceOffset,
       );

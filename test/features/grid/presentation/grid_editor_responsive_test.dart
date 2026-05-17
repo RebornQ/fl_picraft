@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:fl_picraft/features/grid/domain/entities/grid_type.dart';
+import 'package:fl_picraft/features/grid/presentation/providers/grid_editor_provider.dart';
 import 'package:fl_picraft/features/grid/presentation/screens/grid_editor_screen.dart';
 import 'package:fl_picraft/features/grid/presentation/widgets/grid_controls_panel.dart';
 import 'package:fl_picraft/features/grid/presentation/widgets/grid_preview_canvas.dart';
@@ -694,5 +696,60 @@ void main() {
         expect(padding.top, 16);
       },
     );
+
+    testWidgets('canvas AspectRatio tracks the active GridType (cols / rows)', (
+      tester,
+    ) async {
+      // 05-17 Subtask B contract: the canvas wrapper uses
+      // `AspectRatio(cols / rows)`, NOT a hard-coded 1.0.
+      await _setViewportSize(tester, const Size(400, 1200));
+      await tester.pumpWidget(_gridHarness());
+      await tester.pumpAndSettle();
+
+      // Default grid type is 3x3 → aspect = 1.0.
+      var canvasAspect = tester
+          .widget<AspectRatio>(
+            find.ancestor(
+              of: find.byType(GridPreviewCanvas),
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio;
+      expect(canvasAspect, 1.0);
+
+      // Switch to 1×3 → aspect = 3.0.
+      final element = tester.element(find.byType(GridPreviewCanvas));
+      final container = ProviderScope.containerOf(element);
+      container
+          .read(gridEditorControllerProvider.notifier)
+          .setGridType(GridType.g1x3);
+      await tester.pumpAndSettle();
+
+      canvasAspect = tester
+          .widget<AspectRatio>(
+            find.ancestor(
+              of: find.byType(GridPreviewCanvas),
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio;
+      expect(canvasAspect, 3.0);
+
+      // Switch to 2×3 → aspect = 1.5.
+      container
+          .read(gridEditorControllerProvider.notifier)
+          .setGridType(GridType.g2x3);
+      await tester.pumpAndSettle();
+
+      canvasAspect = tester
+          .widget<AspectRatio>(
+            find.ancestor(
+              of: find.byType(GridPreviewCanvas),
+              matching: find.byType(AspectRatio),
+            ),
+          )
+          .aspectRatio;
+      expect(canvasAspect, 1.5);
+    });
   });
 }

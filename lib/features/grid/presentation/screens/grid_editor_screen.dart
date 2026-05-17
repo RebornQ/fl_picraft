@@ -9,6 +9,7 @@ import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../../../image_import/presentation/widgets/image_drop_zone.dart';
+import '../../domain/entities/grid_type.dart';
 import '../providers/grid_editor_provider.dart';
 import '../widgets/grid_controls_panel.dart';
 import '../widgets/grid_preview_canvas.dart';
@@ -105,10 +106,10 @@ Widget _buildControlsPanelChrome(
 ///
 /// Layout on compact / medium widths (matching `_3_宫格切图/code.html`):
 /// 1. AppBar with back + title + import action
-/// 2. Square preview canvas with grid overlay
+/// 2. Preview canvas (aspect `cols / rows`) with grid overlay
 /// 3. Optional source-size warning
-/// 4. Nine-grid-social toggle, grid type selector, bento parameter
-///    cards (all grouped inside [GridControlsPanel])
+/// 4. Grid type selector + bento parameter cards (all grouped inside
+///    [GridControlsPanel])
 /// 5. FAB to launch the unified `/export` screen
 ///
 /// The body is wrapped in [ImageDropZone] so desktop / web users can
@@ -123,23 +124,24 @@ Widget _buildControlsPanelChrome(
 ///
 /// Responsive behavior (driven by [windowSizeClassOf]) — every size
 /// class follows the same **height-first** principle: the canvas claims
-/// the remaining vertical space inside a `Column`, kept square via
-/// `Center` + `AspectRatio(1)`. The controls live below the canvas on
-/// phones and dock to the right on tablets / desktops, but the
-/// preview slot is always bounded by the container's height.
+/// the remaining vertical space inside a `Column`, kept at aspect
+/// `cols / rows` via `Center` + `AspectRatio(cols / rows)`. The controls
+/// live below the canvas on phones and dock to the right on tablets /
+/// desktops, but the preview slot is always bounded by the container's
+/// height.
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(1, canvas)))` + optional source-size warning + `Expanded(chrome > SingleChildScrollView > GridControlsPanel)`. The chrome (`kGridControlsPanelChromeKey`) is a `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab matching the expanded / large side panel; `Expanded` (not `Flexible(loose)`) makes the chrome fill the column's remaining height so no bare page background leaks below it. The outer [Padding] uses 16 dp on every side; FAB clearance for the extended FAB lives **inside** the chrome's [SingleChildScrollView] (80 dp when `hasSource` else 16 dp), so the chrome's visible bottom rests on the body bottom − 16 dp and no page background bleeds between the chrome and the [AppBottomNavBar] owned by `AppShell`. Overflow scrolls inside the chrome; no page-level scroll. |
+/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(cols/rows, canvas)))` + optional source-size warning + `Expanded(chrome > SingleChildScrollView > GridControlsPanel)`. The chrome (`kGridControlsPanelChromeKey`) is a `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab matching the expanded / large side panel; `Expanded` (not `Flexible(loose)`) makes the chrome fill the column's remaining height so no bare page background leaks below it. The outer [Padding] uses 16 dp on every side; FAB clearance for the extended FAB lives **inside** the chrome's [SingleChildScrollView] (80 dp when `hasSource` else 16 dp), so the chrome's visible bottom rests on the body bottom − 16 dp and no page background bleeds between the chrome and the [AppBottomNavBar] owned by `AppShell`. Overflow scrolls inside the chrome; no page-level scroll. |
 /// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton + chrome + scrollview-internal FAB clearance. |
-/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp inside the **same** chrome container built by `_buildControlsPanelChrome` (default 16 dp scrollview bottom padding — the FAB floats over the canvas column, not the docked panel, so no extra clearance is needed), stretched to fill the row's full height and scrolls internally. |
-/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp with the surface chrome, canvas square is `min(leftColWidth, rowHeight)`. |
+/// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(cols/rows, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp inside the **same** chrome container built by `_buildControlsPanelChrome` (default 16 dp scrollview bottom padding — the FAB floats over the canvas column, not the docked panel, so no extra clearance is needed), stretched to fill the row's full height and scrolls internally. |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp with the surface chrome, canvas size is `min(leftColWidth, rowHeight * cols/rows)`. |
 ///
-/// The square (1:1) shape of the canvas is the caller's responsibility
+/// The `cols / rows` shape of the canvas is the caller's responsibility
 /// — [GridPreviewCanvas] no longer wraps itself in `AspectRatio`. Every
 /// layout branch above feeds the canvas through the same
-/// `Center + AspectRatio(1)` idiom, so a single height-first sizing
-/// contract covers all four size classes.
+/// `Center + AspectRatio(cols / rows)` idiom, so a single height-first
+/// sizing contract covers all four size classes.
 class GridEditorScreen extends ConsumerWidget {
   const GridEditorScreen({super.key});
 
@@ -242,6 +244,15 @@ class _GridEditorBody extends ConsumerWidget {
     final hasSource = ref.watch(
       gridEditorControllerProvider.select((s) => s.hasSource),
     );
+    // 05-17 Subtask B: the preview canvas aspect = cols / rows, derived
+    // from the active grid type so 1×2 / 1×3 / 2×3 render as their true
+    // shape instead of being squished into a square.
+    final gridType = ref.watch(
+      gridEditorControllerProvider.select((s) => s.gridType),
+    );
+    final canvasAspect = gridType.rows <= 0
+        ? 1.0
+        : gridType.cols / gridType.rows;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final sizeClass = windowSizeClassOf(context);
@@ -277,8 +288,8 @@ class _GridEditorBody extends ConsumerWidget {
               // Stretch the row's children to the row's full height so
               // the left column inherits a bounded vertical extent.
               // Without stretch the column's height becomes unbounded
-              // and `AspectRatio(1)` collapses back onto width — the
-              // exact root cause of the prior "canvas overflows
+              // and `AspectRatio(cols/rows)` collapses back onto width —
+              // the exact root cause of the prior "canvas overflows
               // ultra-wide screens" bug.
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -287,14 +298,15 @@ class _GridEditorBody extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Canvas claims the leftover vertical space.
-                      // `Center + AspectRatio(1)` yields a square sized
-                      // `min(leftColWidth, leftColHeight)` — the canvas
-                      // never exceeds the container's height.
-                      const Expanded(
+                      // `Center + AspectRatio(cols / rows)` yields a
+                      // rectangle sized `min(leftColWidth,
+                      // leftColHeight * aspect)` — the canvas never
+                      // exceeds the container's height.
+                      Expanded(
                         child: Center(
                           child: AspectRatio(
-                            aspectRatio: 1,
-                            child: GridPreviewCanvas(),
+                            aspectRatio: canvasAspect,
+                            child: const GridPreviewCanvas(),
                           ),
                         ),
                       ),
@@ -339,14 +351,15 @@ class _GridEditorBody extends ConsumerWidget {
     // the **remaining** vertical space via [Expanded] rather than
     // sizing itself by container width. This keeps the canvas + first
     // controls card visible on the first screen — without this skeleton
-    // the AspectRatio(1) canvas plus the controls panel together
+    // the AspectRatio(cols/rows) canvas plus the controls panel together
     // overflow a typical phone viewport and force the user to scroll
     // before they can adjust spacing / corner radius.
     //
     // Layout breakdown:
-    // * `Expanded` slot → `Center(AspectRatio(1, GridPreviewCanvas))`
-    //   pins the canvas to a centered square that grows with the
-    //   available height (bounded to width when the viewport is wide).
+    // * `Expanded` slot → `Center(AspectRatio(cols/rows, GridPreviewCanvas))`
+    //   pins the canvas to a centered rectangle of aspect cols/rows that
+    //   grows with the available height (bounded to width when the
+    //   viewport is wide).
     // * Optional `_SourceSizeWarning` lives just below the canvas as a
     //   non-scrolling fixed-height banner.
     // * `Expanded` chrome slot wraps [GridControlsPanel] in the same
@@ -381,9 +394,12 @@ class _GridEditorBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Expanded(
+          Expanded(
             child: Center(
-              child: AspectRatio(aspectRatio: 1, child: GridPreviewCanvas()),
+              child: AspectRatio(
+                aspectRatio: canvasAspect,
+                child: const GridPreviewCanvas(),
+              ),
             ),
           ),
           if (sourceTooSmall) ...[

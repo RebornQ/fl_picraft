@@ -1,5 +1,4 @@
 import '../../../image_import/domain/entities/imported_image.dart';
-import '../usecases/compute_center_transform.dart';
 import '../usecases/compute_source_crop.dart';
 import 'grid_type.dart';
 
@@ -17,36 +16,27 @@ const int kMinSourceDimensionForGrid = 100;
 
 /// Snapshot of every parameter the grid-split editor exposes.
 ///
-/// Immutable; mutate via [copyWith]. The [nineGridSocialMode] flag plus
-/// the [centerImage] / [centerScale] / [centerOffset] triplet drive the
-/// sibling `05-08-nine-grid-social` subtask's center-cell-replacement
-/// UX — they are inert (zero-effect) while social mode is off.
+/// Immutable; mutate via [copyWith]. The 05-17 Subtask B revamp drops
+/// the legacy nine-grid-social fields — `targetAspect = cols / rows`
+/// drives geometry uniformly across every supported [GridType] and per-
+/// cell replacement state will be re-introduced by Subtask C.
 class GridEditorState {
   const GridEditorState({
     required this.source,
     required this.gridType,
     required this.spacing,
     required this.cornerRadius,
-    required this.nineGridSocialMode,
-    required this.centerImage,
-    required this.centerScale,
-    required this.centerOffset,
     required this.sourceOffset,
     required this.sourceScale,
   });
 
   /// Default initial state. No source image, 3x3 grid, spacing 0,
-  /// radius [kDefaultGridCornerRadius], social mode off, no center
-  /// replacement.
+  /// radius [kDefaultGridCornerRadius].
   factory GridEditorState.initial() => const GridEditorState(
     source: null,
     gridType: GridType.g3x3,
     spacing: 0,
     cornerRadius: kDefaultGridCornerRadius,
-    nineGridSocialMode: false,
-    centerImage: null,
-    centerScale: kDefaultCenterScale,
-    centerOffset: kCenterOffsetZero,
     sourceOffset: kDefaultSourceOffset,
     sourceScale: kDefaultSourceScale,
   );
@@ -55,7 +45,8 @@ class GridEditorState {
   /// image — UI uses this to render the empty state.
   final ImportedImage? source;
 
-  /// Active grid type (one of the 11 PRD §4.1 variants).
+  /// Active grid type (one of the 5 PRD §4.1 variants — see
+  /// [GridType]).
   final GridType gridType;
 
   /// Gap (in pixels) between adjacent cells. 0–[kMaxGridSpacing].
@@ -64,37 +55,19 @@ class GridEditorState {
   /// Corner radius applied to every cell. 0–[kMaxGridCornerRadius].
   final double cornerRadius;
 
-  /// When `true` the editor locks [gridType] to 3x3 and exposes the
-  /// center-cell-replacement UI (PRD §4.2 九宫格朋友圈切图).
-  final bool nineGridSocialMode;
-
-  /// User-picked replacement image for the center cell. `null` until
-  /// the user invokes the picker. Ignored when [nineGridSocialMode] is
-  /// `false`.
-  final ImportedImage? centerImage;
-
-  /// User-controlled scale factor for [centerImage]. Bounded by
-  /// [kMinCenterScale] / [kMaxCenterScale]; the controller clamps it
-  /// further when an image's aspect ratio would expose transparent
-  /// area at 0.5x.
-  final double centerScale;
-
-  /// User-controlled pan offset for [centerImage], in source-image
-  /// pixels measured in cell-local coordinates. Centered = `(0, 0)`.
-  final CenterOffset centerOffset;
-
-  /// Normalized [0,1] offset of the **center** of the square crop that
-  /// the user picked via the canvas drag gesture (PRD ST-C, R-DRAG-01).
-  /// `(0.5, 0.5)` = source center (default cover-fit crop).
+  /// Normalized [0,1] offset of the **center** of the rectangular crop
+  /// (aspect `cols / rows`) that the user picked via the canvas drag
+  /// gesture (PRD ST-C, R-DRAG-01). `(0.5, 0.5)` = source center
+  /// (default cover-fit crop).
   final SourceOffset sourceOffset;
 
-  /// Cover-relative scale of the user-selected square crop. `1.0` = the
-  /// largest inscribed square fits the source's shortest side; `4.0` =
-  /// zoom in 4x. Bounded by [kMinSourceScale] / [kMaxSourceScale].
+  /// Cover-relative scale of the user-selected crop. `1.0` = the
+  /// largest inscribed rectangle of aspect `cols / rows` fits the
+  /// source; `4.0` = zoom in 4x. Bounded by [kMinSourceScale] /
+  /// [kMaxSourceScale].
   final double sourceScale;
 
   bool get hasSource => source != null;
-  bool get hasCenterImage => centerImage != null;
 
   /// `true` when the user's crop selection deviates from the defaults
   /// (cover-fit, centered). Used by the controls panel to gate the
@@ -102,11 +75,6 @@ class GridEditorState {
   bool get hasNonDefaultCrop =>
       sourceOffset != kDefaultSourceOffset ||
       sourceScale != kDefaultSourceScale;
-
-  /// `true` when the social toggle is on **and** a replacement image
-  /// has been picked. Convenience for the renderer / preview.
-  bool get isSocialModeActiveWithReplacement =>
-      nineGridSocialMode && centerImage != null;
 
   /// `true` when the source image is below the minimum recommended
   /// dimension on either axis — UI surfaces a warning copy.
@@ -123,11 +91,6 @@ class GridEditorState {
     GridType? gridType,
     double? spacing,
     double? cornerRadius,
-    bool? nineGridSocialMode,
-    ImportedImage? centerImage,
-    bool clearCenterImage = false,
-    double? centerScale,
-    CenterOffset? centerOffset,
     SourceOffset? sourceOffset,
     double? sourceScale,
   }) {
@@ -136,10 +99,6 @@ class GridEditorState {
       gridType: gridType ?? this.gridType,
       spacing: spacing ?? this.spacing,
       cornerRadius: cornerRadius ?? this.cornerRadius,
-      nineGridSocialMode: nineGridSocialMode ?? this.nineGridSocialMode,
-      centerImage: clearCenterImage ? null : (centerImage ?? this.centerImage),
-      centerScale: centerScale ?? this.centerScale,
-      centerOffset: centerOffset ?? this.centerOffset,
       sourceOffset: sourceOffset ?? this.sourceOffset,
       sourceScale: sourceScale ?? this.sourceScale,
     );
@@ -153,10 +112,6 @@ class GridEditorState {
         other.gridType == gridType &&
         other.spacing == spacing &&
         other.cornerRadius == cornerRadius &&
-        other.nineGridSocialMode == nineGridSocialMode &&
-        other.centerImage == centerImage &&
-        other.centerScale == centerScale &&
-        other.centerOffset == centerOffset &&
         other.sourceOffset == sourceOffset &&
         other.sourceScale == sourceScale;
   }
@@ -167,10 +122,6 @@ class GridEditorState {
     gridType,
     spacing,
     cornerRadius,
-    nineGridSocialMode,
-    centerImage,
-    centerScale,
-    centerOffset,
     sourceOffset,
     sourceScale,
   );

@@ -8,12 +8,6 @@ import '../../domain/entities/grid_type.dart';
 import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../providers/grid_editor_provider.dart';
-import 'center_cell_overlay.dart';
-
-/// Index of the center cell inside [GridLayout.rects] for a 3x3 grid
-/// (row-major, 0-based). Kept here so the preview-side branching reads
-/// intentional — matches `kCenterCellIndex` in the renderer.
-const int _kCenterCellIndex = 4;
 
 /// Live preview matching the central canvas in `_3_宫格切图/code.html`
 /// lines 119–141.
@@ -23,32 +17,31 @@ const int _kCenterCellIndex = 4;
 /// because the layout math is pure-Dart and runs on the UI isolate.
 ///
 /// **Sizing contract**: this widget paints whatever rectangle the
-/// caller hands it — it does NOT enforce a 1:1 (square) aspect ratio
-/// itself. The design mock uses `aspect-square`, but we keep the
-/// square-shape decision at the call site so the same height-first
-/// idiom can be reused across size classes:
+/// caller hands it — it does NOT enforce an aspect ratio itself. The
+/// 05-17 Subtask B revamp picks `cols / rows` (e.g. `2.0` for 1×2,
+/// `1.5` for 2×3, `1.0` for 3×3) at the call site so the same
+/// height-first idiom can be reused across size classes:
 ///
 /// * compact / medium screens — canvas occupies the `Expanded` slot of
-///   a single-column `Column`, wrapped in `Center` + `AspectRatio(1)`
-///   so the square is sized `min(columnWidth, remainingHeight)` and
-///   the controls panel keeps its scroll inside the same screen (no
-///   page-level scroll). See `grid_editor_screen.dart` compact branch.
+///   a single-column `Column`, wrapped in `Center` +
+///   `AspectRatio(cols / rows)` so the canvas is sized
+///   `min(columnWidth, remainingHeight * aspect)` and the controls
+///   panel keeps its scroll inside the same screen (no page-level
+///   scroll). See `grid_editor_screen.dart` compact branch.
 /// * expanded / large screens — same idiom, applied to the **left
 ///   column** of a `Row(crossAxisAlignment: stretch)`: an inner
-///   `Column(stretch) > Expanded(Center(AspectRatio(1, canvas)))`
-///   gives the canvas a bounded height inherited from the Row, so the
-///   square is `min(leftColWidth, rowHeight)` — never taller than the
-///   container. See `grid_editor_screen.dart` expanded / large branch.
+///   `Column(stretch) > Expanded(Center(AspectRatio(cols / rows,
+///   canvas)))` gives the canvas a bounded height inherited from the
+///   Row.
 ///
-/// In every case the canvas size is `min(availableWidth,
-/// availableHeight)` — the caller's `Center + AspectRatio(1)` wrapper
-/// is the **only** place that picks the aspect; this widget must stay
-/// chrome-only so it can be reused across both single-column and
-/// side-panel skeletons.
+/// The caller's `Center + AspectRatio(...)` wrapper is the **only**
+/// place that picks the aspect; this widget must stay chrome-only so
+/// it can be reused across both single-column and side-panel
+/// skeletons.
 ///
-/// Either way the overlay math (see `_PreviewSurface`) reads
-/// `constraints.biggest` and scales the layout rectangles into the
-/// painted rectangle, so it works for any caller-imposed shape.
+/// The overlay math (see `_PreviewSurface`) reads `constraints.biggest`
+/// and scales the layout rectangles into the painted rectangle, so it
+/// works for any caller-imposed shape.
 class GridPreviewCanvas extends ConsumerWidget {
   const GridPreviewCanvas({super.key});
 
@@ -126,8 +119,7 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
   // compute "since-start" deltas. `details.scale` is cumulative since
   // start, but `focalPointDelta` is per-event — we use
   // `localFocalPoint - startLocalFocalPoint` to keep pan additive in
-  // lock-step with the scale (mirrors the convention in
-  // `center_cell_overlay.dart`).
+  // lock-step with the scale.
   SourceOffset? _gestureStartOffset;
   double? _gestureStartScale;
   Offset? _gestureStartFocal;
@@ -136,89 +128,94 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final source = state.source!;
-    final isSocial =
-        state.nineGridSocialMode && state.gridType == GridType.g3x3;
 
-    // PRD ST-C D2: the renderer carves a user-selected square crop out
-    // of the source before splitting. Mirror that here so the preview's
-    // grid overlay and image rendering both read against the same
-    // coordinate system the renderer uses.
-    final shortSide = math.min(source.width, source.height);
+    final cols = state.gridType.cols;
+    final rows = state.gridType.rows;
+    final targetAspect = rows <= 0 ? 1.0 : cols / rows;
+
+    // 05-17 Subtask B: the renderer carves a user-selected rectangle
+    // (aspect = cols/rows) out of the source before splitting. Mirror
+    // that here so the preview's grid overlay and image rendering both
+    // read against the same coordinate system the renderer uses.
     final clampedScale = clampSourceScale(state.sourceScale);
-    final aspect = source.height <= 0 ? 1.0 : source.width / source.height;
+    final sourceAspect = source.height <= 0
+        ? 1.0
+        : source.width / source.height;
     final clampedOffset = clampSourceOffset(
       offset: state.sourceOffset,
       scale: clampedScale,
-      sourceAspect: aspect,
+      sourceAspect: sourceAspect,
+      targetAspect: targetAspect,
     );
-    final cropSideSource = shortSide / clampedScale;
-    final cropCenterX = clampedOffset.dx * source.width;
-    final cropCenterY = clampedOffset.dy * source.height;
-    final cropXSource = cropCenterX - cropSideSource / 2;
-    final cropYSource = cropCenterY - cropSideSource / 2;
-    final cropSideInt = math.max(1, cropSideSource.round());
-
-    // Compute the layout against the cropped square (square × square)
-    // so the overlay rectangles map straight onto the cells the
-    // renderer will produce.
-    final layout = computeGridLayout(
-      sourceWidth: cropSideInt,
-      sourceHeight: cropSideInt,
-      type: state.gridType,
-      spacing: state.spacing,
+    final cropRect = computeSourceCropRect(
+      sourceWidth: source.width,
+      sourceHeight: source.height,
+      offset: clampedOffset,
+      scale: clampedScale,
+      targetAspect: targetAspect,
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
-        final viewportSide = math.min(size.width, size.height);
-        if (viewportSide <= 0 || cropSideSource <= 0) {
+        if (size.width <= 0 || size.height <= 0 || cropRect == null) {
           return const SizedBox.shrink();
         }
-        final widgetPerSource = viewportSide / cropSideSource;
-        final scaleX = widgetPerSource;
-        final scaleY = widgetPerSource;
 
-        final showCenterOverlay =
-            isSocial && layout.rects.length > _kCenterCellIndex;
+        // Build the layout in cropped-source-space (the same coordinate
+        // system the renderer uses), then map into viewport pixels via
+        // independent x/y scales. cropWidth/cropHeight follow the
+        // canvas's cols:rows aspect, so the painter's per-axis scales
+        // agree to within sub-pixel rounding.
+        final gap = math.max(0, state.spacing.round());
+        final usableW = math.max(0, cropRect.width - gap * (cols - 1));
+        final cellSide = cols == 0 ? 0 : usableW ~/ cols;
+        final layout = computeGridLayout(
+          cellSide: cellSide,
+          type: state.gridType,
+          spacing: state.spacing,
+        );
+
+        final scaleX = size.width / cropRect.width;
+        final scaleY = size.height / cropRect.height;
+
+        // Position the full source so the picked crop fills the viewport.
+        final left = -cropRect.x * scaleX;
+        final top = -cropRect.y * scaleY;
+        final imgWidth = source.width * scaleX;
+        final imgHeight = source.height * scaleY;
 
         return Stack(
           clipBehavior: Clip.hardEdge,
           fit: StackFit.expand,
           children: [
             // Render the full source positioned/sized so the
-            // user-selected square crop fills the viewport. Using
-            // explicit `Positioned` (rather than `BoxFit.cover`)
-            // keeps preview and export byte-for-byte aligned at any
-            // (offset, scale) combination.
+            // user-selected crop fills the viewport. Using explicit
+            // `Positioned` (rather than `BoxFit.cover`) keeps preview
+            // and export byte-for-byte aligned at any (offset, scale)
+            // combination.
             Positioned(
-              left: -cropXSource * widgetPerSource,
-              top: -cropYSource * widgetPerSource,
-              width: source.width * widgetPerSource,
-              height: source.height * widgetPerSource,
+              left: left,
+              top: top,
+              width: imgWidth,
+              height: imgHeight,
               child: Image.memory(
                 source.bytes,
                 fit: BoxFit.fill,
                 gaplessPlayback: true,
               ),
             ),
-            // Canvas-level pan/pinch detector. Sits below
-            // [CenterCellOverlay] in z-order so the overlay's
-            // `HitTestBehavior.opaque` recognizer blocks the canvas
-            // drag inside the center cell (R-DRAG-05). When social
-            // mode is off (or no center image is picked) the overlay
-            // isn't mounted and this detector covers the entire
-            // canvas.
+            // Canvas-level pan/pinch detector.
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onScaleStart: (details) {
-                  _gestureStartOffset = state.sourceOffset;
+                  _gestureStartOffset = clampedOffset;
                   _gestureStartScale = clampedScale;
                   _gestureStartFocal = details.localFocalPoint;
                   setState(() => _isGesturing = true);
                 },
-                onScaleUpdate: (details) => _onScaleUpdate(details),
+                onScaleUpdate: (details) => _onScaleUpdate(details, cropRect),
                 onScaleEnd: (_) {
                   _gestureStartOffset = null;
                   _gestureStartScale = null;
@@ -230,16 +227,12 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
             // Translucent grid lines, mirroring the design mock's
             // `border-r border-b border-white/40` overlay. Fades out
             // during active gestures (R-DRAG-04) so the user can see
-            // the crop region without grid clutter. `IgnorePointer`
-            // keeps the painter from claiming hits.
+            // the crop region without grid clutter.
             //
             // When `state.spacing > 0`, the painter also fills the gap
             // bands between cells with `colorScheme.surfaceContainer`
             // so the preview visualizes the spacing instead of letting
-            // the source image bleed through. This makes the preview
-            // visually equivalent to the exported per-cell PNGs (whose
-            // gap region is *omitted* — i.e. the canvas backdrop shows
-            // through). See task `05-17-grid-spacing-color-fix`.
+            // the source image bleed through.
             AnimatedOpacity(
               opacity: _isGesturing ? 0.0 : 1.0,
               duration: const Duration(milliseconds: 150),
@@ -256,19 +249,13 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
                 ),
               ),
             ),
-            if (showCenterOverlay)
-              _PositionedCenterOverlay(
-                cellRect: layout.rects[_kCenterCellIndex],
-                scaleX: scaleX,
-                scaleY: scaleY,
-              ),
           ],
         );
       },
     );
   }
 
-  void _onScaleUpdate(ScaleUpdateDetails details) {
+  void _onScaleUpdate(ScaleUpdateDetails details, SourceCropRect crop) {
     final src = widget.state.source;
     if (src == null) return;
     final startScale =
@@ -277,7 +264,7 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
     final startFocal = _gestureStartFocal ?? details.localFocalPoint;
 
     // Apply the new scale first so the offset clamp uses the right
-    // cropSide. `details.scale` is cumulative since gesture start.
+    // crop size. `details.scale` is cumulative since gesture start.
     final newScale = clampSourceScale(startScale * details.scale);
 
     // Translate the widget-pixel focal delta back into normalized
@@ -286,18 +273,16 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
     // window moves **left** in source coords — so we subtract.
     final dxWidget = details.localFocalPoint.dx - startFocal.dx;
     final dyWidget = details.localFocalPoint.dy - startFocal.dy;
-    final viewportSide = _viewportSide() ?? 1.0;
-    final shortSide = math.min(src.width, src.height);
-    final startCropSide = shortSide / startScale;
-    final startWidgetPerSource = startCropSide <= 0
+    final viewport = _viewportSize();
+    if (viewport == null) return;
+    final widgetPerSourceX = crop.width <= 0
         ? 0.0
-        : viewportSide / startCropSide;
-    final dxSource = startWidgetPerSource <= 0
+        : viewport.width / crop.width;
+    final widgetPerSourceY = crop.height <= 0
         ? 0.0
-        : dxWidget / startWidgetPerSource;
-    final dySource = startWidgetPerSource <= 0
-        ? 0.0
-        : dyWidget / startWidgetPerSource;
+        : viewport.height / crop.height;
+    final dxSource = widgetPerSourceX <= 0 ? 0.0 : dxWidget / widgetPerSourceX;
+    final dySource = widgetPerSourceY <= 0 ? 0.0 : dyWidget / widgetPerSourceY;
     final newOffset = SourceOffset(
       startOffset.dx - dxSource / math.max(1, src.width),
       startOffset.dy - dySource / math.max(1, src.height),
@@ -308,50 +293,10 @@ class _PreviewSurfaceState extends ConsumerState<_PreviewSurface> {
     notifier.setSourceOffset(newOffset);
   }
 
-  double? _viewportSide() {
+  Size? _viewportSize() {
     final box = context.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return null;
-    return math.min(box.size.width, box.size.height);
-  }
-}
-
-/// Anchors the interactive [CenterCellOverlay] to the 5th cell's
-/// rendered position in the preview canvas (after the user-selected
-/// square crop is mapped into the viewport).
-class _PositionedCenterOverlay extends StatelessWidget {
-  const _PositionedCenterOverlay({
-    required this.cellRect,
-    required this.scaleX,
-    required this.scaleY,
-  });
-
-  final GridRect cellRect;
-  final double scaleX;
-  final double scaleY;
-
-  @override
-  Widget build(BuildContext context) {
-    final left = cellRect.x * scaleX;
-    final top = cellRect.y * scaleY;
-    final width = cellRect.width * scaleX;
-    final height = cellRect.height * scaleY;
-
-    return Positioned(
-      left: left,
-      top: top,
-      width: width,
-      height: height,
-      // Pass both the rendered (widget-pixel) and the underlying
-      // source-pixel cell dimensions so the overlay's gesture handler
-      // can convert widget-pixel drag deltas into the source-pixel
-      // offset units that the controller and renderer both speak.
-      child: CenterCellOverlay(
-        cellWidth: width,
-        cellHeight: height,
-        sourceCellWidth: cellRect.width.toDouble(),
-        sourceCellHeight: cellRect.height.toDouble(),
-      ),
-    );
+    return box.size;
   }
 }
 
@@ -387,20 +332,12 @@ class _GridOverlayPainter extends CustomPainter {
     if (rects.isEmpty || scaleX == 0 || scaleY == 0) return;
 
     // Average scale for radius mapping — keeps the rendered radius
-    // proportional even when the canvas aspect deviates from the
-    // cropped-source aspect (cropped source is always square, so scaleX
-    // and scaleY agree in practice — but average is the safe form).
+    // proportional even when the canvas's per-axis scales drift by a
+    // sub-pixel.
     final radiusScale = (scaleX + scaleY) / 2;
     final scaledRadius = (cornerRadius * radiusScale).clamp(0.0, 64.0);
 
     // ── Gap fill (only when spacing > 0) ─────────────────────────
-    // Mask the source image's bleed-through in the inter-cell bands
-    // by (1) saveLayer-fill the whole viewport with [gapColor], then
-    // (2) cut out every cell's RRect with `BlendMode.clear`. This
-    // single saveLayer is O(rects) and pays one composite cost per
-    // frame — far cheaper than `Path.combine(difference, …)` on
-    // large grids, and it lets BlendMode.clear honor the cell
-    // corner radius automatically.
     if (spacing > 0) {
       final layerBounds = Offset.zero & size;
       canvas.saveLayer(layerBounds, Paint());
@@ -426,9 +363,6 @@ class _GridOverlayPainter extends CustomPainter {
     }
 
     // ── Cell outline stroke ──────────────────────────────────────
-    // Outline stroke around every cell, plus a translucent inner
-    // shadow at the corners so the radius visualization reads at a
-    // glance even on busy source images.
     final stroke = Paint()
       ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke

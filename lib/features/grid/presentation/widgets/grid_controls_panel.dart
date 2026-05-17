@@ -7,15 +7,18 @@ import 'grid_type_selector.dart';
 
 /// Reusable controls panel for the grid-split editor.
 ///
-/// Groups the nine-grid-social toggle, grid-type selector, and bento
-/// parameter cards. Used in two contexts:
+/// Groups the grid-type selector and bento parameter cards. Used in two
+/// contexts:
 ///
-/// * compact / medium screen widths — placed in a [Flexible] +
-///   [SingleChildScrollView] slot below the height-first canvas in the
-///   editor body's [Column], so the panel scrolls **inside** its own
-///   viewport without dragging the canvas off-screen.
+/// * compact / medium screen widths — placed in an [Expanded] slot of
+///   the height-first body [Column], wrapped in the shared chrome
+///   container built by `_buildControlsPanelChrome` (a
+///   `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab) with
+///   an inner [SingleChildScrollView], so the panel scrolls **inside**
+///   its own viewport without dragging the canvas off-screen.
 /// * expanded / large screen widths — docked into the side panel next
-///   to the canvas; see `grid_editor_screen.dart`.
+///   to the canvas inside the same chrome container; see
+///   `grid_editor_screen.dart`.
 ///
 /// The widget watches [gridEditorControllerProvider] itself so callers
 /// don't need to thread state through props.
@@ -30,15 +33,9 @@ class GridControlsPanel extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 05-17 Subtask A: the 九宫格朋友圈 toggle UI is hidden while the
-        // underlying state field [GridEditorState.nineGridSocialMode]
-        // stays in place. Subtask B removes the field + this widget
-        // altogether; until then the selector unconditionally passes
-        // `lockedTo: null`.
         GridTypeSelector(
           value: state.gridType,
           onChanged: notifier.setGridType,
-          lockedTo: null,
         ),
         const SizedBox(height: 16),
         // PRD ST-C AC6: a "重置裁剪" button restores the drag-select
@@ -58,63 +55,6 @@ class GridControlsPanel extends ConsumerWidget {
         ],
         const GridParameterCards(),
       ],
-    );
-  }
-}
-
-/// Toggle row that flips the [GridEditorState.nineGridSocialMode] flag.
-///
-/// Promoted to a public widget so it can be reused inside
-/// [GridControlsPanel] (and exercised by tests directly). Visual
-/// treatment matches `_3_宫格切图/code.html` lines ~144–155 — a tinted
-/// `surface-container-low` card with a title, subtitle, and a [Switch].
-class NineGridSocialRow extends StatelessWidget {
-  const NineGridSocialRow({
-    super.key,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '九宫格朋友圈模式',
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '开启 3x3 布局并支持中心图片替换',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(value: enabled, onChanged: onChanged),
-        ],
-      ),
     );
   }
 }

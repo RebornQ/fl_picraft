@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:fl_picraft/features/grid/domain/entities/grid_editor_state.dart';
 import 'package:fl_picraft/features/grid/domain/entities/grid_type.dart';
-import 'package:fl_picraft/features/grid/domain/usecases/compute_center_transform.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -23,10 +22,6 @@ void main() {
       expect(state.spacing, 0);
       expect(state.cornerRadius, kDefaultGridCornerRadius);
       expect(state.cornerRadius, 12);
-      expect(state.nineGridSocialMode, false);
-      expect(state.centerImage, isNull);
-      expect(state.centerScale, kDefaultCenterScale);
-      expect(state.centerOffset, kCenterOffsetZero);
     });
 
     test('hasSource is false until a source is set', () {
@@ -89,44 +84,6 @@ void main() {
       );
       expect(cleared.source, isNull);
     });
-
-    test('clearCenterImage clears an existing centerImage', () {
-      final original = GridEditorState.initial().copyWith(
-        centerImage: _image(200, 200),
-      );
-      expect(original.hasCenterImage, true);
-      final cleared = original.copyWith(clearCenterImage: true);
-      expect(cleared.centerImage, isNull);
-      expect(cleared.hasCenterImage, false);
-    });
-
-    test('clearCenterImage takes precedence over an explicit centerImage '
-        'argument', () {
-      // Mirrors the `clearSource` precedence test — both flags follow
-      // the same pattern so the controller can express "drop the image,
-      // discarding whatever the caller would have set" in a single
-      // copyWith call.
-      final original = GridEditorState.initial().copyWith(
-        centerImage: _image(500, 500),
-      );
-      final cleared = original.copyWith(
-        clearCenterImage: true,
-        centerImage: _image(100, 100),
-      );
-      expect(cleared.centerImage, isNull);
-      expect(cleared.hasCenterImage, false);
-    });
-
-    test('preserves centerScale / centerOffset when only one is updated', () {
-      final base = GridEditorState.initial().copyWith(
-        centerImage: _image(200, 200),
-        centerScale: 1.6,
-        centerOffset: const CenterOffset(20, 10),
-      );
-      final next = base.copyWith(centerScale: 1.9);
-      expect(next.centerOffset, const CenterOffset(20, 10));
-      expect(next.centerImage, isNotNull);
-    });
   });
 
   group('GridEditorState equality', () {
@@ -141,14 +98,6 @@ void main() {
       final a = GridEditorState.initial().copyWith(spacing: 10);
       final b = GridEditorState.initial().copyWith(spacing: 12);
       expect(a, isNot(b));
-    });
-
-    test('center-mode fields participate in equality', () {
-      final a = GridEditorState.initial().copyWith(centerScale: 1.5);
-      final b = GridEditorState.initial().copyWith(centerScale: 1.5);
-      final c = GridEditorState.initial().copyWith(centerScale: 1.7);
-      expect(a, b);
-      expect(a, isNot(c));
     });
   });
 }

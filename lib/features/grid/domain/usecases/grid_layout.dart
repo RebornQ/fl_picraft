@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import '../entities/grid_type.dart';
 
-/// Pure rectangle in source-image coordinates. Ints because the
+/// Pure rectangle in canvas-space coordinates. Ints because the
 /// rasterizer works in integer pixels.
 class GridRect {
   const GridRect({
@@ -34,7 +34,7 @@ class GridRect {
   String toString() => 'GridRect(x: $x, y: $y, w: $width, h: $height)';
 }
 
-/// Result of slicing a source image into a grid of cells.
+/// Result of slicing the canvas into a grid of equal-size square cells.
 ///
 /// [rects] is in row-major order (left-to-right, top-to-bottom) so
 /// callers iterating over it produce files in the order users expect
@@ -53,84 +53,42 @@ class GridLayout {
   int get cellCount => rects.length;
 }
 
-/// Compute the per-cell rectangles for slicing a [sourceWidth] x
-/// [sourceHeight] source image into a [type] grid with [spacing]
-/// pixels between adjacent cells.
+/// Compute the per-cell rectangles for slicing a canvas of size
+/// `cols * cellSide + spacing * (cols - 1)` × `rows * cellSide +
+/// spacing * (rows - 1)` into uniform `cellSide × cellSide` cells.
 ///
-/// Algorithm (prd L20–31):
+/// Every cell is a **square** of the same edge length [cellSide], laid
+/// out row-major on a regular grid with [spacing] pixels between
+/// adjacent cells. There is no residual distribution — the caller is
+/// expected to have already chosen a cellSide that fits its source crop
+/// (the renderer derives it from `computeSourceCropRect`).
+///
 /// ```
-///   cellW = (sourceWidth  - spacing * (cols - 1)) / cols
-///   cellH = (sourceHeight - spacing * (rows - 1)) / rows
-///   rect[r, c] = (c * (cellW + spacing), r * (cellH + spacing), cellW, cellH)
+///   gap = max(0, spacing.round())
+///   rect[r, c] = (c * (cellSide + gap), r * (cellSide + gap), cellSide, cellSide)
 /// ```
 ///
-/// Edge case handling (prd L74):
-/// * Integer rounding can leave a few pixels unallocated. Residual
-///   pixels are distributed to the **last column** (width) and **last
-///   row** (height) so the grid covers every source pixel without
-///   gaps.
-///
-/// Returns an empty layout when the source is too small to fit even
-/// one row of cells given the requested spacing — callers should
-/// degrade gracefully.
+/// Returns an empty (all-zero rects) layout when [cellSide] is `<= 0`
+/// so callers can degrade gracefully.
 GridLayout computeGridLayout({
-  required int sourceWidth,
-  required int sourceHeight,
+  required int cellSide,
   required GridType type,
   double spacing = 0,
 }) {
   final rows = type.rows;
   final cols = type.cols;
   final gap = math.max(0, spacing.round());
-
-  // Reserve gap-pixels between cells. If gaps already eat the whole
-  // axis, fall back to zero-width cells so callers can still produce
-  // a layout (empty rects are skipped by the renderer).
-  final usableW = math.max(0, sourceWidth - gap * (cols - 1));
-  final usableH = math.max(0, sourceHeight - gap * (rows - 1));
-
-  // Use integer division so the residual is well-defined.
-  final baseCellW = cols == 0 ? 0 : usableW ~/ cols;
-  final baseCellH = rows == 0 ? 0 : usableH ~/ rows;
-  final residualW = cols == 0 ? 0 : usableW - baseCellW * cols;
-  final residualH = rows == 0 ? 0 : usableH - baseCellH * rows;
+  final side = math.max(0, cellSide);
 
   final rects = <GridRect>[];
-
-  // Pre-compute per-column widths and per-row heights so the residual
-  // distribution lands on the last column / last row (prd L74).
-  final colWidths = List<int>.generate(cols, (c) {
-    return baseCellW + (c == cols - 1 ? residualW : 0);
-  });
-  final rowHeights = List<int>.generate(rows, (r) {
-    return baseCellH + (r == rows - 1 ? residualH : 0);
-  });
-
-  // Pre-compute per-column / per-row starting offsets — cleaner than
-  // accumulating inside the inner loop and keeps the math obvious.
-  final colOffsets = List<int>.generate(cols, (c) {
-    var x = 0;
-    for (var k = 0; k < c; k++) {
-      x += colWidths[k] + gap;
-    }
-    return x;
-  });
-  final rowOffsets = List<int>.generate(rows, (r) {
-    var y = 0;
-    for (var k = 0; k < r; k++) {
-      y += rowHeights[k] + gap;
-    }
-    return y;
-  });
-
   for (var r = 0; r < rows; r++) {
     for (var c = 0; c < cols; c++) {
       rects.add(
         GridRect(
-          x: colOffsets[c],
-          y: rowOffsets[r],
-          width: colWidths[c],
-          height: rowHeights[r],
+          x: c * (side + gap),
+          y: r * (side + gap),
+          width: side,
+          height: side,
         ),
       );
     }

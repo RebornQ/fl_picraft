@@ -3,7 +3,7 @@
   "name": "grid-square-cell-geometry",
   "title": "正方形 cell 几何 + canvas aspect=cols:rows",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

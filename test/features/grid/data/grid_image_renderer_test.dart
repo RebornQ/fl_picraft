@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fl_picraft/features/grid/data/renderers/grid_image_renderer.dart';
 import 'package:fl_picraft/features/grid/domain/entities/grid_type.dart';
+import 'package:fl_picraft/features/grid/domain/usecases/compute_source_crop.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/grid_render_request.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -12,7 +13,6 @@ void main() {
   /// output and probing its top-left pixel.
   Uint8List quadrantCanvas({int width = 200, int height = 200}) {
     final canvas = img.Image(width: width, height: height, numChannels: 4);
-    // Top-left quadrant red, top-right green, bottom-left blue, bottom-right yellow.
     for (var y = 0; y < height; y++) {
       for (var x = 0; x < width; x++) {
         final left = x < width / 2;
@@ -47,7 +47,7 @@ void main() {
       );
     });
 
-    test('produces N cells in row-major order for 2x2', () async {
+    test('2x2 produces N cells in row-major order with square cells', () async {
       const renderer = GridImageRenderer();
       final cells = await renderer.render(
         GridRenderRequest(
@@ -59,21 +59,24 @@ void main() {
       );
       expect(cells, hasLength(4));
 
-      // Decode each cell and assert the dominant color (sampled center).
+      // Decode each cell and assert it is square + matches the source quadrant.
       final decoded = cells.map((b) => img.decodeImage(b)!).toList();
+      for (final cell in decoded) {
+        expect(cell.width, cell.height, reason: 'every cell must be square');
+      }
       // 200x200 → 4 cells of 100x100. Center pixel of each cell.
       final tl = decoded[0].getPixel(50, 50);
       final tr = decoded[1].getPixel(50, 50);
       final bl = decoded[2].getPixel(50, 50);
       final br = decoded[3].getPixel(50, 50);
 
-      expect((tl.r, tl.g, tl.b), (255, 0, 0)); // top-left -> red
-      expect((tr.r, tr.g, tr.b), (0, 255, 0)); // top-right -> green
-      expect((bl.r, bl.g, bl.b), (0, 0, 255)); // bottom-left -> blue
-      expect((br.r, br.g, br.b), (255, 255, 0)); // bottom-right -> yellow
+      expect((tl.r, tl.g, tl.b), (255, 0, 0));
+      expect((tr.r, tr.g, tr.b), (0, 255, 0));
+      expect((bl.r, bl.g, bl.b), (0, 0, 255));
+      expect((br.r, br.g, br.b), (255, 255, 0));
     });
 
-    test('cell dimensions match expected sizes for 3x3 even split', () async {
+    test('3x3 even split yields 100x100 square cells', () async {
       const renderer = GridImageRenderer();
       final cells = await renderer.render(
         GridRenderRequest(
@@ -86,34 +89,83 @@ void main() {
       expect(cells, hasLength(9));
       for (final bytes in cells) {
         final decoded = img.decodeImage(bytes)!;
+        expect(decoded.width, decoded.height);
         expect(decoded.width, 100);
         expect(decoded.height, 100);
       }
     });
 
-    test('all 5 grid types complete without error', () async {
+    test('1x2 grid on landscape source produces 2 square cells', () async {
+      // 600x300 source with targetAspect = 1×2 = 2 → width-bound crop:
+      // baseW=600, baseH=300 (so crop = full source). cellSide = 600/2 = 300.
       const renderer = GridImageRenderer();
-      final source = quadrantCanvas(width: 320, height: 320);
-      for (final type in GridType.values) {
+      final cells = await renderer.render(
+        GridRenderRequest(
+          sourceBytes: quadrantCanvas(width: 600, height: 300),
+          gridType: GridType.g1x2,
+          spacing: 0,
+          cornerRadius: 0,
+        ),
+      );
+      expect(cells, hasLength(2));
+      for (final bytes in cells) {
+        final decoded = img.decodeImage(bytes)!;
+        expect(decoded.width, decoded.height);
+        expect(decoded.width, 300);
+      }
+    });
+
+    test(
+      '2x3 grid on a landscape source crops to aspect 1.5 and outputs squares',
+      () async {
+        // 600x300 source @ targetAspect 1.5 → height-bound crop: baseW=450,
+        // baseH=300. cellSide = 450 / 3 = 150.
+        const renderer = GridImageRenderer();
         final cells = await renderer.render(
           GridRenderRequest(
-            sourceBytes: source,
-            gridType: type,
+            sourceBytes: quadrantCanvas(width: 600, height: 300),
+            gridType: GridType.g2x3,
             spacing: 0,
             cornerRadius: 0,
           ),
         );
-        expect(
-          cells,
-          hasLength(type.cellCount),
-          reason: '${type.name} should produce ${type.cellCount} cells',
-        );
-        // Every cell should be a valid PNG.
+        expect(cells, hasLength(6));
         for (final bytes in cells) {
-          expect(img.decodeImage(bytes), isNotNull);
+          final decoded = img.decodeImage(bytes)!;
+          expect(decoded.width, decoded.height);
+          expect(decoded.width, 150);
         }
-      }
-    });
+      },
+    );
+
+    test(
+      'all 5 grid types complete without error and produce squares',
+      () async {
+        const renderer = GridImageRenderer();
+        final source = quadrantCanvas(width: 600, height: 360);
+        for (final type in GridType.values) {
+          final cells = await renderer.render(
+            GridRenderRequest(
+              sourceBytes: source,
+              gridType: type,
+              spacing: 0,
+              cornerRadius: 0,
+            ),
+          );
+          expect(
+            cells,
+            hasLength(type.cellCount),
+            reason: '${type.name} should produce ${type.cellCount} cells',
+          );
+          // Every cell should be a valid PNG and a square.
+          for (final bytes in cells) {
+            final decoded = img.decodeImage(bytes);
+            expect(decoded, isNotNull);
+            expect(decoded!.width, decoded.height);
+          }
+        }
+      },
+    );
 
     test('rounded corners punch alpha at the top-left pixel', () async {
       const renderer = GridImageRenderer();
@@ -125,13 +177,75 @@ void main() {
           cornerRadius: 20,
         ),
       );
-      // Top-left corner of cell[0] should be fully transparent.
       final decoded = img.decodeImage(cells[0])!;
       final corner = decoded.getPixel(0, 0);
       expect(corner.a, 0);
-      // But the center should be opaque (red).
       final center = decoded.getPixel(50, 50);
       expect(center.a, 255);
     });
+
+    test(
+      'sourceOffset propagates: 1×2 left-aligned crop selects the left half',
+      () {
+        // 600x300 source @ 1×2: cover-fit crop is the full source. With
+        // a custom sourceOffset.dx=0 it stays left-aligned (still full
+        // width because aspect matches). Use a 3×3 narrow crop instead.
+      },
+      skip: 'covered by compute_source_crop_test',
+    );
+
+    test('cell count for 3x3 hits the isolate threshold', () async {
+      const renderer = GridImageRenderer();
+      expect(GridType.g3x3.cellCount, kIsolateCellCountThreshold);
+      final cells = await renderer.render(
+        GridRenderRequest(
+          sourceBytes: quadrantCanvas(width: 300, height: 300),
+          gridType: GridType.g3x3,
+          spacing: 0,
+          cornerRadius: 0,
+        ),
+      );
+      expect(cells, hasLength(9));
+    });
+
+    test(
+      'sourceOffset (0, 0.5) on landscape 600x300 @ 3×3 selects left square',
+      () async {
+        // Build a 600×300 source with the left third red, middle green, right
+        // blue. At targetAspect=1, crop side = 300. Default centered crop
+        // picks x=150..450; left-aligned (dx=0) picks x=0..300. With 3x3 →
+        // cell[0] covers x=0..100 (entirely red).
+        final canvas = img.Image(width: 600, height: 300, numChannels: 4);
+        for (var y = 0; y < 300; y++) {
+          for (var x = 0; x < 600; x++) {
+            if (x < 200) {
+              canvas.setPixelRgba(x, y, 255, 0, 0, 255);
+            } else if (x < 400) {
+              canvas.setPixelRgba(x, y, 0, 255, 0, 255);
+            } else {
+              canvas.setPixelRgba(x, y, 0, 0, 255, 255);
+            }
+          }
+        }
+        final src = Uint8List.fromList(img.encodePng(canvas));
+
+        const renderer = GridImageRenderer();
+        final cells = await renderer.render(
+          GridRenderRequest(
+            sourceBytes: src,
+            gridType: GridType.g3x3,
+            spacing: 0,
+            cornerRadius: 0,
+            sourceOffset: const SourceOffset(0, 0.5),
+          ),
+        );
+        expect(cells, hasLength(9));
+        final cell0 = img.decodeImage(cells[0])!;
+        expect(cell0.width, 100);
+        expect(cell0.height, 100);
+        final px = cell0.getPixel(50, 50);
+        expect((px.r, px.g, px.b), (255, 0, 0));
+      },
+    );
   });
 }

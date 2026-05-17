@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 import '../../domain/entities/grid_type.dart';
-import '../../domain/usecases/compute_center_transform.dart';
 import '../../domain/usecases/compute_source_crop.dart';
 import '../../domain/usecases/grid_layout.dart';
 import '../../domain/usecases/grid_render_request.dart';
@@ -54,19 +53,9 @@ class GridImageRenderer {
   bool _shouldUseIsolate(GridRenderRequest req) {
     if (req.gridType.cellCount >= kIsolateCellCountThreshold) return true;
     if (req.sourceBytes.length >= kIsolateSourceByteThreshold) return true;
-    final centerBytes = req.centerImageBytes;
-    if (centerBytes != null &&
-        centerBytes.length >= kIsolateSourceByteThreshold) {
-      return true;
-    }
     return false;
   }
 }
-
-/// Index of the center cell in a row-major 3x3 layout. Surfaced as a
-/// named constant so the social-mode branching reads intentional rather
-/// than magic-numbery.
-const int kCenterCellIndex = 4;
 
 /// Top-level (i.e. non-closure) render function so it can be the
 /// entry point for [compute].
@@ -81,39 +70,41 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
     throw StateError('GridImageRenderer: failed to decode source image.');
   }
 
-  // PRD ST-C R-RENDER-01 / D2: crop the source to the user-selected
-  // square **first** so every grid mode operates on a 1:1 region. The
-  // social-mode branch is now a degenerate case of this helper (offset
-  // = (0.5, 0.5), scale = 1.0 → centered shortest-side square, matching
-  // the legacy `_centerCropToSquare` behaviour).
-  final source = _cropToSelectedSquare(
+  final rows = request.gridType.rows;
+  final cols = request.gridType.cols;
+  final targetAspect = cols / rows;
+
+  // PRD ST-C R-RENDER-01 / 05-17 Subtask B: crop the source to a
+  // user-selected rectangle of aspect `cols / rows` **first**, then
+  // slice that rectangle into uniform squares. Default offset / scale
+  // → centered cover-fit crop.
+  final cropped = _cropToSelectedRect(
     decoded,
     offset: request.sourceOffset,
     scale: request.sourceScale,
+    targetAspect: targetAspect,
   );
 
+  // Derive the square cellSide from the cropped width and the spacing
+  // budget. We use the width-axis math because the crop's aspect is
+  // exactly `cols / rows`, so cropW / cols == cropH / rows
+  // (sub-pixel rounding aside). Reserve `gap * (cols - 1)` pixels
+  // between cells before integer-dividing.
+  final gap = math.max(0, request.spacing.round());
+  final usableW = math.max(0, cropped.width - gap * (cols - 1));
+  final cellSide = cols == 0 ? 0 : usableW ~/ cols;
   final layout = computeGridLayout(
-    sourceWidth: source.width,
-    sourceHeight: source.height,
+    cellSide: cellSide,
     type: request.gridType,
     spacing: request.spacing,
   );
 
   final radius = math.max(0, request.cornerRadius.round());
 
-  // Decode the center-replacement image **once**, only when the
-  // request asks for it. Falls back to no-replacement on a bad decode
-  // so a corrupt center image doesn't tank the whole export.
-  img.Image? centerImage;
-  if (request.hasCenterReplacement) {
-    centerImage = img.decodeImage(request.centerImageBytes!);
-  }
-
   final cells = <Uint8List>[];
   Timeline.startSync('grid.cell-render');
   try {
-    for (var i = 0; i < layout.rects.length; i++) {
-      final rect = layout.rects[i];
+    for (final rect in layout.rects) {
       if (rect.width <= 0 || rect.height <= 0) {
         // Degenerate cell (spacing ate the whole axis) — emit a 1x1
         // transparent placeholder so the output count still matches
@@ -127,24 +118,29 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
         }
         continue;
       }
-      img.Image cell;
-      if (centerImage != null && i == kCenterCellIndex) {
-        cell = _composeCenterCell(
-          center: centerImage,
-          cellWidth: rect.width,
-          cellHeight: rect.height,
-          scale: request.centerScale,
-          offset: request.centerOffset,
+      // Map canvas-space rect → cropped-source-space rect 1:1 (the
+      // layout was built against the cropped source's own dimensions).
+      // Clamp width/height defensively in case the residual at the
+      // bottom-right edge would step a pixel past the cropped bounds.
+      final sx = rect.x;
+      final sy = rect.y;
+      final sw = math.min(rect.width, cropped.width - sx);
+      final sh = math.min(rect.height, cropped.height - sy);
+      if (sw <= 0 || sh <= 0) {
+        final blank = img.Image(
+          width: math.max(1, rect.width),
+          height: math.max(1, rect.height),
+          numChannels: 4,
         );
-      } else {
-        cell = img.copyCrop(
-          source,
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        );
+        Timeline.startSync('grid.encode');
+        try {
+          cells.add(Uint8List.fromList(img.encodePng(blank)));
+        } finally {
+          Timeline.finishSync();
+        }
+        continue;
       }
+      final cell = img.copyCrop(cropped, x: sx, y: sy, width: sw, height: sh);
       if (radius > 0) {
         _applyRoundedCorners(cell, radius: radius);
       }
@@ -161,92 +157,32 @@ List<Uint8List> _renderInIsolate(GridRenderRequest request) {
   return cells;
 }
 
-/// Crop [src] to the square region picked by the user (`offset` /
-/// `scale`). Replaces the legacy `_centerCropToSquare` helper — the
-/// default `offset = (0.5, 0.5)` / `scale = 1.0` reproduces a centered
-/// shortest-side crop exactly (so the previous social-mode behaviour is
-/// preserved as a degenerate case).
-img.Image _cropToSelectedSquare(
+/// Crop [src] to the rectangular region picked by the user
+/// (`offset` / `scale`) with the requested [targetAspect]. Default
+/// `offset = (0.5, 0.5)` / `scale = 1.0` reproduces a centered
+/// cover-fit crop of aspect [targetAspect].
+img.Image _cropToSelectedRect(
   img.Image src, {
   required SourceOffset offset,
   required double scale,
+  required double targetAspect,
 }) {
-  final rect = computeSourceSquareRect(
+  final rect = computeSourceCropRect(
     sourceWidth: src.width,
     sourceHeight: src.height,
     offset: offset,
     scale: scale,
+    targetAspect: targetAspect,
   );
   if (rect == null) return src;
   // Defensive: the math should already guarantee in-bounds, but integer
   // rounding on degenerate inputs (1x1, etc.) can drift by a pixel.
-  final maxSide = math.min(src.width - rect.x, src.height - rect.y);
-  final side = math.min(rect.side, maxSide);
-  if (side <= 0) return src;
-  return img.copyCrop(src, x: rect.x, y: rect.y, width: side, height: side);
-}
-
-/// Crop the replacement [center] image with the user-controlled
-/// `(scale, offset)` transform and resize it to the cell dimensions.
-///
-/// The math lives in `domain/usecases/compute_center_transform.dart`
-/// so the same clamping rules drive both the preview gesture overlay
-/// and the rasterizer here.
-img.Image _composeCenterCell({
-  required img.Image center,
-  required int cellWidth,
-  required int cellHeight,
-  required double scale,
-  required CenterOffset offset,
-}) {
-  final clamped = clampCenterTransform(
-    scale: scale,
-    offset: offset,
-    imageWidth: center.width,
-    imageHeight: center.height,
-    cellWidth: cellWidth,
-    cellHeight: cellHeight,
-  );
-  final sourceRect = computeCenterSourceRect(
-    imageWidth: center.width,
-    imageHeight: center.height,
-    cellWidth: cellWidth,
-    cellHeight: cellHeight,
-    userScale: clamped.scale,
-    offset: clamped.offset,
-  );
-  if (sourceRect == null) {
-    // Degenerate transform — emit a transparent cell so the output
-    // count still matches the 9-cell expectation.
-    return img.Image(width: cellWidth, height: cellHeight, numChannels: 4);
-  }
-  // Clamp the crop rect to the source image bounds. `clampCenterOffset`
-  // already guarantees the slice stays inside the image (the offset
-  // can never push it past the edge once the scale floor is enforced),
-  // but the integer rounding inside `computeCenterSourceRect` can drift
-  // by one pixel on degenerate inputs.
-  final clampedX = sourceRect.x.clamp(0, math.max(0, center.width - 1)).toInt();
-  final clampedY = sourceRect.y
-      .clamp(0, math.max(0, center.height - 1))
-      .toInt();
-  final clampedW = sourceRect.width.clamp(1, center.width - clampedX).toInt();
-  final clampedH = sourceRect.height.clamp(1, center.height - clampedY).toInt();
-  final cropped = img.copyCrop(
-    center,
-    x: clampedX,
-    y: clampedY,
-    width: clampedW,
-    height: clampedH,
-  );
-  if (cropped.width == cellWidth && cropped.height == cellHeight) {
-    return cropped;
-  }
-  return img.copyResize(
-    cropped,
-    width: cellWidth,
-    height: cellHeight,
-    interpolation: img.Interpolation.cubic,
-  );
+  final maxW = math.max(0, src.width - rect.x);
+  final maxH = math.max(0, src.height - rect.y);
+  final w = math.min(rect.width, maxW);
+  final h = math.min(rect.height, maxH);
+  if (w <= 0 || h <= 0) return src;
+  return img.copyCrop(src, x: rect.x, y: rect.y, width: w, height: h);
 }
 
 /// Punch transparent pixels outside the inscribed rounded-rect so the

@@ -7,11 +7,11 @@
 //
 //     flutter test --run-skipped --tags benchmark test/benchmarks/
 //
-// Grid export does N PNG encodes (one per cell). The 3x3 social-mode
-// path is the heaviest realistic shape: it center-crops to square,
-// composes one custom-cropped middle cell, and PNG-encodes 9 outputs.
-// The 2x3 path covers a non-square shape (6 encodes) so we also exercise
-// the residual-pixel distribution on the height axis.
+// Grid export does N PNG encodes (one per cell). The 3x3 path is the
+// heaviest realistic shape: it crops to a `cols/rows` rectangle and
+// PNG-encodes 9 square outputs. The 2x3 path covers a non-square crop
+// (the renderer pulls a 1.5:1 region from a square source) so we also
+// exercise the height-bound branch of `computeSourceCropRect`.
 
 @Tags(['benchmark'])
 library;
@@ -97,34 +97,29 @@ void main() {
     });
 
     test(
-      '3x3 nine-grid social mode @ 3000x3000 + center replacement',
+      '1x3 grid @ 4500x1500 landscape source PNG encode (3 cells)',
       () async {
         final synthSw = Stopwatch()..start();
-        final source = syntheticPng(width: 3000, height: 3000, seed: 2);
-        final center = syntheticPng(width: 1000, height: 1000, seed: 3);
+        final source = syntheticPng(width: 4500, height: 1500, seed: 2);
         synthSw.stop();
         // ignore: avoid_print
-        print('[grid-social] synth elapsed: ${synthSw.elapsedMilliseconds} ms');
+        print('[grid-1x3] synth elapsed: ${synthSw.elapsedMilliseconds} ms');
 
         final renderSw = Stopwatch()..start();
         const renderer = GridImageRenderer();
         final cells = await renderer.render(
           GridRenderRequest(
             sourceBytes: source,
-            gridType: GridType.g3x3,
+            gridType: GridType.g1x3,
             spacing: 0,
             cornerRadius: 0,
-            nineGridSocialMode: true,
-            centerImageBytes: center,
           ),
         );
         renderSw.stop();
         // ignore: avoid_print
-        print(
-          '[grid-social] render elapsed: ${renderSw.elapsedMilliseconds} ms',
-        );
+        print('[grid-1x3] render elapsed: ${renderSw.elapsedMilliseconds} ms');
 
-        expect(cells, hasLength(9));
+        expect(cells, hasLength(3));
         expect(renderSw.elapsed.inSeconds, lessThan(30));
       },
     );
