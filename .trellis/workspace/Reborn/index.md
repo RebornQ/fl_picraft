@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 25
+- **Total Sessions**: 26
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~847 | Active |
+| `journal-1.md` | ~881 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 26 | 2026-05-17 | Plan grid-slice revamp + finish Subtask A | `2023943`, `1840679` | `main` |
 | 25 | 2026-05-17 | Remove outline border from GridPreviewCanvas decoration | `1196e49` | `main` |
 | 24 | 2026-05-17 | Fix grid preview canvas spacing gap visibility | `c1c24be` | `main` |
 | 23 | 2026-05-17 | ST-C: drag+pinch-zoom canvas crop; umbrella closed | `53994d4`, `2b749da` | `main` |

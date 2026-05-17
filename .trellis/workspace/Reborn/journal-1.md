@@ -845,3 +845,37 @@ Closed the grid-canvas-drag-overwrite umbrella with ST-C. The grid editor canvas
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: Plan grid-slice revamp + finish Subtask A
+
+**Date**: 2026-05-17
+**Task**: Plan grid-slice revamp + finish Subtask A
+**Branch**: `main`
+
+### Summary
+
+Brainstormed the grid-slice editor revamp (per-cell replacement + square cells + 5-variant text selector), scaffolded parent task with 3 dependency-ordered subtasks, and completed Subtask A: pruned GridType enum to {g1x2, g1x3, g2x2, g2x3, g3x3}, deleted grid_type_icons.dart, rebuilt GridTypeSelector as text-only cards (title + description), hid the 9-grid-social toggle, synced directory-structure.md, migrated 6 test files. Build gates clean: dart format + flutter analyze + flutter test (332 passed / 2 skipped). Subtasks B (square geometry) and C (per-cell replacement) remain in planning.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2023943` | (see git log) |
+| `1840679` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
