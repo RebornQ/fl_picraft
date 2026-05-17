@@ -4,20 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group(
-    'computeGridLayout — cell count matches GridType for all 11 variants',
+    'computeGridLayout — cell count matches GridType for all 5 variants',
     () {
       const expectedCells = <GridType, int>{
         GridType.g1x2: 2,
-        GridType.g2x1: 2,
         GridType.g1x3: 3,
-        GridType.g3x1: 3,
-        GridType.g1x4: 4,
-        GridType.g4x1: 4,
         GridType.g2x2: 4,
         GridType.g2x3: 6,
-        GridType.g3x2: 6,
         GridType.g3x3: 9,
-        GridType.g4x4: 16,
       };
 
       for (final entry in expectedCells.entries) {
@@ -152,7 +146,7 @@ void main() {
       final layout = computeGridLayout(
         sourceWidth: 1001,
         sourceHeight: 503,
-        type: GridType.g4x4,
+        type: GridType.g3x3,
       );
       var totalW = 0;
       for (var c = 0; c < layout.cols; c++) {
@@ -201,30 +195,51 @@ void main() {
     test('exposes correct rows/cols for every variant', () {
       expect(GridType.g1x2.rows, 1);
       expect(GridType.g1x2.cols, 2);
-      expect(GridType.g3x2.rows, 3);
-      expect(GridType.g3x2.cols, 2);
-      expect(GridType.g4x4.rows, 4);
-      expect(GridType.g4x4.cols, 4);
+      expect(GridType.g2x3.rows, 2);
+      expect(GridType.g2x3.cols, 3);
+      expect(GridType.g3x3.rows, 3);
+      expect(GridType.g3x3.cols, 3);
     });
 
     test('display label uses RxC notation', () {
       expect(GridType.g1x2.displayLabel, '1x2');
       expect(GridType.g3x3.displayLabel, '3x3');
-      expect(GridType.g4x4.displayLabel, '4x4');
+      expect(GridType.g2x3.displayLabel, '2x3');
     });
 
     test('cellCount returns rows * cols', () {
       expect(GridType.g1x2.cellCount, 2);
       expect(GridType.g3x3.cellCount, 9);
-      expect(GridType.g4x4.cellCount, 16);
+      expect(GridType.g2x3.cellCount, 6);
     });
 
-    test('kGridTypeSelectorOrder lists exactly the 11 PRD variants', () {
-      expect(kGridTypeSelectorOrder, hasLength(11));
+    test('displayTitle / displayDescription match the PRD 05-17 文案表', () {
+      expect(GridType.g1x2.displayTitle, '二宫格');
+      expect(GridType.g1x2.displayDescription, '横向两格，左右对照');
+      expect(GridType.g1x3.displayTitle, '三宫格');
+      expect(GridType.g1x3.displayDescription, '横向三格，长卷分屏');
+      expect(GridType.g2x2.displayTitle, '四宫格');
+      expect(GridType.g2x2.displayDescription, '方正四格，万能切片');
+      expect(GridType.g2x3.displayTitle, '六宫格');
+      expect(GridType.g2x3.displayDescription, '横向六格，时间轴友好');
+      expect(GridType.g3x3.displayTitle, '九宫格');
+      expect(GridType.g3x3.displayDescription, '朋友圈经典');
+    });
+
+    test('kGridTypeSelectorOrder lists exactly the 5 PRD 05-17 variants', () {
+      expect(kGridTypeSelectorOrder, hasLength(5));
       // No duplicates.
-      expect(kGridTypeSelectorOrder.toSet().length, 11);
+      expect(kGridTypeSelectorOrder.toSet().length, 5);
       // Covers every enum value.
       expect(kGridTypeSelectorOrder.toSet(), GridType.values.toSet());
+      // Order matches PRD R1.
+      expect(kGridTypeSelectorOrder, <GridType>[
+        GridType.g1x2,
+        GridType.g1x3,
+        GridType.g2x2,
+        GridType.g2x3,
+        GridType.g3x3,
+      ]);
     });
   });
 }

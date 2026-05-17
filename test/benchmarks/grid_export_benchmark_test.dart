@@ -10,7 +10,8 @@
 // Grid export does N PNG encodes (one per cell). The 3x3 social-mode
 // path is the heaviest realistic shape: it center-crops to square,
 // composes one custom-cropped middle cell, and PNG-encodes 9 outputs.
-// The 4x4 path is even more cell-heavy (16 encodes) so we cover both.
+// The 2x3 path covers a non-square shape (6 encodes) so we also exercise
+// the residual-pixel distribution on the height axis.
 
 @Tags(['benchmark'])
 library;
@@ -66,32 +67,32 @@ void main() {
       expect(renderSw.elapsed.inSeconds, lessThan(30));
     });
 
-    test('4x4 grid @ 4000x4000 source PNG encode (16 cells)', () async {
+    test('2x3 grid @ 4000x4000 source PNG encode (6 cells)', () async {
       final synthSw = Stopwatch()..start();
       final source = syntheticPng(width: 4000, height: 4000, seed: 1);
       synthSw.stop();
       // ignore: avoid_print
-      print('[grid-4x4] synth elapsed: ${synthSw.elapsedMilliseconds} ms');
+      print('[grid-2x3] synth elapsed: ${synthSw.elapsedMilliseconds} ms');
 
       final renderSw = Stopwatch()..start();
       const renderer = GridImageRenderer();
       final cells = await renderer.render(
         GridRenderRequest(
           sourceBytes: source,
-          gridType: GridType.g4x4,
+          gridType: GridType.g2x3,
           spacing: 0,
           cornerRadius: 0,
         ),
       );
       renderSw.stop();
       // ignore: avoid_print
-      print('[grid-4x4] render elapsed: ${renderSw.elapsedMilliseconds} ms');
+      print('[grid-2x3] render elapsed: ${renderSw.elapsedMilliseconds} ms');
       // ignore: avoid_print
       print(
-        '[grid-4x4] cell bytes (avg): ${cells.fold<int>(0, (a, b) => a + b.length) ~/ cells.length}',
+        '[grid-2x3] cell bytes (avg): ${cells.fold<int>(0, (a, b) => a + b.length) ~/ cells.length}',
       );
 
-      expect(cells, hasLength(16));
+      expect(cells, hasLength(6));
       expect(renderSw.elapsed.inSeconds, lessThan(30));
     });
 

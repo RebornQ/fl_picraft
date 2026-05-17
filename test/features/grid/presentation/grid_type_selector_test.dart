@@ -8,7 +8,7 @@ void main() {
     home: Scaffold(body: SafeArea(child: child)),
   );
 
-  testWidgets('renders one card per PRD variant (11 total)', (tester) async {
+  testWidgets('renders one card per PRD variant (5 total)', (tester) async {
     await tester.pumpWidget(
       wrap(GridTypeSelector(value: GridType.g3x3, onChanged: (_) {})),
     );
@@ -27,7 +27,9 @@ void main() {
     }
   });
 
-  testWidgets('every variant card surfaces its display label', (tester) async {
+  testWidgets('every variant card surfaces its 中文 title and description', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       wrap(GridTypeSelector(value: GridType.g3x3, onChanged: (_) {})),
     );
@@ -36,9 +38,11 @@ void main() {
     // off-screen labels so findsOneWidget can locate them.
     final listView = find.byType(Scrollable).first;
     for (final type in GridType.values) {
-      final labelFinder = find.text(type.displayLabel);
-      await tester.scrollUntilVisible(labelFinder, 50, scrollable: listView);
-      expect(labelFinder, findsOneWidget);
+      final titleFinder = find.text(type.displayTitle);
+      await tester.scrollUntilVisible(titleFinder, 50, scrollable: listView);
+      expect(titleFinder, findsOneWidget);
+      final descFinder = find.text(type.displayDescription);
+      expect(descFinder, findsOneWidget);
     }
   });
 

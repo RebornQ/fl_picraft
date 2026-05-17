@@ -357,7 +357,7 @@ extension GridTypeInfo on GridType {
 
 **Correct**:
 ```dart
-// lib/features/grid/domain/entities/grid_type.dart  — pure Dart
+// lib/features/<f>/domain/entities/grid_type.dart  — pure Dart
 enum GridType { x1_2, x2_1, /* ... */ }
 
 extension GridTypeInfo on GridType {
@@ -366,7 +366,7 @@ extension GridTypeInfo on GridType {
   String get displayLabel => '$rows × $cols';
 }
 
-// lib/features/grid/presentation/widgets/grid_type_icons.dart
+// lib/features/<f>/presentation/widgets/<entity>_icons.dart
 // UI mapping lives in presentation, not on the enum
 import 'package:flutter/material.dart';
 import '../../domain/entities/grid_type.dart';

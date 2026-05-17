@@ -91,7 +91,7 @@ void main() {
       }
     });
 
-    test('all 11 grid types complete without error', () async {
+    test('all 5 grid types complete without error', () async {
       const renderer = GridImageRenderer();
       final source = quadrantCanvas(width: 320, height: 320);
       for (final type in GridType.values) {

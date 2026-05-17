@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/grid_type.dart';
 import '../providers/grid_editor_provider.dart';
 import 'grid_parameter_cards.dart';
 import 'grid_type_selector.dart';
@@ -31,15 +30,15 @@ class GridControlsPanel extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        NineGridSocialRow(
-          enabled: state.nineGridSocialMode,
-          onChanged: notifier.setNineGridSocialMode,
-        ),
-        const SizedBox(height: 16),
+        // 05-17 Subtask A: the 九宫格朋友圈 toggle UI is hidden while the
+        // underlying state field [GridEditorState.nineGridSocialMode]
+        // stays in place. Subtask B removes the field + this widget
+        // altogether; until then the selector unconditionally passes
+        // `lockedTo: null`.
         GridTypeSelector(
           value: state.gridType,
           onChanged: notifier.setGridType,
-          lockedTo: state.nineGridSocialMode ? GridType.g3x3 : null,
+          lockedTo: null,
         ),
         const SizedBox(height: 16),
         // PRD ST-C AC6: a "重置裁剪" button restores the drag-select

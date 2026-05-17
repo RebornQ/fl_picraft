@@ -54,11 +54,11 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
       final notifier = container.read(gridEditorControllerProvider.notifier);
-      // Start from 4x4 to prove the lock kicks in.
-      notifier.setGridType(GridType.g4x4);
+      // Start from 2x3 to prove the lock kicks in.
+      notifier.setGridType(GridType.g2x3);
       expect(
         container.read(gridEditorControllerProvider).gridType,
-        GridType.g4x4,
+        GridType.g2x3,
       );
       notifier.setNineGridSocialMode(true);
       final state = container.read(gridEditorControllerProvider);
@@ -71,7 +71,7 @@ void main() {
       addTearDown(container.dispose);
       final notifier = container.read(gridEditorControllerProvider.notifier);
       notifier.setNineGridSocialMode(true);
-      notifier.setGridType(GridType.g4x4); // should be no-op
+      notifier.setGridType(GridType.g2x3); // should be no-op
       expect(
         container.read(gridEditorControllerProvider).gridType,
         GridType.g3x3,

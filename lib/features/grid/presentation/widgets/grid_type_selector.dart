@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/grid_type.dart';
-import 'grid_type_icons.dart';
 
-/// Horizontal scrolling row of 80×80 grid-type cards.
+/// Horizontal scrolling row of text-only grid-type cards (05-17 Subtask A).
 ///
-/// Mirrors the design mock (`_3_宫格切图/code.html` lines 156–202): each
-/// card shows a material symbol preview and the type label (e.g.
-/// `3x3`). The active card uses [ColorScheme.primaryContainer] with a
-/// primary-colored border; inactive cards use [ColorScheme.surfaceContainerHigh].
+/// Each card surfaces the Chinese [GridType.displayTitle] on the first
+/// line and a short [GridType.displayDescription] on the second. The
+/// active card uses [ColorScheme.primaryContainer] with a 2 px
+/// primary-colored border + elevation 2; inactive cards use
+/// [ColorScheme.surfaceContainerHigh] with a transparent border.
 ///
 /// When [lockedTo] is non-null, only that one card is interactive and
-/// the others are dimmed — used by the nine-grid-social mode to keep
-/// the type fixed to `3x3` (PRD §九宫格朋友圈).
+/// the others are dimmed. Subtask A hides the toggle that flips this
+/// flag on, so today every caller passes `null`; the API stays in place
+/// for forward compatibility with Subtask B's geometry work.
 class GridTypeSelector extends StatelessWidget {
   const GridTypeSelector({
     super.key,
@@ -49,7 +50,7 @@ class GridTypeSelector extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 80,
+          height: 104,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -95,8 +96,11 @@ class _GridTypeCard extends StatelessWidget {
     final bg = selected
         ? colorScheme.primaryContainer
         : colorScheme.surfaceContainerHigh;
-    final fg = selected
+    final titleColor = selected
         ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
+    final descColor = selected
+        ? colorScheme.onPrimaryContainer.withValues(alpha: 0.8)
         : colorScheme.onSurfaceVariant;
     final borderColor = selected ? colorScheme.primary : Colors.transparent;
 
@@ -108,23 +112,35 @@ class _GridTypeCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          width: 80,
-          height: 80,
+          constraints: const BoxConstraints(
+            minWidth: 120,
+            maxWidth: 140,
+            minHeight: 92,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor, width: 2),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(type.icon, color: fg, size: 28),
-              const SizedBox(height: 4),
               Text(
-                type.displayLabel,
-                style: textTheme.labelSmall?.copyWith(
-                  color: fg,
+                type.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleMedium?.copyWith(
+                  color: titleColor,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                type.displayDescription,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(color: descColor),
               ),
             ],
           ),
@@ -136,7 +152,7 @@ class _GridTypeCard extends StatelessWidget {
       button: !disabled,
       selected: selected,
       enabled: !disabled,
-      label: '${type.displayLabel} 宫格',
+      label: '${type.displayTitle} ${type.displayDescription}',
       child: Opacity(opacity: disabled ? 0.35 : 1, child: card),
     );
   }

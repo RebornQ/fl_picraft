@@ -59,13 +59,13 @@ void main() {
     test('preserves unspecified fields', () {
       final original = GridEditorState.initial().copyWith(
         source: _image(500, 500),
-        gridType: GridType.g4x4,
+        gridType: GridType.g2x3,
         spacing: 12,
         cornerRadius: 24,
       );
       final next = original.copyWith(spacing: 30);
       expect(next.source, original.source);
-      expect(next.gridType, GridType.g4x4);
+      expect(next.gridType, GridType.g2x3);
       expect(next.spacing, 30);
       expect(next.cornerRadius, 24);
     });
