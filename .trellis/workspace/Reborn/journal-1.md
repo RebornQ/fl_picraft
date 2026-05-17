@@ -912,3 +912,36 @@ Architecture-core change for the grid-slice revamp. computeGridLayout now takes 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: Finish Subtask C + close grid-slice-revamp umbrella
+
+**Date**: 2026-05-17
+**Task**: Finish Subtask C + close grid-slice-revamp umbrella
+**Branch**: `main`
+
+### Summary
+
+Closing subtask of the grid-slice editor revamp. Implemented per-cell image replacement: CellReplacement domain entity, Map<int, CellReplacement> on GridEditorState (cleared on grid-type change), CellReplacementBytes isolate-safe DTO + per-cell render dispatch in grid_image_renderer, generalized CellOverlay (renamed from CenterCellOverlay) mounted on every layout rect, 5 new controller interfaces (pickCellImage / setCellImage / setCellScale / setCellOffset / resetCell). Hit-test policy: empty cells translucent (canvas drag falls through), replaced cells opaque (per-cell gestures win). Semantics labels carry cell index + row/col coordinates. Renamed compute_center_transform.dart → compute_cell_transform.dart with all Center* → Cell* symbols. flutter analyze clean · flutter test 323 passed / 3 skipped. All 5 parent ADR-lite decisions (D1–D5) hold up against the final codebase. Parent umbrella 05-17-grid-slice-revamp archived (3/3 subtasks done).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `40d6bbc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
