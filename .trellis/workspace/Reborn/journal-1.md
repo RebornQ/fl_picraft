@@ -945,3 +945,36 @@ Closing subtask of the grid-slice editor revamp. Implemented per-cell image repl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: Cell add-circle hint icon
+
+**Date**: 2026-05-17
+**Task**: Cell add-circle hint icon
+**Branch**: `main`
+
+### Summary
+
+Added Icons.add_circle_outline as a persistent affordance hint on every grid cell (both empty and replaced states). 32 dp, Colors.white + Colors.black54 drop shadow, no backdrop circle, IgnorePointer + ExcludeSemantics so it's purely decorative and doesn't break the existing gesture contract (translucent empty / opaque replaced) or a11y labels. New _CellAddHint private widget in cell_overlay.dart; two new widget tests asserting the icon appears in both states. flutter analyze clean; flutter test 325 passed / 3 skipped (was 323; +2).
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2fd162c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

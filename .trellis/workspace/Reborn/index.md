@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 28
+- **Total Sessions**: 29
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~947 | Active |
+| `journal-1.md` | ~980 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 29 | 2026-05-17 | Cell add-circle hint icon | `2fd162c` | `main` |
 | 28 | 2026-05-17 | Finish Subtask C + close grid-slice-revamp umbrella | `40d6bbc` | `main` |
 | 27 | 2026-05-17 | Finish Subtask B: square cells + canvas aspect=cols:rows | `64017b7` | `main` |
 | 26 | 2026-05-17 | Plan grid-slice revamp + finish Subtask A | `2023943`, `1840679` | `main` |
