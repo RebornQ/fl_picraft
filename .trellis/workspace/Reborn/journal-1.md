@@ -712,3 +712,36 @@ Ran trellis-brainstorm to decompose 三宫格切图三项改动 (canvas drag-sel
 ### Next Steps
 
 - None - task complete
+
+
+## Session 22: ST-B: grid overwrite-on-import with destructive confirm
+
+**Date**: 2026-05-17
+**Task**: ST-B: grid overwrite-on-import with destructive confirm
+**Branch**: `main`
+
+### Summary
+
+Shipped ST-B of grid-canvas-drag-overwrite. AppBar import action now guards re-import behind a Material 3 destructive-confirm dialog when state.hasSource: confirm clears the grid-kind import session before launching the picker (overwrite via existing _syncSourceFromImports listener), cancel preserves state. First-time imports skip the dialog. Controller surfaces this as addFromGallery({bool replace = false}); the sourceOffset/Scale reset path is deliberately deferred to ST-C. Three red lines green, 304 tests passing (+4 new widget tests covering replace / cancel / first-import / barrier-dismiss). Non-blocking design note: a late picker-cancel after dialog-confirm leaves source null with no recovery — consent-aligned per umbrella D3 dialog copy.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7a129c9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

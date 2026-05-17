@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 21
+- **Total Sessions**: 22
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~714 | Active |
+| `journal-1.md` | ~747 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 22 | 2026-05-17 | ST-B: grid overwrite-on-import with destructive confirm | `7a129c9` | `main` |
 | 21 | 2026-05-17 | Brainstorm grid drag/overwrite/chrome umbrella + ship ST-A chrome | `aa75f21`, `0aaa43c` | `main` |
 | 20 | 2026-05-17 | Portrait grid panel bottom spacing fix | `0ed8f34` | `main` |
 | 19 | 2026-05-17 | Extend side-panel chrome to compact and medium | `08f575f` | `main` |
