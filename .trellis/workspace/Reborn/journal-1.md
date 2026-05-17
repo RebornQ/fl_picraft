@@ -779,3 +779,36 @@ Closed the grid-canvas-drag-overwrite umbrella with ST-C. The grid editor canvas
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: Fix grid preview canvas spacing gap visibility
+
+**Date**: 2026-05-17
+**Task**: Fix grid preview canvas spacing gap visibility
+**Branch**: `main`
+
+### Summary
+
+宫格切图模式调整间距时画布看不到 gap 视觉效果（原图原样透出）。在 _GridOverlayPainter 中新增 spacing + gapColor 字段，spacing > 0 时通过 saveLayer + 整片 drawRect(surfaceContainer) + BlendMode.clear 沿 RRect 挖空 cell 区域，让 gap 区域显示画布背景色，与导出后真实切片视觉等价。颜色用 M3 token (colorScheme.surfaceContainer) 注入，主题切换自动跟随。新增 3 个 painter widget 测试（spacing=0 路径 gated / spacing>0 路径 saveLayer + surfaceContainer fill / dark mode 主题切换）。三红线全绿：analyze 0 errors / format unchanged / 337 tests passed。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c1c24be` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

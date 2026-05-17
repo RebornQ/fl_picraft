@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
+- **Total Sessions**: 24
 - **Last Active**: 2026-05-17
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~781 | Active |
+| `journal-1.md` | ~814 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 24 | 2026-05-17 | Fix grid preview canvas spacing gap visibility | `c1c24be` | `main` |
 | 23 | 2026-05-17 | ST-C: drag+pinch-zoom canvas crop; umbrella closed | `53994d4`, `2b749da` | `main` |
 | 22 | 2026-05-17 | ST-B: grid overwrite-on-import with destructive confirm | `7a129c9` | `main` |
 | 21 | 2026-05-17 | Brainstorm grid drag/overwrite/chrome umbrella + ship ST-A chrome | `aa75f21`, `0aaa43c` | `main` |
