@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "本任务在 _GridOverlayPainter (CustomPainter) 中新增 gap fill 分支，需对照 spec 中 widget / painter 编写规范：const 构造、字段不可变、shouldRepaint 正确实现、与 Theme.colorScheme M3 token 协作（gapColor 由调用方注入 surfaceContainer）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "新增 painter 字段 + spacing > 0 分支必须有测试覆盖（saveLayer / BlendMode.clear 调用计数 + spacing == 0 退化等价），三红线（analyze / format / test）作为验收门槛"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "_PreviewSurface 已通过 ref.watch(gridEditorControllerProvider) 拿到 state.spacing，painter 字段从 state 注入而非 painter 自己 watch；复核 painter 不直接持有 ref / provider，保持 painter 纯函数风格的 spec 约束"}
+{"file": ".trellis/tasks/archive/2026-05/05-17-grid-canvas-drag-overwrite/prd.md", "reason": "上一轮任务引入了 _isGesturing + AnimatedOpacity 包裹（R-DRAG-04），本任务的 gap fill 必须保持在这层包裹之下随手势淡出。复核其 PRD 确认本改动不破坏淡出契约"}
+{"file": ".trellis/tasks/archive/2026-05/05-08-grid-split/prd.md", "reason": "原始 grid 切图功能 PRD，给出 spacing / cornerRadius 参数语义与导出端切片契约——本任务的 surfaceContainer gap fill 颜色选择就是建立在'导出端切片把 gap 区域丢弃'的事实之上，确认预览改动不动摇该契约"}

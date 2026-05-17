@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "最终验收三红线：flutter analyze / dart format . / flutter test 全绿；painter 测试稳定可重复"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核 _GridOverlayPainter 新增的 spacing + gapColor 字段构造 / shouldRepaint / paint 实现都符合 CustomPainter 规范，painter 不持有 ref / provider"}
+{"file": ".trellis/tasks/05-17-grid-spacing-color-fix/prd.md", "reason": "对照本任务 AC + DoD 逐项验证：spacing > 0 时 gap 区域 surfaceContainer 可见、spacing == 0 painter 退化等价、cornerRadius > 0 圆角不啃边、手势淡出与 gap fill 一起淡出、9 种 grid type 都覆盖"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "复核 painter 仍未直接持有 ref / provider，所有运行时数据通过构造点 (Riverpod ref.watch → painter 字段) 注入，符合 painter 纯函数风格 spec"}
