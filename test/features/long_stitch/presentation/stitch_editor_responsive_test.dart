@@ -6,7 +6,9 @@ import 'package:fl_picraft/features/image_import/presentation/providers/image_im
 import 'package:fl_picraft/features/long_stitch/presentation/screens/stitch_editor_screen.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_panel.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_sheet.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_image_strip.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_preview_canvas.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_vertical_image_list.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,6 +75,10 @@ void main() {
       // Bottom sheet wrapper is present, containing the panel.
       expect(find.byType(StitchControlsSheet), findsOneWidget);
       expect(find.byType(StitchControlsPanel), findsOneWidget);
+      // Compact uses the horizontal strip at the top; the wide-screen
+      // vertical list is NOT rendered.
+      expect(find.byType(StitchImageStrip), findsOneWidget);
+      expect(find.byType(StitchVerticalImageList), findsNothing);
     });
 
     testWidgets('medium (>= 600 dp) keeps the bottom sheet layout', (
@@ -84,26 +90,43 @@ void main() {
 
       expect(find.byType(StitchControlsSheet), findsOneWidget);
       expect(find.byType(StitchControlsPanel), findsOneWidget);
+      expect(find.byType(StitchImageStrip), findsOneWidget);
+      expect(find.byType(StitchVerticalImageList), findsNothing);
     });
 
-    testWidgets('expanded (>= 840 dp) docks controls as a side panel', (
-      tester,
-    ) async {
-      await _setViewportSize(tester, const Size(1024, 800));
-      await tester.pumpWidget(_stitchHarness());
-      await tester.pumpAndSettle();
+    testWidgets(
+      'expanded (>= 840 dp) docks a vertical list + controls panel in the side column',
+      (tester) async {
+        await _setViewportSize(tester, const Size(1024, 800));
+        await tester.pumpWidget(_stitchHarness());
+        await tester.pumpAndSettle();
 
-      // The bottom-sheet wrapper is gone; only the bare panel is on screen.
-      expect(find.byType(StitchControlsSheet), findsNothing);
-      expect(find.byType(StitchControlsPanel), findsOneWidget);
+        // The bottom-sheet wrapper is gone; only the bare panel is on screen.
+        expect(find.byType(StitchControlsSheet), findsNothing);
+        expect(find.byType(StitchControlsPanel), findsOneWidget);
 
-      // Layout signal: the panel sits to the RIGHT of the canvas.
-      final canvasOrigin = tester.getTopLeft(find.byType(StitchPreviewCanvas));
-      final panelOrigin = tester.getTopLeft(find.byType(StitchControlsPanel));
-      expect(panelOrigin.dx, greaterThan(canvasOrigin.dx));
-    });
+        // Top horizontal strip is replaced by the side-column vertical list.
+        expect(find.byType(StitchImageStrip), findsNothing);
+        expect(find.byType(StitchVerticalImageList), findsOneWidget);
 
-    testWidgets('large (>= 1200 dp) keeps the side-panel layout', (
+        // Layout signal: the panel sits to the RIGHT of the canvas.
+        final canvasOrigin = tester.getTopLeft(
+          find.byType(StitchPreviewCanvas),
+        );
+        final panelOrigin = tester.getTopLeft(find.byType(StitchControlsPanel));
+        expect(panelOrigin.dx, greaterThan(canvasOrigin.dx));
+
+        // And the vertical list sits ABOVE the controls panel inside
+        // the side column (both share the same X origin, but list.y < panel.y).
+        final listOrigin = tester.getTopLeft(
+          find.byType(StitchVerticalImageList),
+        );
+        expect(listOrigin.dx, equals(panelOrigin.dx));
+        expect(listOrigin.dy, lessThan(panelOrigin.dy));
+      },
+    );
+
+    testWidgets('large (>= 1200 dp) keeps the side-column layout', (
       tester,
     ) async {
       await _setViewportSize(tester, const Size(1600, 900));
@@ -112,6 +135,8 @@ void main() {
 
       expect(find.byType(StitchControlsSheet), findsNothing);
       expect(find.byType(StitchControlsPanel), findsOneWidget);
+      expect(find.byType(StitchImageStrip), findsNothing);
+      expect(find.byType(StitchVerticalImageList), findsOneWidget);
 
       final canvasOrigin = tester.getTopLeft(find.byType(StitchPreviewCanvas));
       final panelOrigin = tester.getTopLeft(find.byType(StitchControlsPanel));

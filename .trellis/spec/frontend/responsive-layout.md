@@ -116,6 +116,14 @@ class StitchControlsSheet extends StatelessWidget {
 }
 
 // lib/features/long_stitch/presentation/screens/stitch_editor_screen.dart
+//
+// Note: this example shows the canonical Sheet → Panel dispatch. The
+// real stitch_editor's `isSideDocked` branch wraps `StitchControlsPanel`
+// inside a Column whose top half is the vertical
+// `StitchVerticalImageList` (see the editor's class-level doc-comment
+// and the responsive behavior table). The Sheet → Panel pattern itself
+// is unchanged — what varies is the composition inside the docked
+// `SizedBox`.
 @override
 Widget build(BuildContext context) {
   final sizeClass = windowSizeClassOf(context);
@@ -221,7 +229,7 @@ class-level doc-comment):
 | Editor | compact / medium | expanded / large |
 |---|---|---|
 | `grid_editor_screen.dart` | inline panel + surface chrome inside an `Expanded` slot of the body `Column` — same `surfaceContainerLow` + `outlineVariant` + 16 dp rounded decoration as the side panel below | side panel + surface chrome (pattern 2 above) |
-| `stitch_editor_screen.dart` | bottom `StitchControlsSheet` (Material sheet chrome — different shape, not an inline panel) | bare side panel (pattern 1 above) |
+| `stitch_editor_screen.dart` | bottom `StitchControlsSheet` (Material sheet chrome — different shape, not an inline panel) | bare side column (pattern 1 above) — but the `SizedBox` contains a `Column` that splits 50/50 between `StitchVerticalImageList` (top) and `SingleChildScrollView(StitchControlsPanel)` (bottom), so the same `[380, 480]` dp slot hosts both the image list and the parameter controls |
 
 **Note**: `grid_editor` reuses the **same** chrome decoration across all
 size classes via a shared `_buildControlsPanelChrome` helper, with a
@@ -530,7 +538,7 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 |---|---|---|---|---|
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
-| stitch_editor | scrollable canvas + bottom `StitchControlsSheet` capped at `max(200, min(screenHeight * 0.28, 360))` dp with internal `SingleChildScrollView` (see "Cap bottom-sheet height" convention) | same as compact | canvas + right panel ∈ [380, 480] dp | same, fluid (fills container); side panel ∈ [380, 480] dp |
+| stitch_editor | scrollable canvas + bottom `StitchControlsSheet` capped at `max(200, min(screenHeight * 0.28, 360))` dp with internal `SingleChildScrollView` (see "Cap bottom-sheet height" convention) | same as compact | two-column `Row(stretch)`: canvas on the left fills the `Expanded` slot; right column is `SizedBox(width ∈ [380, 480])` wrapping a `Column` that gives `Expanded(flex:1)` to `StitchVerticalImageList` (top half — header + reorderable selected-images list with its own `SingleChildScrollView`) and `Expanded(flex:1)` to `SingleChildScrollView(StitchControlsPanel)` (bottom half). Top image strip is **not** rendered on this size class. | same, fluid (fills container); side column stays in `[380, 480]` dp with the same 50/50 split |
 | grid_editor | height-first `Column`: `Expanded(Center(AspectRatio(1, canvas)))` + `Expanded(chrome[GridControlsPanel])` — chrome (`surfaceContainerLow` + `outlineVariant` + 16 dp rounded; matches the side-panel chrome at expanded / large) fills the column's remaining height so no bare page background leaks below it. The outer `Padding` uses 16 dp on every side; FAB clearance lives **inside** the chrome's `SingleChildScrollView` (`hasSource ? 80 : 16` dp) so the chrome's visible bottom rests on body bottom − 16 dp (no page bleed under the bottom nav). See "Editor body — height-first Column skeleton" pattern + "FAB clearance for chrome-wrapped controls slots lives in the scrollview" convention. | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in the **same** surface chrome that fills the row height, scrolls internally (default 16 dp scrollview bottom padding — FAB floats over the canvas column, not the docked panel). | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
 
 When adding a new top-level screen, fill in this table for it.

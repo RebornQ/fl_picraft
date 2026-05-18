@@ -93,15 +93,27 @@ class ImageImportController
     state = AsyncData(List.unmodifiable(next));
   }
 
-  /// Reorder the import list. Used by the editor's drag-to-reorder UI.
+  /// Reorder the import list. The `newIndex` follows the
+  /// `reorderables` package convention (post-removal coordinate
+  /// space — i.e. the index where the moved item should land
+  /// **after** the original slot is removed). This matches the
+  /// package's own example code (see `reorderables` 0.6.0
+  /// `example/lib/{row,column}_example*.dart`: `removeAt(oldIndex);
+  /// insert(newIndex, item);` with no offset adjustment).
+  ///
+  /// **DO NOT** confuse with Flutter's built-in `ReorderableListView`
+  /// which uses pre-removal coordinates and expects callers to do
+  /// `newIndex > oldIndex ? newIndex - 1 : newIndex`. The two
+  /// conventions are different by exactly one. Project-wide we
+  /// commit to the reorderables convention because every drag-reorder
+  /// UI in the editor uses `package:reorderables`.
   void reorder(int oldIndex, int newIndex) {
     final current = state.valueOrNull;
     if (current == null) return;
     if (oldIndex < 0 || oldIndex >= current.length) return;
-    final adjusted = newIndex > oldIndex ? newIndex - 1 : newIndex;
     final next = [...current];
     final item = next.removeAt(oldIndex);
-    next.insert(adjusted.clamp(0, next.length), item);
+    next.insert(newIndex.clamp(0, next.length), item);
     state = AsyncData(List.unmodifiable(next));
   }
 

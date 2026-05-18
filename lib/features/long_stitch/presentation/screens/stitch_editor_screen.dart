@@ -14,6 +14,7 @@ import '../widgets/stitch_controls_panel.dart';
 import '../widgets/stitch_controls_sheet.dart';
 import '../widgets/stitch_image_strip.dart';
 import '../widgets/stitch_preview_canvas.dart';
+import '../widgets/stitch_vertical_image_list.dart';
 
 /// Lower bound for the docked controls panel on expanded / large windows.
 ///
@@ -53,8 +54,8 @@ const double _kStitchControlsPanelMaxWidth = 480;
 /// |------------|--------|
 /// | compact (<600 dp) | image strip on top, canvas in the middle (fills the Expanded slot, surface scrolls internally for tall canvases), controls docked as a bottom [StitchControlsSheet] |
 /// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the touch sheet reachable |
-/// | expanded (840–1200 dp) | image strip on top; below it a two-column [Row] with the canvas on the left (fills the Expanded slot) and a fluid [StitchControlsPanel] docked on the right (width = `clamp(380, container * 0.25, 480)`) |
-/// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp |
+/// | expanded (840–1200 dp) | two-column [Row]: canvas on the left (fills the Expanded slot) and a fluid right column docked at `clamp(380, container * 0.25, 480)` dp — the right column splits 50/50 between a vertical [StitchVerticalImageList] (top) and the [StitchControlsPanel] (bottom), each with its own internal scroll. The top image strip is **not** rendered on this size class. |
+/// | large (≥1200 dp) | same as expanded — body fills the available width, side column stays in `[380, 480]` dp |
 class StitchEditorScreen extends ConsumerWidget {
   const StitchEditorScreen({super.key});
 
@@ -135,37 +136,44 @@ class _StitchEditorBody extends StatelessWidget {
         sizeClass == WindowSizeClass.large;
 
     if (useSidePanel) {
-      return Column(
-        children: [
-          const StitchImageStrip(),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Fluid panel width: 25% of the row, clamped to
-                // [380, 480]. Keeping the math in one LayoutBuilder
-                // (instead of `Flexible` + `ConstrainedBox` games)
-                // sidesteps the gotcha where the panel would be
-                // squeezed by `Expanded(canvas)` competing for space.
-                final panelWidth = (constraints.maxWidth * 0.25).clamp(
-                  _kStitchControlsPanelMinWidth,
-                  _kStitchControlsPanelMaxWidth,
-                );
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          // Fluid side-column width: 25% of the row, clamped to
+          // [380, 480]. Keeping the math in one LayoutBuilder
+          // (instead of `Flexible` + `ConstrainedBox` games)
+          // sidesteps the gotcha where the column would be
+          // squeezed by `Expanded(canvas)` competing for space.
+          final panelWidth = (constraints.maxWidth * 0.25).clamp(
+            _kStitchControlsPanelMinWidth,
+            _kStitchControlsPanelMaxWidth,
+          );
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Expanded(child: StitchPreviewCanvas()),
+              SizedBox(
+                width: panelWidth,
+                // 50/50 split between the vertical selected-images list
+                // (top) and the controls panel (bottom). Each half owns
+                // its own SingleChildScrollView so the two scroll
+                // regions stay independent — required by the
+                // responsive-layout spec ("side panel content must
+                // scroll independently") and avoids RenderBox overflow
+                // when either half has more content than its share.
+                child: const Column(
                   children: [
-                    const Expanded(child: StitchPreviewCanvas()),
-                    SizedBox(
-                      width: panelWidth,
-                      child: const SingleChildScrollView(
+                    Expanded(child: StitchVerticalImageList()),
+                    Expanded(
+                      child: SingleChildScrollView(
                         child: StitchControlsPanel(),
                       ),
                     ),
                   ],
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              ),
+            ],
+          );
+        },
       );
     }
 

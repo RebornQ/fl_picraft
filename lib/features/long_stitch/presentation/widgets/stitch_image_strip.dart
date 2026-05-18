@@ -6,6 +6,7 @@ import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/domain/repositories/image_import_repository.dart'
     show kMaxImportSessionImages;
 import '../providers/stitch_editor_provider.dart';
+import 'stitch_clear_confirm.dart';
 
 /// Horizontal scrollable strip of imported images, supporting drag
 /// reorder (via `reorderables`) and a per-card remove button.
@@ -33,31 +34,9 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
   bool _expanded = true;
 
   Future<void> _confirmClear(BuildContext context, int imageCount) async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('清空已选图片'),
-          content: Text('将移除当前 $imageCount 张图片，此操作不可撤销。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.error,
-                foregroundColor: colorScheme.onError,
-              ),
-              child: const Text('清空'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed == true) {
+    final confirmed = await confirmStitchClear(context, imageCount);
+    if (!mounted) return;
+    if (confirmed) {
       ref.read(stitchEditorControllerProvider.notifier).clear();
     }
   }
@@ -172,7 +151,7 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
                       // index here would invalidate the key on every
                       // reorder and break the drag animation.
                       key: ObjectKey(state.images[i]),
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.all(4),
                       child: _ImageCard(
                         index: i,
                         image: state.images[i],

@@ -171,7 +171,62 @@ void main() {
       expect(list.map((i) => i.sourcePath).toList(), ['a', 'c']);
     });
 
-    test('reorder swaps positions correctly', () async {
+    test(
+      'reorder moves item forward across the list (post-removal index)',
+      () async {
+        when(() => repo.pickFromGallery(limit: any(named: 'limit'))).thenAnswer(
+          (_) async => ImportSuccess([_image('a'), _image('b'), _image('c')]),
+        );
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        await container.read(imageImportControllerProvider(kind).future);
+        await container
+            .read(imageImportControllerProvider(kind).notifier)
+            .pickFromGallery();
+
+        // reorderables convention: newIndex is the post-removal index
+        // where the moved item should land. Moving 'a' (oldIndex=0) to
+        // the end of a 3-item list = newIndex=2 (after removing 'a' the
+        // remaining list is length 2, so position 2 means "append").
+        container
+            .read(imageImportControllerProvider(kind).notifier)
+            .reorder(0, 2);
+
+        final list = container.read(importedImagesProvider(kind));
+        expect(list.map((i) => i.sourcePath).toList(), ['b', 'c', 'a']);
+      },
+    );
+
+    test(
+      'reorder moves item one slot forward (the user-reported bug)',
+      () async {
+        when(() => repo.pickFromGallery(limit: any(named: 'limit'))).thenAnswer(
+          (_) async => ImportSuccess([_image('a'), _image('b'), _image('c')]),
+        );
+
+        final container = makeContainer();
+        addTearDown(container.dispose);
+        await container.read(imageImportControllerProvider(kind).future);
+        await container
+            .read(imageImportControllerProvider(kind).notifier)
+            .pickFromGallery();
+
+        // Move 'a' (oldIndex=0) to land just after 'b' — under the
+        // reorderables convention this is newIndex=1 (post-removal:
+        // remove 'a' from [a,b,c] → [b,c]; insert at 1 → [b, a, c]).
+        // Regression for the bug where the previous `newIndex - 1`
+        // double-adjustment short-circuited this move to a no-op.
+        container
+            .read(imageImportControllerProvider(kind).notifier)
+            .reorder(0, 1);
+
+        final list = container.read(importedImagesProvider(kind));
+        expect(list.map((i) => i.sourcePath).toList(), ['b', 'a', 'c']);
+      },
+    );
+
+    test('reorder moves item backward (post-removal index)', () async {
       when(() => repo.pickFromGallery(limit: any(named: 'limit'))).thenAnswer(
         (_) async => ImportSuccess([_image('a'), _image('b'), _image('c')]),
       );
@@ -183,15 +238,16 @@ void main() {
           .read(imageImportControllerProvider(kind).notifier)
           .pickFromGallery();
 
-      // Move 'a' to the end (ListView.reorder convention: newIndex
-      // counts the gap *after* the destination, so newIndex=3 inserts
-      // at the end of a 3-item list).
+      // Move 'c' (oldIndex=2) to the front — newIndex=0 under either
+      // convention (backward moves are unaffected by the bug; this
+      // test guards against any future "fix" that overshoots in the
+      // other direction).
       container
           .read(imageImportControllerProvider(kind).notifier)
-          .reorder(0, 3);
+          .reorder(2, 0);
 
       final list = container.read(importedImagesProvider(kind));
-      expect(list.map((i) => i.sourcePath).toList(), ['b', 'c', 'a']);
+      expect(list.map((i) => i.sourcePath).toList(), ['c', 'a', 'b']);
     });
 
     test('clear empties the list', () async {

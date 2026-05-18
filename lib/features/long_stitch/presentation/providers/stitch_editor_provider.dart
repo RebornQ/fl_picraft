@@ -136,10 +136,12 @@ class StitchEditorController extends Notifier<StitchEditorState> {
 
   /// Reorder the editor list. Delegates to the import controller so
   /// other features observing `importedImagesProvider(.stitch)` see
-  /// the same order. The `newIndex` follows the standard Flutter
-  /// reorderable convention (post-removal coordinate space); the
-  /// import controller handles the `> oldIndex ? - 1 : 0` adjustment
-  /// internally.
+  /// the same order.
+  ///
+  /// `newIndex` follows the `reorderables` package convention
+  /// (post-removal coordinate space — see `ImageImportController.reorder`
+  /// for the convention's authoritative definition and the reason we
+  /// commit to it project-wide).
   void reorder(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= state.images.length) return;
     ref
