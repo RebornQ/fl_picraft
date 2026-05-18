@@ -1146,3 +1146,36 @@ Capped the compact/medium StitchControlsSheet height at max(200, min(screenHeigh
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: Stitch subtitle band — reset percent on first-image re-pick
+
+**Date**: 2026-05-18
+**Task**: Stitch subtitle band — reset percent on first-image re-pick
+**Branch**: `main`
+
+### Summary
+
+Added empty->non-empty edge detection in StitchEditorController's ref.listen so subtitleBandHeightPercent resets to its default when the user clears all images and picks a fresh batch. The reset is unconditional (does not gate on subtitleOnlyMode) and guarded by a three-predicate AND (prev empty/null, next non-empty, state.images empty) so the listener's first-fire on a seeded editor does not clobber the percent. Added 7 provider-level tests including a non-trivial first-fire-guard test. Captured the listener idiom in spec/frontend/state-management.md with a counter-example pointing at grid_editor_provider's pure-mirror form.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ff0b56e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

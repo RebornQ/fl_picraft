@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 34
+- **Total Sessions**: 35
 - **Last Active**: 2026-05-18
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1148 | Active |
+| `journal-1.md` | ~1181 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 35 | 2026-05-18 | Stitch subtitle band — reset percent on first-image re-pick | `ff0b56e` | `main` |
 | 34 | 2026-05-18 | Long-stitch toolbar height cap + subtitle-mode polish | `ac9a1ef`, `72f0f4d`, `13f09af` | `main` |
 | 33 | 2026-05-18 | 改进长图拼接模式 UX | `a5aafda` | `main` |
 | 32 | 2026-05-18 | fix grid cell image pan freeze at default scale | `e545551`, `13e30ba` | `main` |
