@@ -1179,3 +1179,36 @@ Added empty->non-empty edge detection in StitchEditorController's ref.listen so 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 36: Long-image stitch: horizontal-mode tweaks (hide divider + height-fill scroll)
+
+**Date**: 2026-05-18
+**Task**: Long-image stitch: horizontal-mode tweaks (hide divider + height-fill scroll)
+**Branch**: `main`
+
+### Summary
+
+Tightened the long-image stitch horizontal mode. Panel: hid the section Divider when subtitle module is gone (it was dangling between mode picker and spacing slider). Canvas: drove SingleChildScrollView.scrollDirection off StitchMode and added _PreviewSurface.fillAxis so horizontal mode height-fills the viewport and a wide canvas pans rightward; narrow canvas stays centered. Added widget tests for Divider visibility per mode + horizontal-mode scroll axis / extent / center / height-fill. 378 tests + flutter analyze green.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7cfa910` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
