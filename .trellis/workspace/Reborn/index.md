@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 36
+- **Total Sessions**: 37
 - **Last Active**: 2026-05-18
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1214 | Active |
+| `journal-1.md` | ~1247 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 37 | 2026-05-18 | Long-stitch wide-screen vertical selected list + reorder/scroll fixes | `3a024a3` | `main` |
 | 36 | 2026-05-18 | Long-image stitch: horizontal-mode tweaks (hide divider + height-fill scroll) | `7cfa910` | `main` |
 | 35 | 2026-05-18 | Stitch subtitle band — reset percent on first-image re-pick | `ff0b56e` | `main` |
 | 34 | 2026-05-18 | Long-stitch toolbar height cap + subtitle-mode polish | `ac9a1ef`, `72f0f4d`, `13f09af` | `main` |

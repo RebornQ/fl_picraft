@@ -1212,3 +1212,36 @@ Tightened the long-image stitch horizontal mode. Panel: hid the section Divider 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 37: Long-stitch wide-screen vertical selected list + reorder/scroll fixes
+
+**Date**: 2026-05-18
+**Task**: Long-stitch wide-screen vertical selected list + reorder/scroll fixes
+**Branch**: `main`
+
+### Summary
+
+宽屏（>=840dp）长图拼接编辑器右侧侧栏对半分纵向已选列表 + 控制栏；新增 StitchVerticalImageList 组件、共享 confirmStitchClear helper；修复两个真实运行 bug：reorderables 0.6.0 post-removal index 与 controller 的 pre->post 调整冲突导致前->后拖拽错位、SingleChildScrollView(primary: true) 让 ReorderableColumn 双 attach 同一个 ScrollPosition 触发 _positions.length==1 崩溃。responsive-layout.md 同步更新。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3a024a3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
