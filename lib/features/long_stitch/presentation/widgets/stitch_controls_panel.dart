@@ -124,7 +124,13 @@ class StitchControlsPanel extends ConsumerWidget {
                 ),
               ],
             ),
-          const Divider(height: 24),
+          // Section divider — separates the subtitle module (toggle /
+          // band-height slider / auto-trim toggle) from the universal
+          // sliders below. Hidden in horizontal mode where the entire
+          // subtitle module is gone, since a divider with nothing
+          // above it just dangles between mode picker and spacing
+          // slider.
+          if (subtitleApplicable) const Divider(height: 24),
           // Spacing slider — hidden in subtitle mode because the layout
           // algorithm butts bands together and the slider would have
           // no visible effect.

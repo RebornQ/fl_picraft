@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/stitch_editor_state.dart';
+import '../../domain/entities/stitch_mode.dart';
 import '../../domain/usecases/stitch_layout.dart';
 import '../providers/stitch_editor_provider.dart';
 
@@ -15,11 +16,19 @@ import '../providers/stitch_editor_provider.dart';
 /// the user taps "导出".
 ///
 /// Owns its own scroll behavior — the grey surface always fills the
-/// height supplied by the surrounding [Expanded] (no dead band below
-/// the canvas when the assembled image is short), and a tall-aspect
-/// canvas overflows the viewport upward via the inner
-/// [SingleChildScrollView]. Callers MUST NOT wrap this widget in
-/// another [SingleChildScrollView].
+/// extent supplied by the surrounding [Expanded] (no dead band beside
+/// the canvas when the assembled image is short), and the scroll axis
+/// follows the active [StitchMode]:
+///
+/// * vertical mode → outer scroll runs on [Axis.vertical]; a tall-aspect
+///   canvas overflows the viewport upward.
+/// * horizontal mode → outer scroll runs on [Axis.horizontal]; the
+///   canvas fills the viewport height and a wide-aspect canvas
+///   overflows the viewport rightward. When the canvas is narrower than
+///   the viewport it stays horizontally centered.
+///
+/// Callers MUST NOT wrap this widget in another [SingleChildScrollView]
+/// on either axis.
 class StitchPreviewCanvas extends ConsumerWidget {
   const StitchPreviewCanvas({super.key});
 
@@ -29,18 +38,33 @@ class StitchPreviewCanvas extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
+    // Drive the outer scroll axis off the active mode so horizontal
+    // mode gets a horizontal scroll surface for wide-aspect canvases
+    // and vertical mode keeps the existing upward-overflow behavior.
+    // Exhaustive switch (no default) so a future StitchMode variant
+    // compile-errors here instead of silently falling through.
+    final scrollAxis = switch (state.mode) {
+      StitchMode.vertical => Axis.vertical,
+      StitchMode.horizontal => Axis.horizontal,
+    };
+    final isHorizontal = scrollAxis == Axis.horizontal;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        // The grey surface MUST fill the full height that the parent
-        // Expanded gives us — without `minHeight: constraints.maxHeight`
-        // short-aspect canvases collapse the Container to the assembled
-        // image's intrinsic height and leave dead space below it. The
-        // SingleChildScrollView wraps the ConstrainedBox so the surface
-        // still scrolls when the (long-aspect) canvas grows past the
-        // viewport.
+        // The grey surface MUST fill the full extent that the parent
+        // Expanded gives us on the cross axis — without the matching
+        // `min*` constraint, short canvases collapse the Container to
+        // the assembled image's intrinsic size and leave dead space
+        // beside it. The SingleChildScrollView wraps the
+        // ConstrainedBox so the surface still scrolls when the canvas
+        // grows past the viewport on the active axis.
         return SingleChildScrollView(
+          scrollDirection: scrollAxis,
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            constraints: BoxConstraints(
+              minWidth: isHorizontal ? constraints.maxWidth : 0,
+              minHeight: isHorizontal ? 0 : constraints.maxHeight,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
@@ -48,7 +72,10 @@ class StitchPreviewCanvas extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: Center(
                 child: state.hasImages
-                    ? _PreviewSurface(state: state)
+                    ? _PreviewSurface(
+                        state: state,
+                        fillAxis: isHorizontal ? Axis.vertical : null,
+                      )
                     : _EmptyHint(
                         textTheme: textTheme,
                         colorScheme: colorScheme,
@@ -91,9 +118,21 @@ class _EmptyHint extends StatelessWidget {
 }
 
 class _PreviewSurface extends StatelessWidget {
-  const _PreviewSurface({required this.state});
+  const _PreviewSurface({required this.state, this.fillAxis});
 
   final StitchEditorState state;
+
+  /// When non-null, the surface sizes itself by **filling** the given
+  /// axis and deriving the other axis from the canvas aspect ratio.
+  ///
+  /// * `Axis.vertical` → height-driven sizing (used by horizontal
+  ///   stitch mode so the canvas fills the viewport height and a
+  ///   wide-aspect canvas overflows the viewport rightward).
+  /// * `null` → legacy contain behavior (used by vertical stitch mode
+  ///   where the canvas fits inside the available area and a
+  ///   tall-aspect canvas overflows upward via the outer
+  ///   [SingleChildScrollView]).
+  final Axis? fillAxis;
 
   @override
   Widget build(BuildContext context) {
@@ -181,29 +220,47 @@ class _PreviewSurface extends StatelessWidget {
       builder: (context, constraints) {
         // Compute the displayed size by fitting the natural canvas
         // (canvasWidth × canvasHeight) inside the available area while
-        // preserving aspect ratio. Mirrors the previous `FittedBox` +
-        // fixed `ConstrainedBox(maxWidth: 360, maxHeight: 480)` look
-        // but lets the preview scale up with the surrounding panel
-        // (tablet / desktop / 4K). When constraints are unbounded on
-        // either axis (the outer canvas now owns its own
-        // SingleChildScrollView, so this _PreviewSurface receives a
-        // maxHeight of infinity), we fall back to the cross-axis bound
-        // so the canvas still has a well-defined size — and tall-aspect
-        // canvases overflow the viewport upward, scrolling via the
-        // outer canvas widget's SingleChildScrollView.
+        // preserving aspect ratio. Two sizing modes:
+        //
+        // * fillAxis == Axis.vertical (horizontal stitch mode) →
+        //   height-driven. The canvas fills the viewport height and
+        //   derives its width from the aspect ratio; a wide canvas
+        //   then overflows the outer SingleChildScrollView's
+        //   horizontal extent.
+        // * fillAxis == null (vertical stitch mode) → contain. Mirrors
+        //   the previous behavior: fit the canvas inside the available
+        //   area while preserving aspect. When the parent is
+        //   unbounded on either axis (the outer canvas owns its own
+        //   SingleChildScrollView, so this _PreviewSurface receives a
+        //   maxHeight of infinity when vertical mode scrolls
+        //   vertically), fall back to the cross-axis bound so the
+        //   canvas still has a well-defined size — and tall-aspect
+        //   canvases overflow the viewport upward, scrolling via the
+        //   outer canvas widget's SingleChildScrollView.
         final aspect = canvasWidth / canvasHeight;
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : canvasWidth;
-        final maxHeight = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : maxWidth / aspect;
-
-        var displayWidth = maxWidth;
-        var displayHeight = displayWidth / aspect;
-        if (displayHeight > maxHeight) {
-          displayHeight = maxHeight;
+        final double displayWidth;
+        final double displayHeight;
+        if (fillAxis == Axis.vertical) {
+          final maxH = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : canvasHeight;
+          displayHeight = maxH;
           displayWidth = displayHeight * aspect;
+        } else {
+          final maxWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : canvasWidth;
+          final maxHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : maxWidth / aspect;
+          var w = maxWidth;
+          var h = w / aspect;
+          if (h > maxHeight) {
+            h = maxHeight;
+            w = h * aspect;
+          }
+          displayWidth = w;
+          displayHeight = h;
         }
 
         return SizedBox(

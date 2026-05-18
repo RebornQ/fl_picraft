@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
+import 'package:fl_picraft/features/long_stitch/domain/entities/stitch_mode.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/providers/stitch_editor_provider.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_panel.dart';
 import 'package:flutter/material.dart';
@@ -130,6 +131,67 @@ void main() {
           isTrue,
         );
         expect(find.text('已开启自动剪裁黑边，请检查预览效果'), findsOneWidget);
+      },
+    );
+  });
+
+  group('StitchControlsPanel — section divider per mode', () {
+    testWidgets(
+      'vertical mode renders the section Divider between subtitle module and universal sliders',
+      (tester) async {
+        await tester.pumpWidget(
+          _pumpHarness(
+            images: [
+              _stub(),
+              _stub(tag: 'b'),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Default state: vertical mode. Subtitle module is present
+        // (toggle row visible) so the divider should anchor between
+        // the subtitle module and the universal-sliders block below.
+        expect(find.byType(Divider), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'horizontal mode hides the section Divider since the subtitle module is gone',
+      (tester) async {
+        final container = ProviderContainer(
+          overrides: [
+            importedImagesProvider(
+              ImageImportSessionKind.stitch,
+            ).overrideWith((ref) => [_stub(), _stub(tag: 'b')]),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              home: Scaffold(
+                body: SingleChildScrollView(child: StitchControlsPanel()),
+              ),
+            ),
+          ),
+        );
+
+        container
+            .read(stitchEditorControllerProvider.notifier)
+            .setMode(StitchMode.horizontal);
+        await tester.pumpAndSettle();
+
+        // Subtitle toggle / band slider / auto-trim toggle all hidden in
+        // horizontal mode, so the section divider should disappear too —
+        // it otherwise dangles between the mode segmented and the
+        // spacing slider with nothing to separate.
+        expect(find.byType(Divider), findsNothing);
+        // Sanity-check the universal sliders are still rendered.
+        expect(find.text('图片间距'), findsOneWidget);
+        expect(find.text('边框宽度'), findsOneWidget);
       },
     );
   });
