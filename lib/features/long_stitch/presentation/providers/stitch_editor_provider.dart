@@ -36,7 +36,26 @@ class StitchEditorController extends Notifier<StitchEditorState> {
     ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
       // Replace the editor's image list verbatim. The import
       // controller already enforces the 20-image cap.
-      state = state.copyWith(images: next);
+      //
+      // Movie-subtitle band-height reset (PRD §3.3 — see
+      // `.trellis/tasks/05-18-subtitle-reset-on-reselect`): the user-
+      // tuned `subtitleBandHeightPercent` is tied to *the current
+      // first image's scaled height*. When the editor's image list
+      // transitions from empty to non-empty (user re-picks after a
+      // clear / remove-all), the previous percent no longer matches
+      // the new batch's visual geometry, so we reset it to the
+      // default. The `state.images.isEmpty` guard prevents the
+      // listener's first-fire (where `prev` is null) from clobbering
+      // the percent on initial mount with a pre-existing list.
+      final wasEmpty = prev == null || prev.isEmpty;
+      final shouldResetSubtitle =
+          wasEmpty && next.isNotEmpty && state.images.isEmpty;
+      state = state.copyWith(
+        images: next,
+        subtitleBandHeightPercent: shouldResetSubtitle
+            ? kDefaultSubtitleBandHeightPercent
+            : state.subtitleBandHeightPercent,
+      );
     });
     return StitchEditorState.initial().copyWith(images: initial);
   }

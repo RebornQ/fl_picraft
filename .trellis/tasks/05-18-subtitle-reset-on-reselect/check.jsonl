@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Defines `flutter analyze` + `flutter test` PR gates and Riverpod test idioms — both must be green before completion."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Spec index — cross-checks whether the change touches any cross-cutting convention (state, responsive, error handling) that needs additional spec compliance."}
+{"file": ".trellis/tasks/05-18-subtitle-reset-on-reselect/prd.md", "reason": "Acceptance criteria checklist used to verify the implementation against scope (especially the no-reset cases: reorder, mid-list remove, initial mount with seed)."}

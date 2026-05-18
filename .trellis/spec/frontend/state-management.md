@@ -396,6 +396,83 @@ ProviderScope(
 
 ---
 
+### Pattern: Mirror a family provider with `ref.listen` — guard the first-fire when resetting on an `empty → non-empty` edge
+
+**Problem**: A feature controller (e.g. `StitchEditorController`, `GridEditorController`) mirrors the image-import family
+provider so its own state stays in sync with picks / drops happening outside the editor's own surface. The standard shape
+inside `build()` is:
+
+```dart
+final initial = ref.read(importedImagesProvider(kind));
+ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) { /* sync */ });
+return EditorState.initial().copyWith(images: initial);
+```
+
+This works as long as the listener only **mirrors** the list. But the moment the listener also needs to **react to an
+edge** — most commonly: "reset a sticky, first-image-dependent parameter when the user clears all and picks a fresh
+batch" — naïve `prev.isEmpty && next.isNotEmpty` is wrong, because on Riverpod's **first listener invocation `prev == null`**
+(not `[]`). If the editor mounts onto an already-non-empty session and the first user action is to pick more images, the
+listener fires once with `prev == null` and a stale "empty→non-empty" reading clobbers a value the user never intended
+to reset.
+
+**Solution**: AND the edge predicate with a snapshot of the editor's **own** state taken at the listener's call site.
+The editor's `state.images` reflects what `build()` actually seeded; it is the source of truth for "did the editor ever
+hold images before this fire?".
+
+```dart
+// lib/features/long_stitch/presentation/providers/stitch_editor_provider.dart
+ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
+  // `prev == null` on the very first listener invocation (Riverpod
+  // semantics) — so `prev.isEmpty` alone says "was empty" even when the
+  // editor was actually seeded from a pre-existing session. AND with
+  // `state.images.isEmpty` so the reset fires only on a real
+  // user-driven "all cleared → pick again" transition.
+  final wasEmpty = prev == null || prev.isEmpty;
+  final shouldReset = wasEmpty && next.isNotEmpty && state.images.isEmpty;
+  state = state.copyWith(
+    images: next,
+    subtitleBandHeightPercent: shouldReset
+        ? kDefaultSubtitleBandHeightPercent
+        : state.subtitleBandHeightPercent,
+  );
+});
+```
+
+**When this pattern applies**:
+
+- A sticky parameter is semantically bound to a property of the *current first image* (e.g. its scaled height, its
+  aspect ratio, its dominant color). A new batch invalidates the binding.
+- The reset must NOT fire on append, reorder, or non-first removal — only on a true `empty → non-empty` re-entry.
+
+**When NOT to use**:
+
+- The listener only mirrors `next` into local state with no edge-driven side effect — the simpler shape used by
+  `grid_editor_provider.dart`'s `_syncSourceFromImports` (which keys off `next` alone) is fine; no guard needed.
+- The "edge" you care about is `non-empty → empty` instead. That direction is symmetric in `prev`/`next` and `prev`'s
+  null case is safe because `next.isEmpty` doesn't depend on `prev` at all.
+
+**Required tests** (the one that actually validates the guard is non-obvious):
+
+- `empty → first image picked`: percent resets to default even if `setSubtitleBandHeightPercent` had previously customized it.
+- `non-empty → append`: percent unchanged.
+- `clear() → repick`, `remove-all-one-by-one → repick`: percent resets.
+- `reorder` / `remove non-first`: percent unchanged.
+- **First-fire guard**: pre-seed the import controller with a non-empty list *before* building the editor controller,
+  then customize the percent, then add more images. The listener's first fire has `prev == null` + `next.isNotEmpty`
+  but `state.images` is non-empty — assert the percent is **not** reset. Without the `state.images.isEmpty` guard this
+  assertion fails; with it the test is genuine, not a tautology.
+
+**Where this lives**:
+
+- `lib/features/long_stitch/presentation/providers/stitch_editor_provider.dart` — the listener with the guard.
+- `test/features/long_stitch/presentation/providers/stitch_editor_provider_test.dart` — the first-fire guard test
+  in particular.
+- `lib/features/grid/presentation/providers/grid_editor_provider.dart` — counter-example (pure-mirror form, no guard
+  needed).
+
+
+---
+
 ## Common Mistakes
 
 ### ❌ Don't

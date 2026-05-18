@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod Notifier + ref.listen patterns; importedImagesProvider session-kind contract — the edge-detection lives in the existing listener inside StitchEditorController.build()."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Provider-level test conventions (ProviderContainer + override) and what to assert for a Notifier under family-scoped imports."}
+{"file": ".trellis/tasks/05-18-subtitle-reset-on-reselect/prd.md", "reason": "Task PRD with locked decision (unconditional reset on empty→non-empty edge), acceptance criteria, and code-shape reference."}
