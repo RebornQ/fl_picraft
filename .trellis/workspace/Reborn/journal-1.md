@@ -1245,3 +1245,38 @@ Tightened the long-image stitch horizontal mode. Panel: hid the section Divider 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 38: Rename app display name to Fl PiCraft
+
+**Date**: 2026-05-19
+**Task**: Rename app display name to Fl PiCraft
+**Branch**: `main`
+
+### Summary
+
+Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS / Linux / Windows / Web, and renamed the macOS build artifact to Fl PiCraft.app via PRODUCT_NAME + xcscheme/pbxproj sync. Verified with flutter build macos --debug -> build/macos/Build/Products/Debug/Fl PiCraft.app (CFBundleExecutable=Fl PiCraft). Technical identifiers (pubspec name, applicationId, bundle id, Linux/Windows BINARY_NAME) intentionally preserved per PRD Out of Scope. Drive-by: dropped a pre-existing unused colorScheme local in stitch_editor_screen as a separate fix(lint) commit.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70dda6b` | (see git log) |
+| `104a2e9` | (see git log) |
+| `7d2d4e8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
