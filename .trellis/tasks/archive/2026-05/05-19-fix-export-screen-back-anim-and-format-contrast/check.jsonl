@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Authoritative lint/test/format checklist used to gate the change before declaring done."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget + MD3 conventions; verify selected-state contrast and StatefulShellRoute modal behavior remain compliant."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Verify the export body layout (compact vs medium) is still correct after the change."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Sealed/enum dispatch on ExportSourceKind in the back-press fallback must remain exhaustive."}

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec entrypoint — design token authority + guideline index, needed when touching theme-aware components."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget patterns + Material Design 3 conventions; covers StatefulShellRoute usage and selected-state styling for segmented controls."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod provider conventions; relevant because `currentExportSourceKindProvider` is the cross-screen handoff used as the deep-link fallback."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "WindowSizeClass + sheet/panel rules; ExportScreen body layout follows these conventions and should not regress."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint/test/format gates that the implementation must satisfy before completion."}
