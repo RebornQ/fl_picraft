@@ -1348,3 +1348,36 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 41: fix(platform): google_fonts macOS sandbox + Android release manifest
+
+**Date**: 2026-05-19
+**Task**: fix(platform): google_fonts macOS sandbox + Android release manifest
+**Branch**: `main`
+
+### Summary
+
+用户报告 macOS 上 google_fonts 运行时 fetch 失败(SocketException Operation not permitted)。根因是 macOS 沙盒只开了 network.server 没开 network.client。修复方案 B(用户选项):给 Debug/Release entitlements 同补 network.client。Audit 阶段意外发现 Android main/AndroidManifest.xml 漏声明 INTERNET——Flutter 模板仅向 debug/profile manifest 注入该权限,release 合并清单不含,任何运行时网络 fetch 在 release apk 都会静默失败。顺手一并修复。Spec 沉淀两个 Critical Gotcha 章节 + Error Matrix 两行,用 captured-from 引用本任务。验证:flutter analyze 零问题、397 测试全过、flutter run -d macos 控制台零字体警告、runtime errors 零条目。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ce69ec8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
