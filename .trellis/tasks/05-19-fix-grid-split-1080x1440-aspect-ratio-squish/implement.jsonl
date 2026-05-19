@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Pattern: Isolate-safe rasterizer in data/ — bakeOrientation 顶层函数必须可被 compute() 安全调用，不能依赖 Flutter binding/BuildContext"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Image.memory / BoxFit 使用规范，确认显示层不需要再调整 fit 策略"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "归一化失败路径（decode 抛错 / orientation 读取异常）应继续返回 null 让上层报 InvalidImageData，不可静默崩溃"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "image: ^4.3.0 已可用 bakeOrientation；不引入新依赖"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "在 normalize 一处修复，下游 feature 零改动 — 复用思路的范式"}
