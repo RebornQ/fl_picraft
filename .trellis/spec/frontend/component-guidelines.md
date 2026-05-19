@@ -661,6 +661,56 @@ Container(
 
 **Audit during dark-mode review**: grep for `withValues(alpha:` / `withOpacity(` inside `lib/features/**` and verify each one is either (a) a genuine transparency over dynamic content, or (b) needs an `alphaBlend` rewrite.
 
+### Gotcha: EXIF Orientation 让 `Image.memory` 与 `package:image` 元数据方向不一致
+
+**Symptom**: 一张相机/手机拍摄的竖图（例如 1080×1440 含 EXIF Orientation=6）被导入后，预览中纵横比明显错误（被横向或纵向压扁）；或者预览看上去对了，但导出 PNG 旋转了 90°。改变 `BoxFit` / `AspectRatio` 都无法消除压扁。
+
+**Cause**: 图像处理链路里**渲染层和数据层对 EXIF Orientation 的应用策略不同**：
+
+- Flutter `Image.memory` / `Image.file` 底层走 `ui.instantiateImageCodec`，**会**自动按 EXIF Orientation 旋转像素后再贴图；用户看到的"自然"尺寸 = 旋转后的宽高
+- `package:image` 的 `startDecode` / `findDecoderForData` 只读 SOF 头，**不**应用 Orientation；返回的 `width / height` 是原始字节中的像素方向。某些版本（image:4.8.0+）的 `decodeImage` 在 JPEG 全像素解码阶段会自动烤入 orientation，但 metadata-only API 不会
+
+如果在 `data/` 层用 `image.startDecode` 读到 `width=1080, height=1440` 存进 domain entity，再到 widget 里用 `Positioned(width, height) + BoxFit.fill` 显示一张已被 Flutter 旋转过的图，宽高就会被强行拉伸 → 视觉压扁。**同根因下渲染器（仍用 `image.decodeImage` 走 raw 坐标系）裁切出的字节方向也错了** —— 是个连带的隐性 bug。
+
+**Fix**: 在 `data/` 层归一化时一次性把 Orientation 烤进像素并清除 tag，让 metadata 与显示视角永远一致。`package:image` 提供的 `img.bakeOrientation()` 是幂等的（无 tag 时直接返回原图），可以安全无脑调用：
+
+```dart
+// ✅ Correct — bake orientation in the data layer once, downstream layers
+// see consistent metadata. See `lib/features/image_import/data/utils/
+// image_normalizer.dart::bakeOrientationToBytes` for the isolate-safe
+// reference implementation.
+@pragma('vm:entry-point')  // ensure compute() can find it
+({Uint8List bytes, int width, int height})? bakeOrientationToBytes(
+  BakeOrientationRequest req,
+) {
+  if (req.orientation == 1) return null;          // fast path: no work
+  final decoded = img.decodeImage(req.bytes);     // image:4.8.0 may already bake
+  if (decoded == null) return null;
+  final baked = img.bakeOrientation(decoded);     // idempotent — safe to chain
+  final encoded = req.mimeType == 'image/png'
+      ? img.encodePng(baked)
+      : img.encodeJpg(baked, quality: _kJpegBakeQuality);  // quality=95 ≈ visually lossless
+  return (bytes: Uint8List.fromList(encoded), width: baked.width, height: baked.height);
+}
+
+// ❌ Wrong — read metadata only, store raw dimensions, let Image.memory
+// auto-rotate at display time. Metadata ≠ displayed aspect → BoxFit.fill
+// stretches the rotated pixels into the wrong rectangle.
+final info = decoder.startDecode(bytes);
+return ImportedImage(bytes: bytes, width: info.width, height: info.height);
+```
+
+**Fast-path discipline**: orientation == 1 / no EXIF / non-JPEG 必须走零开销快路径（不解码、不重编码、`bytes` 保持 same-instance），否则每次普通 PNG 导入也要付一次解码-编码成本。用 `same(bytes)` 在单测里硬断言。
+
+**Failure handling**: bake 任意环节失败（损坏 EXIF / unsupported encoder） → 返回 `null`，让 normalizer 用**原始字节 + raw metadata** 兜底（pre-fix 行为），不要丢掉这次 import 也不要抛异常。
+
+**Cross-layer implication**: 一旦 `data/` 层烤入 orientation，**所有**消费 `ImportedImage` 的渲染器（无论是 Flutter widget 还是 `package:image` rasterizer）都自动 align —— 这正是 "Isolate-safe rasterizer in `data/`" 模式的延伸。如果某条链路绕过归一化（例如直接读 `XFile.readAsBytes()` 喂给 `Image.memory` + 喂给 `image.decodeImage` 做 layout），bug 就会复发。
+
+**Prevention checklist**: 任何把字节同时交给「Flutter 渲染层」和「`package:image` rasterizer」的功能，都必须在 `data/` 层做一次归一化，至少包括：
+- EXIF Orientation 烘焙
+- 颜色空间归一化（如 ICC profile / sRGB —— 当前未覆盖，未来扩展点）
+- 元数据宽高记录的是**烘焙后**的方向
+
 ### ❌ Don't
 
 ```dart

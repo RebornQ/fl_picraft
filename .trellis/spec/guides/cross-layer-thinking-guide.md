@@ -102,6 +102,19 @@ a Flutter widget, ask "is the widget rendering area the same size as
 the source pixels this value describes?" If no — and it usually isn't —
 add a conversion at the widget boundary, not at every read site.
 
+### Mistake 4b: Display layer auto-applies metadata that the data layer didn't
+
+**Bad**: 把图像/媒体字节从 `data/` 层透传到 widget，元数据（宽高、方向、色彩空间）取自一个**不应用 EXIF/容器元数据**的解析器（例如 `package:image` 的 `startDecode`），而显示端（Flutter `Image.memory` 走 `ui.instantiateImageCodec`）**会**自动应用这些元数据 —— 两边视角不一致 → metadata 描述 raw 方向，widget 显示 rotated 方向，几何拉伸成压扁/旋转 bug。
+
+**Symptoms**: 同一个 `ImportedImage` 在 preview 里看上去是竖图、在 rasterizer 导出后变成横图（或反之）；改 `BoxFit` 无法消除压扁；只有相机拍摄的 JPEG 复现、相册里 sanitized 的图正常。
+
+**Good**: 在 `data/` 归一化层一次性把会被显示端自动应用的元数据**烤进**字节本身（旋转烘焙、ICC 转 sRGB 等），让 `domain` entity 的字段始终描述**渲染层视角**的尺寸/方向。详见 `frontend/component-guidelines.md` → "Gotcha: EXIF Orientation 让 `Image.memory` 与 `package:image` 元数据方向不一致"。
+
+**Prevention checklist**: 当字节会同时进入 `Image.memory` (Flutter) 和 `package:image` rasterizer 时，问自己：
+- 两条链路各自会自动应用哪些容器级元数据（EXIF orientation / ICC profile / animation flags / DPI）？
+- 我的 `domain` entity 字段记录的尺寸/方向，**与哪一边对齐**？
+- 是否存在"绕过归一化直接喂字节"的入口（拖拽、剪贴板、camera capture 等）？每一条都必须共享同一个归一化器
+
 ### Mistake 5: Reflexively forbidding `core/` from importing plugins
 
 **Bad** (strict layering, but worse outcome): "`core/` must not import any platform plugin because plugin types belong in `data/datasources/`." So every datasource that throws a typed plugin exception (`GalException`, `PlatformException`, `FileSystemException`) embeds its own zh-CN translation strings, duplicating the same five sentences across six datasources. Updating the wording becomes a multi-file edit; consistency drifts.
@@ -209,6 +222,7 @@ Before implementation:
 - [ ] If writing a CPU-heavy image / encode function in `data/` that callers will run via `compute()`: confirmed the function imports **no `dart:ui`** (see `frontend/directory-structure.md` → "Pattern: Isolate-safe rasterizer in `data/`")
 - [ ] If exposing UI helpers (`IconData`, `Color`, `TextStyle`, ...) for a `domain/` entity or enum: planned a **`presentation/`-side extension** so `domain/` stays framework-free (see `frontend/directory-structure.md` → "Pattern: Framework-free domain entities and enums")
 - [ ] If a shared numeric value (offset, size, scale) flows through a rasterizer **and** a Flutter widget: documented the canonical unit (source pixels / widget pixels / normalized) in the field's doc-comment, and identified every boundary that must convert. The preview overlay and the renderer must agree, or preview ≠ export.
+- [ ] If **image/media bytes** flow into both a Flutter renderer (`Image.memory` / `Image.file`) **and** a `package:image` rasterizer: confirmed the `data/` normalization layer bakes any auto-applied container metadata (EXIF orientation, ICC profile, ...) into the bytes themselves, so domain entity dimensions describe the **rendered** view, not the raw header (see "Mistake 4b: Display layer auto-applies metadata that the data layer didn't").
 - [ ] If writing / changing a clamp / transform / projection API that takes geometry (cell size, viewport size, target rect): every geometric input is an **explicit required parameter** — no "use the other rectangle's dimensions as a proxy" defaults. Pair this with a unit test at `scale=1.0` + same-aspect to catch the cover-fit degenerate case (see "Mistake 6: Shape-proxy anti-pattern" above).
 
 After implementation:
