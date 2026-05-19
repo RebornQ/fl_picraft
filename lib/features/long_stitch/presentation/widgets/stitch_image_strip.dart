@@ -231,11 +231,38 @@ class _ImageCard extends StatelessWidget {
               color: colorScheme.surface.withValues(alpha: 0.9),
               shape: const CircleBorder(),
               clipBehavior: Clip.antiAlias,
+              // 卡片角标 × 按钮：hit area = visual = 24×24 (shrinkWrap)。
+              //
+              // 这里**主动**违反 `androidTapTargetGuideline` (≥48dp) 与
+              // `iOSTapTargetGuideline` (≥44dp)，是一个显式
+              // 视觉/a11y trade-off：
+              //
+              // - 用户真机测试反馈：即使把 visual chrome 限制到 24×24，
+              //   `MaterialTapTargetSize.padded` 的 48×48 hit area 仍会让
+              //   tap / hover 时的 splash 反馈圈占据完整 48×48，
+              //   与 chrome 24×24 错位，**视觉上仍显得过大**。
+              // - 因此本卡片角标场景退到 `MaterialTapTargetSize.shrinkWrap`：
+              //   hit area 等于 visual chrome（24×24），splash 反馈圈也
+              //   收敛到 chrome 内，视觉真正紧凑。
+              // - 代价：≥48dp 最小 tap target 守护被主动放弃。
+              //   `meetsGuideline(androidTapTargetGuideline)` 在本 widget
+              //   处会 fail。
+              //
+              // **适用边界**：仅限「卡片角标 × 按钮」这种视觉空间极度
+              // 受限的场景（卡片整体 110×140 dp，× 按钮浮在右上角）。
+              // 常规按钮（AppBar IconButton、顶部 Add/Clear、Editor 主
+              // CTA 等）仍应满足 48dp 最小 tap target。
+              //
+              // 详见 PRD
+              // `05-19-fix-stitch-image-card-remove-button-mobile-oversized`
+              // → Decision (ADR-lite) v2 (revision)。
               child: IconButton(
                 tooltip: '移除',
-                iconSize: 16,
-                visualDensity: VisualDensity.compact,
+                iconSize: 14,
                 padding: EdgeInsets.zero,
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                 icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
                 onPressed: onRemove,

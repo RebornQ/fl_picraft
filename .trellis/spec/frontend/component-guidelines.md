@@ -403,6 +403,67 @@ Padding(
    )
    ```
 
+### Pitfall: `IconButton` `tapTargetSize: padded` cancelled by `visualDensity: compact`
+
+**Symptom**: An `IconButton` styled with **both** `tapTargetSize: MaterialTapTargetSize.padded` and `visualDensity: VisualDensity.compact` renders at only **40×40 dp** — silently failing `androidTapTargetGuideline` (≥ 48) and risking `iOSTapTargetGuideline` (≥ 44).
+
+**Cause**: `ButtonStyleButton.build` resolves the effective minimum size as
+
+```
+effectiveMinSize = max(constraints.minSize, kMinInteractiveDimension=48) + densityAdjustment
+densityAdjustment = visualDensity.baseSizeAdjustment * interval(4)
+```
+
+`VisualDensity.compact = VisualDensity(horizontal: -2, vertical: -2)` resolves the adjustment to `(-8, -8)`. So `padded` (targets 48) + `compact` (−8) = **40 dp** hit area. The two settings cancel — `compact` shrinks the very tap target `padded` was supposed to guarantee.
+
+**Fix**: For a small visual chrome that still owes a 48 dp tap target (card-corner badge buttons, dense toolbar icons), set `tapTargetSize: padded` **alone** and control visual size through `constraints` + `iconSize`:
+
+```dart
+// ❌ Wrong — `compact` shrinks the padded hit area to 40×40 dp
+IconButton(
+  style: IconButton.styleFrom(
+    tapTargetSize: MaterialTapTargetSize.padded,
+    visualDensity: VisualDensity.compact,
+  ),
+  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+  iconSize: 14,
+  onPressed: onTap,
+  icon: const Icon(Icons.close),
+)
+
+// ✅ Correct — `padded` guards hit area; `constraints` + `iconSize` shape visual chrome
+IconButton(
+  style: IconButton.styleFrom(
+    tapTargetSize: MaterialTapTargetSize.padded, // hit area ≥ 48×48 dp
+    // Do NOT set `visualDensity`; let it default (standard).
+  ),
+  constraints: const BoxConstraints(minWidth: 24, minHeight: 24), // visual 24×24
+  iconSize: 14,
+  onPressed: onTap,
+  icon: const Icon(Icons.close),
+)
+```
+
+**Rule of thumb**: visual chrome and hit area are **separate axes**. `constraints` + `iconSize` control painted chrome; `tapTargetSize` controls hit-test bounds. When you need a small visual, never reach for `visualDensity: compact` on an a11y-sensitive button — that's a hit-area lever, not a visual-density lever.
+
+**Historical note**: `lib/features/long_stitch/presentation/widgets/stitch_image_strip.dart::_ImageCard` × button originally adopted this pattern (visual 24×24 + hit area 48×48) and was the captured reference. Real-device review subsequently flagged the splash-feedback halo as "still too big" and the implementation switched to `shrinkWrap` (see the Caveat below). The Pitfall on `padded + compact` cancellation is still correct and applies to the **default** case — only the example call-site has moved.
+
+#### Caveat: in card-corner badge contexts the splash feedback ring still reads as "the button's visual size"
+
+**Where the rule of thumb breaks**: the visual / hit area decoupling above assumes users perceive only the painted chrome (`constraints` + `iconSize` → `Material(circle, ...)` + `Icon(...)`) as "the button". On a normal toolbar this is true. On a **card-corner badge** (≤ 110×140 dp card, button floats in `Positioned(top: 4, right: 4)` with no neighbor visually anchoring its scale), it is **not** — the splash / hover / focus feedback ring of `MaterialTapTargetSize.padded` fills the **entire 48×48 hit area**, and the ring is visually centered on a 24 dp chrome floating inside a 48 dp halo. Users perceive that 48 dp halo as "the button" every time they tap or hover, so the chrome-vs-hit decoupling visually defeats itself.
+
+**Symptom**: A reviewer agrees the chrome is 24×24, the `meetsGuideline(androidTapTargetGuideline)` test passes, but on a real device the button "still looks too big" — every tap shows a 48 dp light circle around a 24 dp icon.
+
+**Trade-off menu** (pick one, per-context):
+
+1. **Accept the visual halo, keep ≥48dp tap target** — the default. Works on toolbar / list-row IconButtons where a 48 dp halo over a 24 dp chrome reads as "Material expressive button". Stick with the ✅ Correct example above.
+2. **Drop to `tapTargetSize: shrinkWrap`, accept ≥48dp a11y violation** — for card-corner badge buttons where the visual halo dominates. Hit area = visual chrome = 24×24, `androidTapTargetGuideline` / `iOSTapTargetGuideline` fail at this widget. Document the exception in the call-site's PRD ADR-lite, guard with a `tester.getSize ≤ 28×28` regression test so the trade-off doesn't silently revert. **Reference implementation**: `lib/features/long_stitch/presentation/widgets/stitch_image_strip.dart::_ImageCard` × button (V2' / Decision v2 — superseded the V2 padded scheme above).
+3. **Keep `padded`, suppress feedback chrome** via `style: IconButton.styleFrom(overlayColor: WidgetStatePropertyAll(Colors.transparent))` and/or a custom `InkResponse` with `radius: 12`. Preserves ≥48dp hit area while killing the visual halo. Trade-off: removes the user's visual confirmation of tap, which can hurt discoverability for hover-only contexts (desktop / web). Use only when the surrounding context already announces interactivity (e.g. the chrome itself animates on hover via parent `MouseRegion`).
+
+**Decision lens**: choose option 1 by default. Choose option 2 only when a real-device review of option 1 explicitly flags "still too big" and the team accepts the a11y violation in writing (PRD ADR-lite + scoped regression test). Choose option 3 when option 2 is acceptable visually but the team is unwilling to give up the ≥48dp hit area — note that suppressing feedback is its own a11y trade-off (users can no longer confirm tap registration visually).
+
+**Rule of thumb (extended)**: the decoupling pattern is **not unconditional** — on a card-corner badge, "the button" is `chrome + feedback halo`, not just the chrome. Validate with real-device review before relying on the decoupling.
+
 ### Pattern: Verify a11y with `meetsGuideline` widget tests
 
 **What**: For every top-level screen, add at least four widget-test assertions:
@@ -433,6 +494,53 @@ These four guidelines are Flutter's built-in checks:
 **Why**: These are non-negotiable platform requirements; failing them is grounds for App Store / Play Store rejection. Catching at test time is dramatically cheaper than discovering during review or via user complaint.
 
 **Where to add**: `test/features/<feature>/presentation/<screen>_a11y_test.dart`. Currently covered: `home_screen_a11y_test.dart`, `export_screen_a11y_test.dart`. Editor screens (stitch / grid) have widget-level Semantics but no surface-level guideline test — their `tester.view.physicalSize` setup is more involved; track this as a known gap and add when needed.
+
+### Pattern: Direct render-size guard for private widget a11y-critical children
+
+**Problem**: `meetsGuideline(androidTapTargetGuideline)` is the standard hit-area assertion, but when the a11y-critical widget is a **private** (`_`-prefixed) child of a public container — e.g. `_ImageCard` inside `StitchImageStrip` — the test can't construct it directly. The usual workaround is a "mirror harness" that re-creates the same widget tree in the test file. Mirror harnesses **silently drift**: if production adds `visualDensity: compact` but the mirror doesn't, the mirror's `meetsGuideline` still passes and the regression slips through to release.
+
+**Solution**: Double-guard with **both** a mirror harness (for `meetsGuideline` checks under a controlled minimal tree) **and** a direct production render-size assertion that pin-points the real widget through a unique tooltip / Semantics label:
+
+```dart
+testWidgets('production _ImageCard × button render size ≥ 48×48 dp', (
+  tester,
+) async {
+  // Render the real public container, seeded with whatever providers the
+  // production tree needs.
+  await tester.pumpWidget(_buildRealStitchImageStrip());
+  await tester.pumpAndSettle();
+
+  // Disambiguate the target IconButton via its unique tooltip — works
+  // even though the wrapping widget is private.
+  final removeButton = find.ancestor(
+    of: find.byTooltip('移除'),
+    matching: find.byType(IconButton),
+  );
+  expect(removeButton, findsOneWidget);
+
+  // Material 3 IconButton's outermost rendered widget IS the padded hit
+  // area, so `tester.getSize` directly reports the tap target dimensions.
+  final size = tester.getSize(removeButton);
+  expect(size.width, greaterThanOrEqualTo(48));
+  expect(size.height, greaterThanOrEqualTo(48));
+});
+```
+
+**Why both layers**:
+
+- **Mirror + `meetsGuideline`** catches general a11y regressions (text contrast, missing labels, undersized siblings) under a known-stable layout.
+- **Production `getSize`** catches the failure mode where the mirror has drifted from production — someone tweaks a production param (e.g. adds `visualDensity: compact`, switches `tapTargetSize` to `shrinkWrap`, shrinks `constraints`) without updating the mirror; the mirror tests pass against the stale copy while production silently drops below 48 dp.
+
+**Reverse-sanity ritual** (recommended once per new guard): after the test goes green, temporarily break the production code (e.g. add `visualDensity: compact` back, switch `tapTargetSize` to `shrinkWrap`) and confirm the test fails. Then restore. A test that doesn't fail when the code is wrong is a rubber stamp, not a guard.
+
+**Reference implementations**:
+
+- **Default direction** (`getSize ≥ 48`): originally captured in `test/features/long_stitch/presentation/widgets/stitch_image_strip_test.dart::production _ImageCard × button render size ≥ 48×48 dp` (`05-19-fix-stitch-image-card-remove-button-mobile-oversized`). The same test file currently houses the **reverse direction** below; the ≥48 form is preserved as historical documentation in the PRD's Decision (ADR-lite) v1 superseded block.
+- **Reverse direction** (`getSize ≤ tight_visual`): current state of the same file, `production _ImageCard × button render size is shrinkWrap-tight (≤ 28×28, NOT 48×48)`. Same pin-by-tooltip-and-getSize idiom — only the assertion direction flips. Use this form when a call-site has **explicitly** opted to violate the ≥48dp guideline (see the "Caveat: in card-corner badge contexts the splash feedback ring still reads as 'the button's visual size'" subsection under the Pitfall above). The reverse guard prevents accidental revert to `padded`, which would silently change the production rendering without anyone updating the PRD.
+
+The pin-by-tooltip-and-`tester.getSize` recipe is identical in both directions — the takeaway is **"pin the assertion to the production widget by a stable, unique selector (tooltip / Semantics label) and assert against the rendered size"**, not which direction the bound goes.
+
+**See also**: "Pattern: Verify a11y with `meetsGuideline` widget tests" above — the direct render-size guard is the **complement**, not a replacement: keep both when the a11y-critical widget is private and a mirror harness is in play.
 
 ### Pattern: `MergeSemantics` for label + control pairs
 
