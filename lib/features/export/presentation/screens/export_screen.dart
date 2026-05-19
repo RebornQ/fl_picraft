@@ -31,32 +31,63 @@ import '../widgets/watermark_card.dart';
 /// a sibling top-level route **outside** the `StatefulShellRoute`. It
 /// therefore renders above the bottom nav (covering it), which is the
 /// behavior we want for a modal flow: users shouldn't accidentally
-/// walk off to another tab mid-save. The back button in the app bar
-/// is the only way out, and it routes back to the editor that
-/// initiated the export (tracked via [currentExportSourceKindProvider]).
+/// walk off to another tab mid-save.
+///
+/// **How to exit**: the AppBar back button and the system / gesture
+/// back are both routed through [_onBackPressed]. We prefer
+/// `context.pop()` when the navigator can pop (normal entry via
+/// `context.push('/export')` from an editor — gives a natural reverse
+/// pop transition that matches the mobile back-gesture idiom). When
+/// `canPop` is false (deep-link directly into `/export`, hot reload,
+/// share-sheet entry), we fall back to `context.go('/stitch'|'/grid')`
+/// keyed by [currentExportSourceKindProvider] so the user still lands
+/// in the right editor. Hardware / gesture back is intercepted via
+/// [PopScope] so both routes share the same logic.
 class ExportScreen extends ConsumerWidget {
   const ExportScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: '返回',
-          onPressed: () => _onBackPressed(context, ref),
+    return PopScope(
+      // We always intercept the pop so the same `_onBackPressed`
+      // (with deep-link fallback) handles AppBar tap, Android system
+      // back, and iOS edge-swipe uniformly.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _onBackPressed(context, ref);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: '返回',
+            onPressed: () => _onBackPressed(context, ref),
+          ),
+          title: const Text('导出'),
         ),
-        title: const Text('导出'),
+        body: const SafeArea(child: _ExportBody()),
       ),
-      body: const SafeArea(child: _ExportBody()),
     );
   }
 
-  /// Return to the editor the user came from. The kind provider
-  /// records who launched the export session, so we route back to
-  /// that editor rather than relying on the navigator stack (which
-  /// `context.go` doesn't preserve across top-level routes).
+  /// Return to the editor the user came from.
+  ///
+  /// Preferred path: when the navigator stack can pop (the user
+  /// reached `/export` via `context.push` from an editor), call
+  /// `context.pop()` so the route slides off with the standard
+  /// reverse-pop transition (matches the mobile back-gesture idiom).
+  ///
+  /// Fallback path: when `canPop` is false (deep-link entry, fresh
+  /// process start on `/export`, web refresh), read
+  /// [currentExportSourceKindProvider] and `context.go` to the
+  /// matching editor. The kind provider records who launched the
+  /// session, so we still land in the right editor.
   void _onBackPressed(BuildContext context, WidgetRef ref) {
+    if (Navigator.of(context).canPop()) {
+      context.pop();
+      return;
+    }
     final kind = ref.read(currentExportSourceKindProvider);
     switch (kind) {
       case ExportSourceKind.stitch:

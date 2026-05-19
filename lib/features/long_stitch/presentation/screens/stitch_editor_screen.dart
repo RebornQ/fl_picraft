@@ -136,7 +136,7 @@ class StitchEditorScreen extends ConsumerWidget {
     // StitchEditorController.render instead of the grid path.
     ref.read(currentExportSourceKindProvider.notifier).state =
         ExportSourceKind.stitch;
-    context.go('/export');
+    context.push('/export');
   }
 }
 

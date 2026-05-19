@@ -85,6 +85,17 @@ class _FormatButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    // Selected state uses `primary` + `onPrimary` (white foreground on
+    // the brand purple fill) to match the recipe used by
+    // `StitchModeSegmented` — guarantees WCAG AA contrast on both the
+    // light and the seed-derived dark scheme. The earlier
+    // `primaryContainer` + `primary` pairing produced a "purple-on-
+    // purple" combination because this project's `primaryContainer`
+    // token is a mid-saturation purple (see `app_colors.dart`), not
+    // the light tint Material 3 normally ships.
+    final fg = selected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
     return Semantics(
       button: true,
       selected: selected,
@@ -95,9 +106,7 @@ class _FormatButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected
-                ? colorScheme.primaryContainer
-                : colorScheme.surface,
+            color: selected ? colorScheme.primary : colorScheme.surface,
             border: Border.all(
               color: selected
                   ? colorScheme.primary
@@ -114,17 +123,13 @@ class _FormatButton extends StatelessWidget {
                     ? Icons.image
                     : Icons.photo_library_outlined,
                 size: 20,
-                color: selected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+                color: fg,
               ),
               const SizedBox(width: 8),
               Text(
                 format.label,
                 style: textTheme.labelLarge?.copyWith(
-                  color: selected
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant,
+                  color: fg,
                   fontWeight: selected ? FontWeight.bold : FontWeight.w500,
                 ),
               ),

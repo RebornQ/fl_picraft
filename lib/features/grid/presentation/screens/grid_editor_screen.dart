@@ -212,7 +212,7 @@ class GridEditorScreen extends ConsumerWidget {
     // GridEditorController.renderCells instead of the stitch path.
     ref.read(currentExportSourceKindProvider.notifier).state =
         ExportSourceKind.grid;
-    context.go('/export');
+    context.push('/export');
   }
 
   /// Handle the AppBar "导入图片" action.
