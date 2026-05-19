@@ -114,6 +114,53 @@ with `android:maxSdkVersion="32"` so Play Store install audits don't flag it.
 - `READ_EXTERNAL_STORAGE` declared **with** `android:maxSdkVersion="32"`.
 - `CAMERA` declared if any flow uses `image_picker.pickImage(source: ImageSource.camera)`.
 
+### Android: `INTERNET` belongs in `main/` manifest, not just `debug/` + `profile/`
+
+> Captured from `05-19-fix-google-fonts-macos-network-client`.
+
+**Critical Gotcha**: Flutter's Android template **auto-injects**
+`<uses-permission android:name="android.permission.INTERNET" />` into
+`android/app/src/debug/AndroidManifest.xml` and
+`android/app/src/profile/AndroidManifest.xml` (so hot-reload, observatory,
+and DDS work). It does **NOT** inject it into
+`android/app/src/main/AndroidManifest.xml`.
+
+**Why this is dangerous**: Manifest merging picks the build-variant flavor
+that matches the active build type. `debug` and `profile` get their own
+manifest merged in; **release** builds merge `main/` **only**. So:
+
+| Build type | Manifest sources | `INTERNET` present? |
+|---|---|---|
+| debug | `main/` + `debug/` | ✅ (from debug/) |
+| profile | `main/` + `profile/` | ✅ (from profile/) |
+| **release** | **`main/` only** | **❌** if `main/` doesn't declare it |
+
+Any package that does runtime network fetches (`google_fonts`,
+`NetworkImage`, `dio`, `http`, analytics SDKs, remote config) **silently
+works in debug** and **silently fails in a release apk** — there's no
+`flutter analyze` warning, no compile error, no log on debug. The bug
+surfaces only after the release apk is on a real device or in the Play
+Store track.
+
+**Required**: If the app does **any** outbound HTTPS at runtime, declare
+`INTERNET` in `main/AndroidManifest.xml`:
+
+```xml
+<!-- android/app/src/main/AndroidManifest.xml -->
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+**Common Mistake**: Testing only with `flutter run` (debug variant) and
+assuming network access works in production. Always run at least one
+`flutter build apk --release` install on a device — or grep `main/` —
+before shipping anything that does network I/O.
+
+**Validation**:
+- `grep -l "android.permission.INTERNET" android/app/src/main/AndroidManifest.xml`
+  returns the file.
+- After `flutter build apk --release` install, the network-dependent feature
+  (e.g. font fetch) succeeds on first launch with connectivity.
+
 ### Android: Use Flutter's targetSdkVersion default
 
 **Convention**: `android/app/build.gradle.kts` uses `flutter.targetSdkVersion`
@@ -210,6 +257,65 @@ write to disk and the user sees an empty save dialog.
 **Validation**: After editing, diff the two `.entitlements` files — the keys
 added for sandbox file access should be byte-identical between Debug and
 Release.
+
+### macOS: Runtime network fetch requires `network.client` entitlement
+
+> Captured from `05-19-fix-google-fonts-macos-network-client`.
+
+**Critical Gotcha**: The macOS sandbox blocks *outbound* network connections
+by default. `com.apple.security.network.server` (often pre-seeded by the
+Flutter template in `DebugProfile.entitlements`) only allows *inbound*
+sockets — it does **NOT** authorize a Dart `HttpClient` / `package:http` /
+`dio` / `NetworkImage` / `google_fonts` request from ever leaving the
+sandbox.
+
+**Symptom**: An outbound HTTPS call from any Dart isolate dies with
+`SocketException: Connection failed (OS Error: Operation not permitted,
+errno = 1)`. The error is **not** wrapped by anything sandbox-shaped — it
+looks like a network failure, not a permission failure, which makes it
+easy to misdiagnose.
+
+**Required entitlement** (BOTH Debug and Release):
+
+```xml
+<!-- BOTH DebugProfile.entitlements AND Release.entitlements -->
+<key>com.apple.security.network.client</key>
+<true/>
+```
+
+Triggering packages currently in the graph (or likely to land soon):
+
+| Package | Why it needs outbound network |
+|---|---|
+| `google_fonts` | Fetches `Inter-*.ttf` from `fonts.gstatic.com` at first use, caches via `path_provider` |
+| `NetworkImage` (in `flutter/material`) | Any remote `Image.network(...)` URL |
+| `dio` / `http` (when introduced) | API calls |
+| `share_plus` (rare) | Some share targets fetch metadata over the network |
+
+**Common Mistake**: Adding `network.server` thinking it covers all
+networking. It doesn't — `server` and `client` are independent capabilities
+in the macOS sandbox model.
+
+**Failure mode (acceptable degradation)**: Even with `network.client`
+granted, the **first** cold start with no network connectivity will fail to
+fetch fonts. `google_fonts` then **falls back to the platform's default
+font face** — the app does not crash and continues to render text. This is
+an accepted degradation; subsequent launches hit the on-disk cache populated
+by the first successful fetch. **Do not** treat fallback-during-offline as
+a bug.
+
+**Future-note (App Store / Mac App Store submission)**: Sandboxed builds
+that ship with `network.client` enabled trigger a privacy-questionnaire
+prompt at submission time — you'll need to write a one-line "App reaches
+out to fonts.gstatic.com (or whichever endpoints apply) to download the
+Inter typeface and cache it locally" justification. Out of scope for any
+current task; revisit when packaging for store distribution.
+
+**Validation**:
+- `grep "network.client" macos/Runner/*.entitlements` returns hits in
+  **both** `DebugProfile.entitlements` and `Release.entitlements`.
+- After `flutter run -d macos`, the console no longer shows
+  `Failed to load font with url https://fonts.gstatic.com/...`.
 
 ### macOS: Deployment-target floor
 
@@ -325,6 +431,8 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
 | `READ_EXTERNAL_STORAGE` unconstrained | Play Store warns; Android 13 grants wrong scope | Add `android:maxSdkVersion="32"` |
 | Missing `NSPhotoLibraryAddUsageDescription` | App crashes on first save in TestFlight | Add the third Photo Library key |
 | Entitlement only in `DebugProfile.entitlements` | Release build's save dialog returns nothing | Mirror the entry in `Release.entitlements` |
+| Missing `com.apple.security.network.client` in macOS entitlements | `google_fonts` / `NetworkImage` / `dio` errors with `SocketException: Operation not permitted, errno = 1`; looks like a network failure, not a permission failure | Add `network.client` to BOTH `DebugProfile.entitlements` and `Release.entitlements` (see "macOS: Runtime network fetch requires `network.client`") |
+| `INTERNET` only in Flutter's auto-injected `debug/` + `profile/` manifests | Network fetches work in `flutter run`, **silently fail** in `flutter build apk --release` (no debug log, no analyzer warning) | Declare `INTERNET` in `android/app/src/main/AndroidManifest.xml` |
 | `riverpod_annotation` in `dev_dependencies:` | "Package not found" in release build | Move to `dependencies:` |
 | Unconstrained Riverpod 3.x upgrade | Runtime "type X is not a subtype of Y" from any provider | Pin back to `^2.6.x` |
 | Hand-pinned `targetSdk = 34` | Flutter SDK bump silently regresses to 34, blocking new APIs | Restore `flutter.targetSdkVersion` |

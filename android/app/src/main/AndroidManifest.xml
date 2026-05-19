@@ -8,6 +8,12 @@
         android:maxSdkVersion="32" />
     <!-- Camera capture for the photo import flow. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Outbound HTTPS required for google_fonts runtime fetch of Inter typefaces
+         (and any future NetworkImage / dio / http traffic). Debug + profile manifests
+         get this auto-injected by Flutter; release builds merge ONLY main/ so it MUST
+         be declared here too. See .trellis/spec/frontend/dependencies-and-platforms.md
+         "Android: INTERNET in main manifest". -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="Fl PiCraft"
