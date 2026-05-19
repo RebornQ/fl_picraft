@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 42
+- **Total Sessions**: 43
 - **Last Active**: 2026-05-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1416 | Active |
+| `journal-1.md` | ~1449 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 43 | 2026-05-20 | fix(export): 导出保存按钮解除主 isolate 卡顿 | `32e07f9` | `main` |
 | 42 | 2026-05-20 | 修复长图拼接 stitch 卡片移除按钮在移动端视觉过大 + 沉淀 a11y spec | `47e3eb1` | `main` |
 | 41 | 2026-05-19 | fix(platform): google_fonts macOS sandbox + Android release manifest | `ce69ec8` | `main` |
 | 40 | 2026-05-19 | 修复宫格切图 1080x1440 EXIF 压扁 + 沉淀跨层 Gotcha | `81ee65b`, `abb72f4`, `cbed641` | `main` |

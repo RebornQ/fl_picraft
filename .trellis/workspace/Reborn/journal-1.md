@@ -1414,3 +1414,36 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 43: fix(export): 导出保存按钮解除主 isolate 卡顿
+
+**Date**: 2026-05-20
+**Task**: fix(export): 导出保存按钮解除主 isolate 卡顿
+**Branch**: `main`
+
+### Summary
+
+修复 ExportRepositoryImpl._processOne 在主 isolate 同步跑 applyWatermark + encodeForExport 导致点击保存按钮卡 UI 线程到弹窗出现的 bug。9 宫格场景累计 18 次 decode/encode 串行阻塞 UI。按 brainstorm 收敛的 Approach A：把 _processOne 折叠成 top-level _processOneInIsolate 入口 + _ProcessOneRequest DTO 走 compute()，沿用 stitch_image_renderer / grid_image_renderer 的 'compute + 单测同步 fallback' 模式；新增 export.process Timeline marker 配合既有 export.save 做 DevTools triage。新增 3 个 isolate-hop 集成测试覆盖 stitch + grid 两条路径，既有 watermark_renderer / image_encoder snapshot 全绿确认字节 deterministic 一致；402 测试通过 + analyze clean。PRD 明确把 'spec 措辞收紧 may→MUST'、UI 增强、Approach C 消除冗余 decode/encode 列为 out-of-scope，update-spec 阶段评估无新洞察值得沉淀，跳过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `32e07f9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
