@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint / test / format quality bar to satisfy AC8 (flutter analyze + flutter test green)"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "Confirms platform manifest fields are unchanged in semantics (only display strings flipped); verifies no permission/entitlement regressions slipped in"}
+{"file": ".trellis/tasks/05-19-rename-app-to-fl-picraft/prd.md", "reason": "Acceptance Criteria checklist (AC1–AC10) and Definition of Done — the canonical check list for this task"}

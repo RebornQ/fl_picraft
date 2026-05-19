@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "Cross-platform manifest conventions — directly relevant when touching Info.plist / AndroidManifest.xml / xcconfig / Runner.rc / manifest.json"}
+{"file": ".trellis/tasks/05-19-rename-app-to-fl-picraft/prd.md", "reason": "Authoritative scope, the file-by-file change table in R1/R2, and the explicit Out-of-Scope list that prevents accidentally renaming applicationId / pubspec name / test imports"}
