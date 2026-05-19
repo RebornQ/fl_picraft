@@ -61,7 +61,6 @@ class StitchEditorScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
     final state = ref.watch(stitchEditorControllerProvider);
 
     // Surface image-import failures the editor's import affordances
