@@ -1280,3 +1280,36 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 39: 修复导出页返回动画 + 格式按钮选中态对比度
+
+**Date**: 2026-05-19
+**Task**: 修复导出页返回动画 + 格式按钮选中态对比度
+**Branch**: `main`
+
+### Summary
+
+/export 进入改 context.push、返回优先 context.pop()，外层加 PopScope 统一 AppBar/系统返回/iOS 边缘手势三条返回路径；deep-link 兜底仍走 currentExportSourceKindProvider+go。_FormatButton 选中态由 primaryContainer+primary（紫底紫字）改为 primary+onPrimary（紫底白字），与 StitchModeSegmented 配色一致。flutter analyze clean / 387 tests pass。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `91970af` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
