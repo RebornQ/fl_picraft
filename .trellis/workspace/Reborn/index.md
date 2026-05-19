@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 39
+- **Total Sessions**: 40
 - **Last Active**: 2026-05-19
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1315 | Active |
+| `journal-1.md` | ~1350 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 40 | 2026-05-19 | 修复宫格切图 1080x1440 EXIF 压扁 + 沉淀跨层 Gotcha | `81ee65b`, `abb72f4`, `cbed641` | `main` |
 | 39 | 2026-05-19 | 修复导出页返回动画 + 格式按钮选中态对比度 | `91970af` | `main` |
 | 38 | 2026-05-19 | Rename app display name to Fl PiCraft | `70dda6b`, `104a2e9`, `7d2d4e8` | `main` |
 | 37 | 2026-05-18 | Long-stitch wide-screen vertical selected list + reorder/scroll fixes | `3a024a3` | `main` |

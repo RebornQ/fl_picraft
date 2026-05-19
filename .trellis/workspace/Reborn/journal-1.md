@@ -1313,3 +1313,38 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 40: 修复宫格切图 1080x1440 EXIF 压扁 + 沉淀跨层 Gotcha
+
+**Date**: 2026-05-19
+**Task**: 修复宫格切图 1080x1440 EXIF 压扁 + 沉淀跨层 Gotcha
+**Branch**: `main`
+
+### Summary
+
+定位根因：ImportedImage.width/height 来自 image.startDecode（不应用 EXIF），Image.memory 显示时却自动按 EXIF 旋转 → 元数据与显示视角错位，BoxFit.fill 拉扁。同根因下导出 cell 方向也错。修复策略 = Approach A：在 image_normalizer.dart 顶层 isolate-safe 函数 bakeOrientationToBytes 中烤入 orientation，所有下游 feature 零改动受益；orientation=1 走 same-instance 快路径，bake 失败回退原 bytes 不丢 import。新增 normalizer 单测（含 orientation=1/3/6 + PNG + 损坏字节）+ grid preview widget 回归测试。spec 沉淀：component-guidelines 新 Gotcha 章节；cross-layer-thinking-guide Mistake 4b + checklist 条目。所有测试 397 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `81ee65b` | (see git log) |
+| `abb72f4` | (see git log) |
+| `cbed641` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
