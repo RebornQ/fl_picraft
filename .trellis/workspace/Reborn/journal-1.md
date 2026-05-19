@@ -1381,3 +1381,36 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 42: 修复长图拼接 stitch 卡片移除按钮在移动端视觉过大 + 沉淀 a11y spec
+
+**Date**: 2026-05-20
+**Task**: 修复长图拼接 stitch 卡片移除按钮在移动端视觉过大 + 沉淀 a11y spec
+**Branch**: `main`
+
+### Summary
+
+修复 StitchImageStrip._ImageCard 卡片角标 × 按钮在移动端视觉过大问题。V1 padded 方案 (视觉/hit area 解耦) 真机测试发现 splash halo 仍让按钮显得过大，V2' 改用 MaterialTapTargetSize.shrinkWrap (hit area = visual = 24x24) 作为 card-corner badge 场景的显式视觉/a11y trade-off (违反 androidTapTargetGuideline)。新增 widget test 守护 shrinkWrap 决策 (反向 sanity guard ≤28x28)。沉淀 3 个 a11y 知识点到 .trellis/spec/frontend/component-guidelines.md：(1) Pitfall tapTargetSize:padded + visualDensity:compact 互相 cancel (hit area 跌至 40dp)、(2) Caveat padded splash halo 在 card-corner badge 场景的视觉副作用 (3 options trade-off menu)、(3) Pattern Direct render-size guard via find.ancestor + tester.getSize。Known follow-up: 桌面端 _VerticalImageRow 32x32 hit area 同样违反 spec、editor screens 缺 surface-level a11y test。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `47e3eb1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
