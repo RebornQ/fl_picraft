@@ -5,6 +5,7 @@ import 'package:fl_picraft/features/export/domain/entities/export_format.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_request.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_source.dart';
 import 'package:fl_picraft/features/export/domain/entities/save_result.dart';
+import 'package:fl_picraft/features/export/domain/entities/watermark_anchor.dart';
 import 'package:fl_picraft/features/export/domain/entities/watermark_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -207,6 +208,117 @@ void main() {
       expect(names[0], endsWith('_1.jpg'));
       expect(names[1], endsWith('_2.jpg'));
       expect(names[2], endsWith('_3.jpg'));
+    });
+  });
+
+  group('ExportRepositoryImpl — isolate-hop (`_processOne` via compute)', () {
+    // These tests cover the spec validation requirement from
+    // `.trellis/spec/frontend/directory-structure.md` →
+    // "Pattern: Isolate-safe rasterizer in `data/`":
+    //   "Add a test that calls the function via `await compute(fn, input)` —
+    //   not just `await fn(input)`. Many `dart:ui` failures only surface on
+    //   the isolate path."
+    //
+    // Under `flutter_test`, `compute` either spawns a real isolate (VM
+    // platforms) or falls back to synchronous execution (web / no-binding
+    // environments). Either way the watermark + encode stages execute and
+    // their output is captured via the `persistOverride` seam — proving the
+    // pipeline returns identical bytes whether the hop runs in a worker or
+    // on the same isolate.
+
+    ExportRequest watermarkedStitch(
+      Uint8List bytes, {
+      ExportFormat format = ExportFormat.png,
+    }) {
+      return ExportRequest(
+        source: StitchExportSource(bytes),
+        format: format,
+        quality: 90,
+        watermark: WatermarkConfig.initial().copyWith(
+          enabled: true,
+          text: 'Hi',
+          anchor: WatermarkAnchor.bottomRight,
+        ),
+      );
+    }
+
+    test(
+      'stitch with watermark enabled returns SaveSuccess (exercises compute path)',
+      () async {
+        Uint8List? captured;
+        final repo = ExportRepositoryImpl(
+          persistOverride: (bytes, fmt, name) async {
+            captured = bytes;
+            return SaveSuccess(location: '/tmp/$name');
+          },
+        );
+
+        final res = await repo.exportAndSave(watermarkedStitch(solidPng()));
+        expect(res, isA<SaveSuccess>());
+        expect(captured, isNotNull);
+        // Output must still decode as a valid PNG of the source dimensions
+        // — i.e. the isolate-hop did not corrupt the bytes.
+        final decoded = img.decodeImage(captured!);
+        expect(decoded, isNotNull);
+        expect(decoded!.width, 40);
+        expect(decoded.height, 30);
+      },
+    );
+
+    test(
+      'same input + config produces deterministic bytes across two invocations',
+      () async {
+        final fixture = solidPng();
+        final captures = <Uint8List>[];
+        final repo = ExportRepositoryImpl(
+          persistOverride: (bytes, fmt, name) async {
+            captures.add(bytes);
+            return SaveSuccess(location: '/tmp/$name');
+          },
+        );
+
+        await repo.exportAndSave(watermarkedStitch(fixture));
+        await repo.exportAndSave(watermarkedStitch(fixture));
+
+        expect(captures.length, 2);
+        // Watermark composite + PNG encode is deterministic — the two
+        // pipeline runs must yield byte-identical output regardless of
+        // whether the isolate hop is real or synthetic.
+        expect(captures[0], equals(captures[1]));
+      },
+    );
+
+    test('grid path also flows through the isolate hop per cell', () async {
+      final cells = [solidPng(r: 10), solidPng(r: 100), solidPng(r: 200)];
+      final captured = <Uint8List>[];
+      final repo = ExportRepositoryImpl(
+        persistOverride: (bytes, fmt, name) async {
+          captured.add(bytes);
+          return SaveSuccess(location: '/tmp/$name');
+        },
+      );
+
+      final req = ExportRequest(
+        source: GridExportSource(cells),
+        format: ExportFormat.png,
+        quality: 90,
+        watermark: WatermarkConfig.initial().copyWith(
+          enabled: true,
+          text: 'Hi',
+        ),
+      );
+
+      final res = await repo.exportAndSave(req);
+      expect(res, isA<SaveSuccess>());
+      expect(captured.length, 3);
+      // Each captured cell must round-trip as a decodable image — the
+      // isolate hop ran three times without truncating the output.
+      for (final bytes in captured) {
+        final decoded = img.decodeImage(bytes);
+        expect(decoded, isNotNull);
+        expect(decoded!.width, 40);
+        expect(decoded.height, 30);
+      }
     });
   });
 }

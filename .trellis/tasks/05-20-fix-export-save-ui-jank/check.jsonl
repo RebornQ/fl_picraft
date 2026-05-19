@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Verify: lint clean, tests cover the new compute path, Timeline markers (if added) follow the dart:developer convention with paired finishSync in finally blocks."}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Verify the isolate-safe rasterizer contract is now respected: `_processOne`'s call site uses `compute(...)` and the entry function is a top-level (non-closure) callable; the `data/` files remain free of `dart:ui` imports."}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "Verify the compute() fallback path still routes failures through `exportFailureMessage` so the user-facing snackbar copy is unchanged on isolate spawn failure or unit-test fallback."}
