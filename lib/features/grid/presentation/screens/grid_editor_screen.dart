@@ -175,14 +175,17 @@ class GridEditorScreen extends ConsumerWidget {
               )
             : null,
         title: const Text(
-          '宫格切图编辑',
+          '宫格切图',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            tooltip: '导入图片',
-            onPressed: () => _onImportPressed(context, ref),
+          Padding(
+            padding: EdgeInsets.all(4),
+            child: IconButton(
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              tooltip: '导入图片',
+              onPressed: () => _onImportPressed(context, ref),
+            ),
           ),
         ],
       ),

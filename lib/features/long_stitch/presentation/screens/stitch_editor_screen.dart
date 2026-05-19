@@ -85,27 +85,43 @@ class StitchEditorScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: '返回',
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         title: const Text(
-          'Fl PiCraft',
+          '长图拼接',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: FilledButton(
-              onPressed: state.hasImages
-                  ? () => _onExportPressed(context, ref)
-                  : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-                shape: const StadiumBorder(),
-              ),
-              child: const Text('导出'),
-            ),
-          ),
+          // TODO 备注：勿删，保留备用
+          // Padding(
+          //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          //   child: FilledButton(
+          //     onPressed: state.hasImages
+          //         ? () => _onExportPressed(context, ref)
+          //         : null,
+          //     style: FilledButton.styleFrom(
+          //       backgroundColor: colorScheme.primary,
+          //       foregroundColor: colorScheme.onPrimary,
+          //       shape: const StadiumBorder(),
+          //     ),
+          //     child: const Text('导出'),
+          //   ),
+          // ),
         ],
       ),
+      floatingActionButton: state.hasImages
+          ? FloatingActionButton.extended(
+              onPressed: () => _onExportPressed(context, ref),
+              tooltip: '导出拼接图',
+              icon: const Icon(Icons.output),
+              label: const Text('导出'),
+            )
+          : null,
       body: const SafeArea(
         child: ImageDropZone(
           sessionKind: ImageImportSessionKind.stitch,
@@ -165,6 +181,7 @@ class _StitchEditorBody extends StatelessWidget {
                     Expanded(child: StitchVerticalImageList()),
                     Expanded(
                       child: SingleChildScrollView(
+                        padding: EdgeInsets.only(bottom: 80),
                         child: StitchControlsPanel(),
                       ),
                     ),

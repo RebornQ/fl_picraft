@@ -32,7 +32,44 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(body: SafeArea(child: _HomeBody()));
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.photo_filter_outlined,
+              color: colorScheme.primary,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Fl PiCraft',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: EdgeInsets.all(4),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_outlined),
+              tooltip: '通知（即将推出）',
+              // Notification center is not part of the MVP — leave the
+              // affordance visible (matches the mockup) but render it
+              // disabled so users get the right "coming soon" cue.
+              onPressed: null,
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(child: _HomeBody()),
+    );
   }
 }
 
@@ -50,50 +87,43 @@ class _HomeBody extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         // Greeting header.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: colorScheme.primaryContainer,
-                child: Icon(
-                  Icons.person,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '你好，创作者',
-                      style: textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    Text(
-                      '欢迎回来',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.secondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined),
-                tooltip: '通知（即将推出）',
-                // Notification center is not part of the MVP — leave the
-                // affordance visible (matches the mockup) but render it
-                // disabled so users get the right "coming soon" cue.
-                onPressed: null,
-              ),
-            ],
-          ),
-        ),
+        // TODO 备注：勿删，保留备用
+        // Padding(
+        //   padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        //   child: Row(
+        //     children: [
+        //       CircleAvatar(
+        //         radius: 20,
+        //         backgroundColor: colorScheme.primaryContainer,
+        //         child: Icon(
+        //           Icons.person,
+        //           color: colorScheme.onPrimaryContainer,
+        //         ),
+        //       ),
+        //       const SizedBox(width: 12),
+        //       Expanded(
+        //         child: Column(
+        //           crossAxisAlignment: CrossAxisAlignment.start,
+        //           children: [
+        //             Text(
+        //               '你好，创作者',
+        //               style: textTheme.titleLarge?.copyWith(
+        //                 fontWeight: FontWeight.bold,
+        //                 color: colorScheme.onSurface,
+        //               ),
+        //             ),
+        //             Text(
+        //               '欢迎回来',
+        //               style: textTheme.bodySmall?.copyWith(
+        //                 color: colorScheme.secondary,
+        //               ),
+        //             ),
+        //           ],
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ),
         // Section title.
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -135,14 +165,14 @@ class _FeatureCardsLayout extends StatelessWidget {
     final longStitchCard = FeatureCard(
       title: '长图拼接',
       description: '将多张图片无缝拼接为竖向、横向或电影台词长图。',
-      actionLabel: '导入新图片',
+      actionLabel: '点击进入',
       icon: Icons.view_agenda_outlined,
       onActionPressed: () => context.go('/stitch'),
     );
     final gridCard = FeatureCard(
       title: '宫格切图',
       description: '将图片切分为创意九宫格或自定义布局，非常适合社交媒体分享。',
-      actionLabel: '导入新图片',
+      actionLabel: '点击进入',
       icon: Icons.grid_view_outlined,
       primaryAction: false,
       onActionPressed: () => context.go('/grid'),

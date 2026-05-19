@@ -43,7 +43,10 @@ class StitchControlsSheet extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
-        child: const SingleChildScrollView(child: StitchControlsPanel()),
+        child: const SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: 80),
+          child: StitchControlsPanel(),
+        ),
       ),
     );
   }
