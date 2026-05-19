@@ -1,4 +1,4 @@
-# fl_picraft
+# Fl PiCraft
 
 A picture craft for Flutter project.
 

@@ -1,6 +1,6 @@
 {
-    "name": "fl_picraft",
-    "short_name": "fl_picraft",
+    "name": "Fl PiCraft",
+    "short_name": "Fl PiCraft",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
