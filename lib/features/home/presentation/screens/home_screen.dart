@@ -127,12 +127,25 @@ class _HomeBody extends StatelessWidget {
         // Section title.
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          child: Text(
-            '今天想创作点什么？',
-            style: textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '你好，创作者',
+                style: textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.secondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '今天想创作点什么？',
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
           ),
         ),
         // Feature cards — single column on compact, two-column row on
