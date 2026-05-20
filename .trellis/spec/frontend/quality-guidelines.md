@@ -306,6 +306,47 @@ test('stitch picks do not appear in grid session', () async {
 
 **Don't reach for `tester.pumpAndSettle()` to mask the timer leak** — it can pass on one machine and flake on CI. If the widget tree adds no value to the assertion, the right fix is dropping `testWidgets` entirely, not pumping harder.
 
+### Pattern: Avoid `pumpAndSettle()` when the widget tree has an indefinite animation
+
+**Problem**: A widget test wraps a tree that contains `CircularProgressIndicator`,
+`LinearProgressIndicator`, an `AnimatedSwitcher` whose child cycles an indeterminate spinner,
+or any other animation that loops forever. Calling `await tester.pumpAndSettle()` then **hangs
+indefinitely** — it waits for frame quiescence, and an infinite animation never reaches it.
+The test eventually times out with no useful failure message.
+
+**Solution**: pump a **fixed duration** that covers all *finite* transitions you care about
+(e.g. an `AnimatedSwitcher`'s 200 ms cross-fade) but does NOT try to wait for the indefinite
+animation to stop:
+
+```dart
+// ❌ Hangs forever — PreviewSkeleton contains CircularProgressIndicator
+await tester.pumpAndSettle();
+
+// ✅ Drains the 200 ms AnimatedSwitcher cross-fade and any pending microtasks,
+//    without waiting on the spinner that will never settle.
+Future<void> _settleAnimatedSwitcher(WidgetTester tester) async {
+  await tester.pump();                            // commit state change
+  await tester.pump(const Duration(milliseconds: 250)); // > AnimatedSwitcher duration
+}
+```
+
+**When the issue surfaces**:
+
+- Sealed-state widgets where `PreviewLoading` / `LoadingChip` / a placeholder embeds a
+  spinner that the production UI is meant to show during a render
+- Any time a `Future.delayed` inside the widget never resolves under the test's
+  `ProviderScope.overrides` (e.g. the fake renderer returns a `Completer().future`)
+- `Hero` / page-transition tests where the route uses `AlwaysAnimating` transitions
+
+**Heuristic**: if `pumpAndSettle()` hangs, search the widget tree under test for any
+`Stream`-driven or repeating `AnimationController` (the Flutter built-ins like
+`CircularProgressIndicator` are the usual suspects). Replace with `pump(fixedDuration)` keyed
+to the longest finite transition you actually need to advance past.
+
+**Reference**: `test/features/export/presentation/widgets/preview_card_test.dart` —
+the `_settleAnimatedSwitcher` helper drains the 200 ms cross-fade without waiting on the
+loading spinner that lives inside `PreviewSkeleton`.
+
 ### Pattern: Performance benchmarks via `@Tags(['benchmark'])`
 
 **What**: Place all performance benchmarks in `test/benchmarks/` and tag them with `@Tags(['benchmark'])`. Configure `dart_test.yaml` to skip the tag by default:
