@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父任务 PRD —— 跨平台一致性、Subtask 拆分映射、ADR-lite 与 Acceptance Criteria 的权威来源"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/macos-window-and-menu.md", "reason": "macOS 原生窗口管理与 Settings 菜单接入的完整调研：strategy A frameAutosaveName、contentMinSize、IBAction openSettings: 直连 AppDelegate、FlutterMethodChannel app.fl_picraft/menu"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/windows-window-management.md", "reason": "Windows Win32 调研：PerMonitorV2、AdjustWindowRectExForDpi、WM_GETMINMAXINFO / WM_CLOSE 时机、INI at %APPDATA%\\fl_picraft\\、shcore.lib + shell32.lib 链接"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/linux-window-management.md", "reason": "Linux GTK 3 调研：Wayland 上 primary_monitor/workarea/get_position 三大限制、GKeyFile + XDG config dir、delete-event 信号保存"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "零插件原则 —— 禁止引入 window_manager / bitsdojo_window；三端 manifest / entitlements 不可破坏现有 super_drag_and_drop 等依赖"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "技术栈与目录布局总览，确保改动遵守现有架构"}

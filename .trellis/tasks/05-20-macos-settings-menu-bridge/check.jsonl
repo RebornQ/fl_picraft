@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-macos-settings-menu-bridge/prd.md", "reason": "本 subtask 的 Acceptance Criteria + Smoke Verify Script"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD 总验收 AC1（菜单触发 settings 路由）和 AC5（无新插件）部分由本 subtask 负责"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter analyze clean + 新增 menu_channel_test 通过的质量基线"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "复查 pubspec.yaml 未出现 window_manager / bitsdojo_window 等窗口管理插件"}

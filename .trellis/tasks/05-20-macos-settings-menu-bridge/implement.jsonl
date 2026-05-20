@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/05-20-macos-settings-menu-bridge/prd.md", "reason": "本 subtask 的改动文件清单 / AC / Out-of-Scope 权威来源"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD §A（macOS 菜单桥接技术方案）和 §E（Dart 桥接层），以及 ADR-lite §D-A（菜单文案与 IBAction 选择器决策）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/macos-window-and-menu.md", "reason": "完整 Swift 代码骨架、xib <connections> 语法、FlutterMethodChannel 时序、U+2026 ellipsis 与 target=Voe-Tx-rLC 等关键事实"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Dart 端 menu_channel.dart 应放在 lib/core/native/ 还是其他位置 —— 用 core 的 cross-feature 规则"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "不引入新 Flutter 插件（如 window_manager）的强约束；既有 super_drag_and_drop 等不可受影响"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "MenuChannel Dart 类型 / setMethodCallHandler 回调签名约定"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "把 MethodChannel 命名常量集中在 menu_channel.dart 单一位置，未来扩展 app.fl_picraft/window 等不重复"}

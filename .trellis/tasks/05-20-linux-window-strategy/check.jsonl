@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-linux-window-strategy/prd.md", "reason": "本 subtask Acceptance Criteria（X11 / Wayland 双路径 / 最小尺寸 / 拔屏兜底 / HiDPI / build 成功）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD AC2 / AC3 / AC4 / AC5 / AC6 的 Linux 部分"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter build linux 成功；GTK 编译警告处理"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "复查 pubspec 未引入新插件；CMakeLists 未引入额外 PkgConfig 依赖"}

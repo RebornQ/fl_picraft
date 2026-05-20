@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-windows-window-strategy/prd.md", "reason": "本 subtask 改动清单、Acceptance Criteria、WM_GETMINMAXINFO / WM_CLOSE 关键代码片段权威来源"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD §C（Windows 窗口策略）+ ADR-lite §D-D（INI 而非注册表）+ §D-E（WM_CLOSE in Win32Window::MessageHandler + GetWindowPlacement.rcNormalPosition）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/windows-window-management.md", "reason": "完整 C++ Win32 代码骨架、PerMonitorV2 在 manifest 中已启用、AdjustWindowRectExForDpi 用法、Win32Window::Create 接受逻辑像素的 contract、shcore.lib + shell32.lib 链接、IsRectVisibleOnAnyMonitor 多屏兜底"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "禁止引入 window_manager 等 Flutter 插件；CMakeLists 改动仅限于添加 native 源文件与系统库链接"}

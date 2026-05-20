@@ -1,0 +1,31 @@
+{
+  "id": "desktop-window-mgmt-and-menu",
+  "name": "desktop-window-mgmt-and-menu",
+  "title": "桌面平台窗口管理与系统菜单响应",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-20",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-20-macos-settings-menu-bridge",
+    "05-20-macos-window-strategy",
+    "05-20-windows-window-strategy",
+    "05-20-linux-window-strategy"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-macos-window-strategy/prd.md", "reason": "本 subtask 改动清单、Acceptance Criteria、关键顺序约束（contentMinSize → setFrame → setFrameAutosaveName）的权威来源"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD §B（macOS 窗口策略）+ ADR-lite §D-B（frameAutosaveName 取代手写 UserDefaults）+ §D-C（contentMinSize 而非 minSize）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/macos-window-and-menu.md", "reason": "Strategy A 完整 Swift 代码骨架，包含 visibleFrame 计算、setFrame 不受 minSize 约束的特例、constrainFrameRect:to: 自动 clamp 行为"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "禁止引入 window_manager / flutter_acrylic 等 Flutter 窗口管理插件；entitlements 不受影响"}

@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-linux-window-strategy/prd.md", "reason": "本 subtask 改动清单、Wayland 降级矩阵、Acceptance Criteria 权威来源"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD §D（Linux 窗口策略）+ ADR-lite §D-F（GKeyFile + XDG）+ §D-G（Wayland 降级策略）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/research/linux-window-management.md", "reason": "完整 GTK 3 C 代码骨架、apply_initial_geometry + on_window_delete_event 实现、gdk_display_get_primary_monitor 在 Wayland 上为 NULL 的 fallback、g_key_file_save_to_file 原子写入、GDK_IS_X11_DISPLAY 守卫"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "禁止引入 Flutter 窗口管理插件；CMakeLists 无需改动（PkgConfig::GTK 已传递性带入 gdk-x11 + gdk-wayland）"}

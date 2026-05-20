@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-macos-window-strategy/prd.md", "reason": "本 subtask Acceptance Criteria（80% 居中 / 恢复 / 最小尺寸 / 拓扑变化兜底 / 刘海安全 / build 成功）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD AC2 / AC3 / AC4 / AC5 / AC6 的 macOS 部分"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter analyze clean + flutter build macos 成功"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "复查未引入新插件；entitlements / Info.plist 未受影响"}

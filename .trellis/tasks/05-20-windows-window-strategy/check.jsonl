@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/05-20-windows-window-strategy/prd.md", "reason": "本 subtask Acceptance Criteria（80% 居中 / 恢复 / 最小尺寸 / maximized rcNormalPosition / DPI 切换 / 拔屏兜底 / build 成功）"}
+{"file": ".trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md", "reason": "父 PRD AC2 / AC3 / AC4 / AC5 / AC6 的 Windows 部分"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter build windows 成功；Win32 警告处理"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "复查 pubspec 未引入新插件；CMakeLists 仅增 shcore.lib + shell32.lib"}
