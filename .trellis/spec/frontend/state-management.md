@@ -470,10 +470,177 @@ ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
 - `lib/features/grid/presentation/providers/grid_editor_provider.dart` — counter-example (pure-mirror form, no guard
   needed).
 
+### Pattern: Inject isolate-bound functions through a typedef + Provider for testability
+
+**Problem**: A controller depends on a function that hops to a background isolate via
+`compute(...)`. Production callers want the real isolate hop; tests want a synchronous fake
+so `FakeAsync` can advance the debounce / cache / pause-gate timeline and assertion helpers
+can count calls. Calling the production function directly from the controller makes both
+goals impossible:
+
+- `FakeAsync` cannot advance time inside a real isolate
+- The Flutter binding is not initialized in unit tests, so `compute` throws (or you rely
+  on a fallback to sync, which defeats the test's intent of asserting "the controller
+  called the function exactly once")
+
+**Solution**: Define a `typedef` for the function signature and expose a `Provider` that
+returns the production implementation. The controller reads the function through the
+provider; tests `overrideWithValue` a synchronous fake.
+
+```dart
+// lib/features/export/data/preview_renderer.dart
+typedef ProcessBytesFn = Future<Uint8List> Function({
+  required Uint8List source,
+  required WatermarkConfig watermark,
+  required ExportFormat format,
+  required int quality,
+});
+
+Future<Uint8List> processExportBytes({...}) async {
+  // Real implementation: compute(_processExportInIsolate, _ProcessExportRequest(...))
+}
+
+// lib/features/export/presentation/providers/process_bytes_fn.dart
+final processBytesFnProvider = Provider<ProcessBytesFn>((_) => processExportBytes);
+
+// In the controller — never call processExportBytes directly
+final processFn = ref.read(processBytesFnProvider);
+final bytes = await processFn(source: src, watermark: wm, format: fmt, quality: q);
+
+// In the test — override with a synchronous, counted fake
+var callCount = 0;
+ProviderScope(
+  overrides: [
+    processBytesFnProvider.overrideWithValue(({required source, required watermark,
+        required format, required quality}) async {
+      callCount++;
+      return Uint8List.fromList([1, 2, 3]);
+    }),
+  ],
+  child: ...,
+);
+// Now `FakeAsync` can advance debounce timers; `callCount` proves dedup works.
+```
+
+**When to use**: any controller whose hot path goes through `compute()`, `Isolate.spawn`,
+or other isolation-bound primitives that defeat `FakeAsync`.
+
+**Reference**: `lib/features/export/presentation/providers/process_bytes_fn.dart`;
+`test/features/export/presentation/providers/preview_controller_test.dart`.
+
+### Pattern: `NotifierProvider<SealedState>` when the sealed already owns loading/error
+
+**Problem**: A controller has four states — *empty*, *loading*, *ready*, *error* — and the
+natural model is a Dart 3 sealed class:
+
+```dart
+sealed class PreviewState {}
+class PreviewEmpty extends PreviewState { ... }
+class PreviewLoading extends PreviewState { final List<Uint8List>? staleBytes; ... }
+class PreviewReady extends PreviewState { final List<Uint8List> bytes; ... }
+class PreviewError extends PreviewState { final String message; ... }
+```
+
+The instinct is to reach for `AsyncNotifierProvider<_, PreviewState>` because the renderer
+is async. **Don't.** `AsyncValue<PreviewState>` produces a 4×4 cartesian product on the
+consumer side, because `AsyncValue` *also* expresses loading / error:
+
+```dart
+// Anti-pattern — double expression of loading/error
+asyncState.when(
+  loading: () => /* what does this even mean if the sealed has PreviewLoading? */,
+  error: (e, _) => /* and this? sealed has PreviewError too! */,
+  data: (state) => switch (state) {
+    PreviewEmpty() => ...,
+    PreviewLoading() => /* unreachable in theory, but compiler still demands it */,
+    PreviewReady() => ...,
+    PreviewError() => /* unreachable in theory, but compiler still demands it */,
+  },
+);
+```
+
+The two "unreachable" branches are real footguns: anyone refactoring later may accidentally
+route through them, and exhaustiveness checks force you to write them anyway.
+
+**Solution**: Use `NotifierProvider<Controller, SealedState>`. The controller's `Future`
+work is internal; the consumer sees a flat `PreviewState` and switches once:
+
+```dart
+class PreviewController extends Notifier<PreviewState> {
+  @override
+  PreviewState build() => const PreviewEmpty();
+
+  Future<void> _runRender() async {
+    state = const PreviewLoading();
+    try {
+      final bytes = await processFn(...);
+      state = PreviewReady(bytes: bytes, ...);
+    } catch (e) {
+      state = PreviewError(message: '...', ...);
+    }
+  }
+}
+
+final previewControllerProvider =
+    NotifierProvider<PreviewController, PreviewState>(PreviewController.new);
+
+// Consumer — one level, exhaustive
+final state = ref.watch(previewControllerProvider);
+return switch (state) {
+  PreviewEmpty() => _EmptyView(),
+  PreviewLoading(:final staleBytes) => _LoadingView(stale: staleBytes),
+  PreviewReady(:final bytes, :final totalSizeBytes) => _ReadyView(...),
+  PreviewError(:final message, :final staleBytes) => _ErrorView(...),
+};
+```
+
+**Heuristic**: if your sealed already enumerates the loading/error/empty cases, never wrap
+it in `AsyncValue`. Choose either:
+
+- **`NotifierProvider<SealedState>`** when the sealed owns all states (preferred when the
+  state machine is rich — e.g. carries `staleBytes`, partial progress, attempt count)
+- **`AsyncNotifierProvider<RawData>`** when the data type is plain (`List<Foo>` etc.) and
+  you genuinely want `AsyncValue` to express loading/error — see the
+  *Preserve previous data during `AsyncLoading`* pattern above
+
+**Reference**: `lib/features/export/presentation/providers/preview_controller.dart`
+(`NotifierProvider<PreviewController, PreviewState>`).
+
 
 ---
 
 ## Common Mistakes
+
+### ❌ Don't: cache by `identityHashCode(bytes)` when the source produces fresh `Uint8List` each call
+
+**Symptom**: A cache that "should obviously hit" never does. Every controller rebuild,
+every consumer re-fetch, re-runs the expensive isolate work.
+
+**Cause**: The data source (e.g. a renderer `Future<Uint8List> render(...)`) returns
+`Uint8List.fromList(...)` — a fresh allocation every call. `identityHashCode(bytes)` is
+therefore different on each call even when the *content* is identical.
+
+**Fix**: Key the cache on an immutable upstream state's `hashCode`, not on the produced
+bytes:
+
+```dart
+// ❌ Wrong — bytes identity changes every call
+final key = Object.hash(sourceKind, identityHashCode(sourceBytes), watermark, format, quality);
+
+// ✅ Correct — hash the immutable editor state that produced the bytes
+final key = Object.hash(sourceKind, editor.state.hashCode, watermark, format, quality);
+```
+
+**Prevention**: when designing a cache key for derived bytes (encoded images, hashed
+payloads, serialized blobs), trace back to the **immutable input** that produced them.
+Make sure that input has a proper structural `hashCode` (full field hash via `Object.hash`
++ `Object.hashAll` for list fields, with element types that themselves have stable
+hashes — avoid `bytes.length`-only shortcuts when length collisions matter; use
+identity-fields like timestamps or source paths instead).
+
+**Reference**: `lib/features/export/presentation/providers/processed_bytes_cache.dart`
+and `preview_controller.dart` use `StitchEditorState.hashCode` / `GridEditorState.hashCode`
+(both have complete field hashes) rather than `identityHashCode(sourceBytes)`.
 
 ### ❌ Don't
 
