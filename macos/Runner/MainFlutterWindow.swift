@@ -10,6 +10,15 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
+    // Wire the native -> Dart menu bridge. The engine's binaryMessenger
+    // is already available here (FlutterViewController has been
+    // instantiated above), so the channel is registered before any
+    // menu item can be clicked.
+    let bridge = MenuChannelBridge(
+      messenger: flutterViewController.engine.binaryMessenger
+    )
+    (NSApp.delegate as? AppDelegate)?.menuBridge = bridge
+
     super.awakeFromNib()
   }
 }
