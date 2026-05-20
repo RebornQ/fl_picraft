@@ -15,6 +15,9 @@ Apply this spec when you:
 - Modify `android/app/build.gradle.kts` SDK targets
 - Add, rename, or remove a native source file under `macos/Runner/`,
   `windows/runner/`, or `linux/runner/`
+- Implement custom `NSWindow` / `Win32Window` / GTK window lifecycle logic
+  in a platform runner (e.g. `MainFlutterWindow.swift`, `win32_window.cpp`,
+  `my_application.cc`)
 
 ---
 
@@ -356,6 +359,103 @@ they differ. Both must move together.
 - `flutter build macos --debug` reaches link without the gal-deployment
   error.
 
+### macOS: `NSWindow.setFrameAutosaveName` MUST come after `setFrame`
+
+> Captured from `05-20-macos-window-strategy` (Subtask 2 of
+> `05-20-desktop-window-mgmt-and-menu`).
+
+**Critical Gotcha**: When using `NSWindow.setFrameAutosaveName(_:)` for
+window-frame persistence, AppKit reads `UserDefaults["NSWindow Frame <name>"]`
+at the **exact moment** that call runs:
+
+- If a saved value exists → AppKit immediately overrides the current frame
+  with the saved value (= restore behavior).
+- If no saved value exists → AppKit leaves the current frame untouched
+  (= first-launch behavior).
+
+This means `setFrame(default, display: true)` MUST precede
+`setFrameAutosaveName(name)` inside `awakeFromNib`. Reversing the order
+silently breaks both intended behaviors — there is no compiler warning, no
+runtime exception, and `flutter analyze` cannot catch it.
+
+**Wrong** (first launch ignores the computed default; subsequent launches
+never visibly restore user resizes):
+
+```swift
+override func awakeFromNib() {
+  // ...
+  _ = self.setFrameAutosaveName("fl_picraft.main")   // ← too early
+  self.setFrame(myDefault, display: true)            // overrides anything
+                                                     // autosave restored
+}
+```
+
+On first launch the explicit `setFrame` wins over the xib frame, fine in
+isolation. But on subsequent launches the explicit `setFrame` ALSO wins
+over the restored frame — user resizes never come back.
+
+**Correct** (first launch = default; subsequent = restore):
+
+```swift
+override func awakeFromNib() {
+  let flutterViewController = FlutterViewController()
+  self.contentViewController = flutterViewController
+
+  // 1. Min size first so any subsequent setter respects it. Use
+  //    `contentMinSize` (excludes title bar) so 1280×800 reads as
+  //    "1280×800 usable canvas" — Apple docs say contentMinSize takes
+  //    precedence over minSize.
+  self.contentMinSize = NSSize(width: 1280, height: 800)
+
+  // 2. Compute the default frame (e.g. 80% × visibleFrame, centered)
+  //    and set it via setFrame(_:display:) — the one setter explicitly
+  //    documented as NOT clamped by minSize, so explicit values land
+  //    untouched. visibleFrame already excludes dock / menu bar / notch.
+  if let screen = self.screen ?? NSScreen.main ?? NSScreen.screens.first {
+    let v = screen.visibleFrame
+    let w = max(floor(v.width  * 0.80), 1280)
+    let h = max(floor(v.height * 0.80), 800)
+    let x = v.minX + (v.width  - w) / 2
+    let y = v.minY + (v.height - h) / 2
+    self.setFrame(NSRect(x: x, y: y, width: w, height: h), display: true)
+  }
+
+  // 3. Autosave name LAST. AppKit either keeps our default (no saved
+  //    value yet = first launch) or overrides it with the saved frame
+  //    (subsequent launches). Multi-screen unplug is handled by AppKit's
+  //    built-in constrainFrameRect:to: at restore time — no manual
+  //    "is-rect-visible" guard required.
+  _ = self.setFrameAutosaveName("fl_picraft.main")
+
+  RegisterGeneratedPlugins(registry: flutterViewController)
+
+  // (… other awakeFromNib work …)
+
+  super.awakeFromNib()
+}
+```
+
+**Why it's easy to break**: A maintainer alphabetizing setters or grouping
+"setup" calls at the top of `awakeFromNib` would naturally put
+`setFrameAutosaveName` before `setFrame`. The Apple docs describe the
+restore semantics but do not call out the ordering hazard explicitly.
+
+**Validation** (manual smoke — automatable parts already covered by
+`flutter analyze` + `flutter build macos`):
+
+- `defaults delete <bundle-id>` (or `rm ~/Library/Preferences/<bundle-id>.plist`).
+- Launch → window appears at default (e.g. 80% centered on primary
+  monitor's `visibleFrame`).
+- Resize → quit → relaunch → window appears at resized position (restore
+  worked).
+- If both behaviors don't hold simultaneously, the order is reversed.
+
+**Related**:
+- `NSWindow.contentMinSize` vs `minSize` — content-area vs frame-including-titlebar (use `contentMinSize` for "minimum usable canvas" semantics).
+- `setFrame(_:display:)` vs `setFrame(_:display:animate:)` — only the
+  no-animate variant is documented as NOT clamped by `minSize`; use it
+  when restoring or setting explicit defaults.
+
 ### Desktop runners: register new native source files with the build system
 
 > Captured from `05-20-macos-settings-menu-bridge` (Subtask 1 of
@@ -588,6 +688,7 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
 | Hand-pinned `targetSdk = 34` | Flutter SDK bump silently regresses to 34, blocking new APIs | Restore `flutter.targetSdkVersion` |
 | `MACOSX_DEPLOYMENT_TARGET` lower than a plugin's floor (e.g. `gal` ≥ 11.0) | `pod install` or `flutter build macos` errors with `The plugin "X" requires a higher minimum macOS deployment version` | Bump Podfile **and** every `MACOSX_DEPLOYMENT_TARGET` in `project.pbxproj` to the plugin floor |
 | New native source file dropped on disk without registering it in `Runner.xcodeproj/project.pbxproj` (macOS) / `windows/runner/CMakeLists.txt` (Windows) / `linux/runner/CMakeLists.txt` (Linux) | macOS: Swift compile error `cannot find type 'X' in scope` at the call site (the new file itself was never compiled). Windows: MSVC `LNK2019: unresolved external symbol` or `C2065: undeclared identifier`. Linux: ld `undefined reference`. **`flutter analyze` is silent** in all three cases because it only walks Dart. | Mirror an existing entry (e.g. `AppDelegate.swift`) in all 4 pbxproj sections with two fresh UUIDs; for Windows / Linux append the filename to `RUNNER_SOURCES` / `add_executable`. See "Desktop runners: register new native source files". Always run `flutter build <platform>` before declaring done. |
+| `NSWindow.setFrameAutosaveName` called BEFORE `setFrame(default, display: true)` in `awakeFromNib` | First-launch window uses the xib frame (NOT the computed 80% default); user resizes never visibly restore on subsequent launches. **No compile warning, no runtime exception** — `flutter analyze` cannot catch it. | Reorder: `contentMinSize` → compute and `setFrame(default, display: true)` → `setFrameAutosaveName(name)` **LAST**. See "macOS: `NSWindow.setFrameAutosaveName` MUST come after `setFrame`". Smoke-verify by `defaults delete <bundle-id>` + launch + resize + relaunch. |
 | `file_picker.saveFile()` called on web | Returns `null` silently; user sees "save did nothing" with no error | Route web through a `package:web` Blob adapter (conditional import) |
 | `URL.createObjectURL` without matching `revokeObjectURL` | Blob bytes leak in browser memory until tab closes; large exports compound | Revoke immediately after `<a>.click()` |
 | `gal.putImageBytes(..., album: '')` | Creates a real album named "" in Photos / Gallery | Normalize empty strings to `null` before the call |
