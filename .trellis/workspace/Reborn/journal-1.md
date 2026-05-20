@@ -1516,3 +1516,37 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 46: Subtask 3：Windows 窗口策略（INI + WM_GETMINMAXINFO + WM_CLOSE rcNormalPosition）+ Win32 双 spec 沉淀
+
+**Date**: 2026-05-20
+**Task**: Subtask 3：Windows 窗口策略（INI + WM_GETMINMAXINFO + WM_CLOSE rcNormalPosition）+ Win32 双 spec 沉淀
+**Branch**: `main`
+
+### Summary
+
+落地 05-20-desktop-window-mgmt-and-menu 父任务的 Subtask 3（Windows Win32 原生窗口策略）：新建 windows/runner/window_state.{h,cpp}（INI 持久化 + 80% × rcWork 居中默认 + ≥100×100 多屏可见性兜底 + DPI snapshot）；改 main.cpp（启动时 LoadWindowState 优先 / 物理像素 ÷ scale 转逻辑像素传 Win32Window::Create / NonNeg 防 unsigned wrap）；改 win32_window.cpp（Win32Window::MessageHandler 加 WM_GETMINMAXINFO + WM_CLOSE 两个 case，分别用 AdjustWindowRectExForDpi(WS_OVERLAPPEDWINDOW) 设 ptMinTrackSize 物理像素 + GetWindowPlacement.rcNormalPosition 抓 restored rect 避开 maximized 污染）；改 CMakeLists.txt 加 window_state.cpp 到 add_executable 并链接 shcore.lib + shell32.lib。trellis-check 22 项独立复核 21 PASS + 1 UNVERIFIED（flutter build windows 本机不可用），并抓到并修了真实 bug：GetPrivateProfileIntW 静默把负值返回 0（Microsoft 文档明确说明的 quirk），改用 GetPrivateProfileStringW + wcstol 自己解析十进制保留有符号语义。同步沉淀 2 节 Win32 API 陷阱到 .trellis/spec/frontend/dependencies-and-platforms.md：§'Windows: GetPrivateProfileIntW silently returns 0 for negative integers'（含 Wrong vs Correct 代码、何时仍可安全使用、验证模板）+ §'Windows: WINDOWPLACEMENT.rcNormalPosition is workspace coordinates'（4 种 layout 影响对照表 + option A 转换 / option B SetWindowPlacement 两个修复方案 + 当前 repo 已知限制说明）。Validation & Error Matrix 同步 +2 条目。父任务进度 3/4 done。剩 Subtask 4（Linux）和 Windows 端的物理 smoke 验证（本机 macOS 跑不了 flutter build windows，用户需在 Windows 机器上跑 Smoke Verify Script 后方可宣布完工）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b292b6c` | (see git log) |
+| `ba3cb7b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
