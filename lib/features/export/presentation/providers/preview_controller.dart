@@ -35,7 +35,20 @@ const Duration kPreviewDebounce = Duration(milliseconds: 300);
 /// per PRD §D1: the sealed variants already cover loading / ready /
 /// error / empty exhaustively, so wrapping in `AsyncValue` would force
 /// consumers to handle a 4×4 product of UI cases.
-class PreviewController extends Notifier<PreviewState> {
+///
+/// **AutoDispose ownership**: the controller is autoDispose so that
+/// once the consumer ([PreviewCard]) is unmounted (user pops
+/// `/export` back to `/stitch` or `/grid`), the 6 `ref.listen`
+/// callbacks, the debounce timer, `_cachedSource`, and the
+/// `_lastRenderedKey` bookkeeping are all released. Without
+/// autoDispose, slider changes in the editors would keep firing the
+/// controller's listeners (silently re-running the expensive
+/// `stitch/gridEditorControllerProvider.render()` + isolate hop in
+/// the background) for an offscreen page. `processedBytesCacheProvider`
+/// is intentionally NOT autoDispose so a re-visit can still hit the
+/// cache and return [PreviewReady] immediately — see the provider
+/// dartdoc on [previewControllerProvider] for the full rationale.
+class PreviewController extends AutoDisposeNotifier<PreviewState> {
   Timer? _debounce;
   int _inFlightToken = 0;
 
@@ -78,14 +91,19 @@ class PreviewController extends Notifier<PreviewState> {
 
     // Synchronously decide the initial state from the editor + cache.
     //
-    // Why: [previewControllerProvider] is a plain (non-autoDispose)
-    // Notifier so the controller instance and its `state` field
-    // survive across `/export` page visits. A naive `return
-    // const PreviewEmpty()` here would cause the first frame to flash
-    // [PreviewEmpty] (or, on a stale instance, a leftover
-    // [PreviewReady]) before the debounced render eventually
-    // transitions into the real state — UX regression: stale-ready
-    // flash on re-mount.
+    // Why: the controller is autoDispose so it's re-created on every
+    // `/export` re-mount. On re-mount, the consumer's first read of
+    // `previewControllerProvider` must NOT show the wrong state for
+    // a frame before the debounce-driven render kicks in. Two failure
+    // modes a naive `return const PreviewEmpty()` would cause:
+    //   1. Even with autoDispose, the [processedBytesCacheProvider]
+    //      survives across visits (it's intentionally NOT autoDispose
+    //      so re-visits hit the cache). Returning Empty here would
+    //      flash Empty for 300 ms before the real Ready arrived even
+    //      when the cache held a perfect match.
+    //   2. When the cache holds NO entry but the editor has content,
+    //      Empty would flash for 300 ms before transitioning to
+    //      Loading — also a regression.
     //
     // Fix: inspect the [processedBytesCacheProvider] synchronously.
     //   - cache hit  → return [PreviewReady] directly, skip the
@@ -382,19 +400,47 @@ class PreviewController extends Notifier<PreviewState> {
 
 /// Public provider.
 ///
-/// Type: `NotifierProvider<PreviewController, PreviewState>` — NOT
-/// `AsyncNotifierProvider`. See PRD §D1 / `preview_state.dart` for the
-/// reasoning.
+/// Type: `AutoDisposeNotifierProvider<PreviewController, PreviewState>`
+/// — NOT `AsyncNotifierProvider`. See PRD §D1 / `preview_state.dart`
+/// for the reasoning on the sealed-state-instead-of-AsyncValue choice.
+///
+/// **Why autoDispose**: the controller registers 6 `ref.listen`
+/// callbacks against the watermark / format / quality / saving-flag
+/// and the two editor controllers. Without autoDispose, once the user
+/// pops `/export` back to `/stitch` or `/grid`, the controller (and
+/// those listeners) stays alive — any slider drag in the editors
+/// re-fires the debounced render in the background, running the
+/// expensive `stitch/gridEditorControllerProvider.notifier.render()`
+/// + `compute()` isolate hop for an invisible page and growing
+/// `processedBytesCacheProvider` resident memory by up to ~25-100 MB
+/// per session. autoDispose releases the controller (its timer,
+/// listeners, `_cachedSource`, and `_lastRenderedKey`) the moment the
+/// last consumer is unmounted.
+///
+/// **Why [processedBytesCacheProvider] is intentionally NOT
+/// autoDispose**: dropping the cache on every `/export` un-mount
+/// would defeat the "mount 不闪 stale" contract from PRD §D6 — a
+/// user who pops back into `/export` with the same inputs should
+/// immediately see a [PreviewReady] frame from the cache instead of
+/// flashing [PreviewLoading] for 300 ms while the cache re-warms.
+/// [_initialStateFromCache] reads the cache synchronously on every
+/// new controller `build()`, so the cross-visit cache hit is what
+/// makes re-mount feel instant.
 final previewControllerProvider =
-    NotifierProvider<PreviewController, PreviewState>(PreviewController.new);
+    AutoDisposeNotifierProvider<PreviewController, PreviewState>(
+      PreviewController.new,
+    );
 
 /// Hint to consumers (Subtask B's UI) that need a flat list of
 /// preview bytes. Returns an empty list outside [PreviewReady] so
 /// callers can do a single `ref.watch` without an extra `switch`.
 ///
 /// Kept here so the controller stays focused on state transitions —
-/// derived projections live as separate providers.
-final previewBytesProvider = Provider<List<Uint8List>>((ref) {
+/// derived projections live as separate providers. autoDispose to
+/// match [previewControllerProvider] (a non-autoDispose derived
+/// projection would silently keep the controller alive via Riverpod's
+/// dependency tracking and defeat the leak fix).
+final previewBytesProvider = Provider.autoDispose<List<Uint8List>>((ref) {
   final s = ref.watch(previewControllerProvider);
   return switch (s) {
     PreviewReady(:final bytes) => bytes,

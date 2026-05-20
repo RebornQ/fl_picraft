@@ -120,6 +120,25 @@ ProviderContainer _makeContainer({
   );
 }
 
+/// Pin the autoDispose [previewControllerProvider] alive for the
+/// duration of the test by subscribing to it. Returns the subscription
+/// so a test can later `.close()` it (e.g. to verify autoDispose
+/// actually fires).
+///
+/// Why every existing test needs this: as of the 2026-05-21 leak fix
+/// the provider is `AutoDisposeNotifierProvider`. `container.read(...)`
+/// triggers `build()` but does NOT add a subscriber, so the controller
+/// gets disposed on the next microtask flush (any `async.elapse(...)`).
+/// A disposed controller has no `ref.listen` callbacks left, so the
+/// debounce-based tests stop seeing the watermark / format changes
+/// fire `_scheduleRender`. Subscribing once after [_makeContainer]
+/// keeps the controller alive throughout the test body.
+ProviderSubscription<PreviewState> _keepPreviewAlive(
+  ProviderContainer container,
+) {
+  return container.listen<PreviewState>(previewControllerProvider, (_, _) {});
+}
+
 void main() {
   group('PreviewController — debounce', () {
     test('5 config changes within 300 ms trigger exactly one render', () {
@@ -132,8 +151,10 @@ void main() {
         addTearDown(container.dispose);
 
         // Mount the controller. The initial schedule starts the
-        // debounce timer.
-        container.read(previewControllerProvider);
+        // debounce timer. autoDispose requires an active subscription
+        // for the controller to survive past the next microtask flush.
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         // Fire 5 watermark changes within the debounce window.
         for (var i = 0; i < 5; i++) {
@@ -169,6 +190,8 @@ void main() {
           stitchImages: [_fakeImage('a')],
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         container.read(previewControllerProvider);
         // First render.
@@ -211,6 +234,8 @@ void main() {
           stitchImages: [_fakeImage('a')],
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         // Initial render.
         container.read(previewControllerProvider);
@@ -263,6 +288,8 @@ void main() {
           stitchImages: [_fakeImage('a')],
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         container.read(previewControllerProvider);
         async.elapse(const Duration(milliseconds: 400));
@@ -283,6 +310,8 @@ void main() {
           stitchImages: [_fakeImage('a')],
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         container.read(previewControllerProvider);
         async.elapse(const Duration(milliseconds: 400));
@@ -317,6 +346,8 @@ void main() {
           stitchImages: [_fakeImage('a')],
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         final notifier = container.read(previewControllerProvider.notifier);
         // Run the debounce timer to start the render. It's now
@@ -355,6 +386,8 @@ void main() {
           stitchImages: [_fakeImage('a')],
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         final notifier = container.read(previewControllerProvider.notifier);
         async.elapse(const Duration(milliseconds: 400));
@@ -384,6 +417,8 @@ void main() {
           // No images for either editor — state is PreviewEmpty.
         );
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         final notifier = container.read(previewControllerProvider.notifier);
         async.elapse(const Duration(milliseconds: 400));
@@ -410,6 +445,8 @@ void main() {
         final fake = _CountingProcessBytesFn();
         final container = _makeContainer(fake: fake);
         addTearDown(container.dispose);
+        final sub = _keepPreviewAlive(container);
+        addTearDown(sub.close);
 
         container.read(previewControllerProvider);
         async.elapse(const Duration(milliseconds: 400));
@@ -473,6 +510,14 @@ void main() {
               .read(processedBytesCacheProvider.notifier)
               .write(cacheKey, precachedBytes);
 
+          // Pin the autoDispose controller alive across the `async.elapse`
+          // calls below — without an active subscriber autoDispose fires
+          // on the next microtask and the controller is recreated before
+          // each assertion, which would invalidate the contract under
+          // test.
+          final sub = _keepPreviewAlive(container);
+          addTearDown(sub.close);
+
           // First read of the controller — build() should return
           // Ready synchronously, no Empty/Loading flash.
           final initialState = container.read(previewControllerProvider);
@@ -510,6 +555,8 @@ void main() {
           final fake = _CountingProcessBytesFn();
           final container = _makeContainer(fake: fake /* no images */);
           addTearDown(container.dispose);
+          final sub = _keepPreviewAlive(container);
+          addTearDown(sub.close);
 
           // First read — synchronous Empty, no Loading flash.
           final initial = container.read(previewControllerProvider);
@@ -537,6 +584,8 @@ void main() {
             stitchImages: [_fakeImage('a')],
           );
           addTearDown(container.dispose);
+          final sub = _keepPreviewAlive(container);
+          addTearDown(sub.close);
 
           // First read — must be Loading immediately, not Empty.
           // Pre-fix behavior: Empty for 300 ms, then Loading.
@@ -579,6 +628,8 @@ void main() {
               stitchImages: [_fakeImage('a')],
             );
             addTearDown(container.dispose);
+            final sub = _keepPreviewAlive(container);
+            addTearDown(sub.close);
 
             // Settle to Ready first.
             container.read(previewControllerProvider);
@@ -627,4 +678,144 @@ void main() {
       );
     },
   );
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Bug-fix regression coverage — leak audit Scenario A + F (silent
+  // background isolate render after the user pops `/export`).
+  //
+  // Before the fix `previewControllerProvider` was a plain
+  // [NotifierProvider]; the controller's `ref.listen` callbacks
+  // (watermark / format / saving / stitch+grid editors), debounce
+  // timer, `_cachedSource`, and `_lastRenderedKey` outlived the
+  // [PreviewCard] widget. Adjusting a slider in the editor screen
+  // after closing `/export` re-fired `_scheduleRender` → `_runRender`
+  // → `compute()` isolate hop → wrote into
+  // [processedBytesCacheProvider]. Result: 25-100 MB resident memory
+  // and silent background CPU burn the user could not see.
+  //
+  // The fix flips the controller to [AutoDisposeNotifierProvider]
+  // (and [previewBytesProvider] to `Provider.autoDispose` to match)
+  // while leaving [processedBytesCacheProvider] non-autoDispose so the
+  // re-mount cache-hit path from PRD §D6 still works.
+  //
+  // This regression test exercises a "first visit + drop subscriber +
+  // second visit" cycle, asserting (a) the second-visit controller is
+  // a fresh instance (proves autoDispose actually fired), and (b) the
+  // cached bytes survive across the dispose so the second visit's
+  // first emitted state is [PreviewReady] without invoking `processFn`.
+  // ─────────────────────────────────────────────────────────────────────
+
+  group('PreviewController — autoDispose leak fix', () {
+    test(
+      'controller is released on unmount and cache survives — re-mount returns '
+      'PreviewReady from cache without invoking processFn',
+      () async {
+        final fake = _CountingProcessBytesFn();
+        final container = _makeContainer(
+          fake: fake,
+          stitchImages: [_fakeImage('a')],
+        );
+        addTearDown(container.dispose);
+
+        // Pre-warm the processed-bytes cache with the exact key the
+        // controller's first build() will derive. Reading the dep
+        // providers initializes them so the key derivation matches
+        // what build() sees.
+        final kind = container.read(currentExportSourceKindProvider);
+        final editorHash = container
+            .read(stitchEditorControllerProvider)
+            .hashCode;
+        final watermark = container.read(watermarkConfigProvider);
+        final exportState = container.read(exportControllerProvider);
+        final cacheKey = computeProcessedBytesCacheKey(
+          kind: kind,
+          editorStateHash: editorHash,
+          watermark: watermark,
+          format: exportState.format,
+          quality: exportState.quality,
+        );
+        final precachedBytes = [
+          Uint8List.fromList(const [42, 43, 44]),
+        ];
+        container
+            .read(processedBytesCacheProvider.notifier)
+            .write(cacheKey, precachedBytes);
+
+        // ─── First "visit" — simulates the user opening /export. ────
+        final sub1 = container.listen<PreviewState>(
+          previewControllerProvider,
+          (_, _) {},
+        );
+        final notifier1 = container.read(previewControllerProvider.notifier);
+        final state1 = container.read(previewControllerProvider);
+        expect(
+          state1,
+          isA<PreviewReady>(),
+          reason: 'first visit: cache hit short-circuits to Ready',
+        );
+        expect(
+          (state1 as PreviewReady).bytes,
+          equals(precachedBytes),
+          reason: 'first visit: bytes come from the pre-warmed cache',
+        );
+        expect(
+          fake.callCount,
+          0,
+          reason: 'first visit: cache hit must skip the isolate hop',
+        );
+
+        // ─── User leaves /export — drop the only subscriber. ───────
+        sub1.close();
+        // Yield to the event loop so Riverpod's autoDispose microtask
+        // runs and the controller actually tears down.
+        await Future<void>.delayed(Duration.zero);
+
+        // ─── Second "visit" — simulates the user returning to /export.
+        final sub2 = container.listen<PreviewState>(
+          previewControllerProvider,
+          (_, _) {},
+        );
+        addTearDown(sub2.close);
+        final notifier2 = container.read(previewControllerProvider.notifier);
+        final state2 = container.read(previewControllerProvider);
+
+        // (a) Controller identity changed → autoDispose actually fired
+        //     between the two visits. If autoDispose had not been
+        //     applied this would still be `notifier1` and the listener
+        //     callbacks would keep running for an offscreen page.
+        expect(
+          identical(notifier1, notifier2),
+          isFalse,
+          reason:
+              'controller must have been disposed and recreated — '
+              'proves autoDispose released the listeners + timer + '
+              '_cachedSource of the first instance',
+        );
+
+        // (b) The second-visit controller hits the surviving cache
+        //     synchronously in `build()` → first emitted state is
+        //     PreviewReady, no Empty/Loading flash, no isolate hop.
+        expect(
+          state2,
+          isA<PreviewReady>(),
+          reason:
+              're-mount must hit the surviving processedBytesCacheProvider '
+              'and emit Ready synchronously (PRD §D6 contract)',
+        );
+        expect(
+          (state2 as PreviewReady).bytes,
+          equals(precachedBytes),
+          reason: 're-mounted controller serves the same cached bytes',
+        );
+        expect(
+          fake.callCount,
+          0,
+          reason:
+              'processedBytesCacheProvider is intentionally NOT autoDispose; '
+              'cache survives the controller dispose and the re-mounted '
+              'controller never invokes processFn',
+        );
+      },
+    );
+  });
 }
