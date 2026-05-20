@@ -3,7 +3,7 @@
   "name": "linux-window-strategy",
   "title": "Linux 原生窗口策略（GTK 3 80% 默认 / set_geometry_hints / GKeyFile 持久化）",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
