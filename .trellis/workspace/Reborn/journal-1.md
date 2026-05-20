@@ -1482,3 +1482,37 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 45: Subtask 2：macOS 窗口策略（80% 默认 + contentMinSize + frameAutosaveName）+ NSWindow 时序 spec 沉淀
+
+**Date**: 2026-05-20
+**Task**: Subtask 2：macOS 窗口策略（80% 默认 + contentMinSize + frameAutosaveName）+ NSWindow 时序 spec 沉淀
+**Branch**: `main`
+
+### Summary
+
+落地 05-20-desktop-window-mgmt-and-menu 父任务的 Subtask 2（macOS 原生窗口策略）：在 macos/Runner/MainFlutterWindow.swift 的 awakeFromNib 内顺序执行 contentMinSize=1280×800（excludes title bar）→ 计算 max(80% × visibleFrame, 1280×800) 居中默认 frame → setFrame(_:display:)（唯一不受 minSize clamp 的 setter）→ setFrameAutosaveName('fl_picraft.main')（一行接入 AppKit 自动持久化-恢复，多屏拓扑变化由 constrainFrameRect:to: 自动 clamp）。PR-1 既有的 MenuChannelBridge 接线完整保留。同步沉淀 NSWindow 时序约定到 .trellis/spec/frontend/dependencies-and-platforms.md 新增 §'macOS: NSWindow.setFrameAutosaveName MUST come after setFrame'（含 Wrong vs Correct 对照、AppKit 读 UserDefaults 时机说明、defaults delete + resize + relaunch 三步 smoke 模板、Validation & Error Matrix 新条目、Scope/Trigger 加'Implement custom NSWindow/Win32Window/GTK window lifecycle logic in a platform runner'第 6 项）—— 这是非显时序陷阱，无 compile warning / 无 runtime exception / flutter analyze 不覆盖。验证：flutter analyze clean、flutter test 406 passed、flutter build macos --debug ✓、app 启动 smoke 无 crash。父任务进度 2/4 done（剩 Windows、Linux 两个 subtask）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `17884a7` | (see git log) |
+| `e888439` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
