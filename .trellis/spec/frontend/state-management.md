@@ -748,6 +748,114 @@ key has moved on. Tests:
 and `::input key change after PreviewReady immediately transitions to PreviewLoading`
 lock in the contract.
 
+### Pattern: Split lifecycle — autoDispose controller + non-autoDispose cache
+
+**Problem**: A page-level controller owns expensive resources that should be released
+when the user leaves the page (debounce timers, `ref.listen` callbacks, in-flight
+`Future` handles, multi-MB cached source bytes). The intuitive fix is `.autoDispose`.
+But the controller also writes to a **result cache** (LRU of processed bytes,
+memoized network responses, etc.) that we want to **survive** across visits so a
+re-mount can hit the cache and skip the expensive re-compute. If the cache lives
+inside the controller's fields, `autoDispose` throws it away too — and the next visit
+re-computes everything from scratch, defeating the cache.
+
+The two desires pull in opposite directions:
+- **Release page-level state on unmount** → prevents silent background work (listens
+  re-fire while the page is offscreen, debounce timers schedule renders nobody sees,
+  cached source bytes hold memory)
+- **Keep the result cache alive across visits** → so the next mount is instant
+
+**Solution**: split into **two providers** with different lifecycles. The cache lives
+in its own provider that is **NOT** `autoDispose`; the controller is `autoDispose`
+and reads/writes the cache provider on demand.
+
+```dart
+// 1. The cache lives in its own provider — survives across page visits.
+class ProcessedBytesCache extends Notifier<Map<int, List<Uint8List>>> {
+  // LRU map with capacity cap, read/write/invalidate API
+}
+final processedBytesCacheProvider =
+    NotifierProvider<ProcessedBytesCacheNotifier, ProcessedBytesCache>(...);
+//  ^^^^^^^^^^^^^^^^                                                 NOT autoDispose
+
+// 2. The controller is autoDispose — released on unmount.
+class PreviewController extends AutoDisposeNotifier<PreviewState> {
+  @override
+  PreviewState build() {
+    ref.listen(deps, (_, _) => _scheduleRender());      // released on dispose
+    ref.onDispose(() { _debounce?.cancel(); });          // released on dispose
+
+    // Synchronously consult the surviving cache for the initial state.
+    return _initialStateFromCache();
+  }
+
+  Future<void> _runRender() async {
+    final cached = ref.read(processedBytesCacheProvider.notifier).read(key);
+    if (cached != null) {                                // cache hit, skip compute
+      state = PreviewReady(...);
+      return;
+    }
+    final bytes = await processFn(...);                  // expensive
+    ref.read(processedBytesCacheProvider.notifier).write(key, bytes);  // survives this controller
+    state = PreviewReady(...);
+  }
+}
+
+final previewControllerProvider =
+    AutoDisposeNotifierProvider<PreviewController, PreviewState>(...);
+//  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                                    autoDispose
+
+// 3. Derived providers should match their dependency's autoDispose-ness.
+final previewBytesProvider = Provider.autoDispose<List<Uint8List>>((ref) {
+  return switch (ref.watch(previewControllerProvider)) {
+    PreviewReady(:final bytes) => bytes,
+    _ => const [],
+  };
+});
+```
+
+**When to use**: any expensive page-level compute that (a) has dependencies that
+keep firing while the page is offscreen if the controller stays alive, OR (b) holds
+multi-MB byte buffers / large derived state in controller fields. If only (b)
+applies, you might just need to clear the fields on unmount — but if (a) applies,
+`autoDispose` is the cleaner fix.
+
+**Diagnostic symptom**: silent background CPU bursts after the user navigates away
+("why is the device warming up?"), worst-case memory hold growing with visit count
+(`adb shell dumpsys meminfo` shows your Riverpod container's retained byte buffers
+ballooning).
+
+**Why not just keep everything autoDispose**: if both the controller AND the cache
+are autoDispose, the cache dies with the controller and every visit re-renders from
+scratch — the cache provides zero value.
+
+**Why not just keep everything non-autoDispose**: the controller's `ref.listen`
+callbacks stay subscribed to its dependencies forever; any change in those
+dependencies (slider drag in a sibling editor screen, watermark toggle, etc.)
+silently fires `_scheduleRender` and the background isolate hop. Memory hold
+grows. CPU burns.
+
+**Don't forget**:
+- Derived providers (e.g. `previewBytesProvider` above) should be `.autoDispose`
+  too, matching the controller's lifecycle (Riverpod best practice).
+- Test the contract: assert `identical(notifier1, notifier2) == false` after the
+  last subscriber goes away, AND the cache survives across the dispose. The
+  `_keepPreviewAlive(container)` helper pattern in
+  `test/features/export/presentation/providers/preview_controller_test.dart` is
+  load-bearing — without an explicit subscription, autoDispose disposes the
+  controller mid-test and assertions on `_scheduleRender` etc. silently no-op.
+- `ref.watch` in a Widget counts as a subscriber; the controller stays alive as
+  long as the widget tree references it. autoDispose only fires when the LAST
+  subscriber goes away.
+- In-flight `compute()` results that arrive AFTER `autoDispose` are silently
+  dropped by Riverpod (state assignment on a disposed notifier is a no-op).
+  This is usually what you want for stale background renders.
+
+**Reference**: `lib/features/export/presentation/providers/preview_controller.dart`
+(`AutoDisposeNotifier`) + `processed_bytes_cache.dart` (non-autoDispose `Notifier`).
+Audit and decision documented in
+`.trellis/tasks/05-20-preview-ui/prd.md` §D8 (added 2026-05-21).
+
 ### ❌ Don't
 
 ```dart
