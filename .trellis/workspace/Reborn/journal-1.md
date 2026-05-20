@@ -1685,3 +1685,42 @@ Subtask A of 05-20-export-page-preview 完成。grill 7 轮锁定 7 项设计决
 ### Next Steps
 
 - None - task complete
+
+
+## Session 51: 导出页面预览 UI 集成（Subtask B）+ 实测反馈四轮修复 + cache 生命期 audit
+
+**Date**: 2026-05-21
+**Task**: 导出页面预览 UI 集成（Subtask B）+ 实测反馈四轮修复 + cache 生命期 audit
+**Branch**: `main`
+
+### Summary
+
+Subtask B of 05-20-export-page-preview 完成，父任务 2/2 done 一并 archive。1) 落地 PreviewCard / PreviewThumbnail / PreviewSkeleton / PreviewFullScreenDialog 四个 widget + 16 个 widget 测试，顶部插入 export_screen。2) 实测反馈触发四轮修复：D4 二次修订（stale → widget canvas → spinner+文案最终方案）、D5 全屏 viewer pan boundary fix、D6 stale-flash 消除（build 同步检查 cache + listen 同步预转 Loading）、D7 多 editor screen FAB heroTag 唯一化、D8 previewControllerProvider 改 autoDispose 修后台 isolate render leak + 内存留存。3) trellis-check 专项 audit 缓存清理时机，发现 Scenario A leak + B 过度清理 + F 内存 risk；用户选 A+F 走 autoDispose 修复，B 留 follow-up 已记 PRD。4) 沉淀 spec 6 条：state-management.md (typedef+Provider、NotifierProvider<SealedState>、stale-state-flash、Split lifecycle autoDispose+cache 4 条) + component-guidelines.md (stale-while-loading、FAB heroTag 2 条) + quality-guidelines.md (pumpAndSettle indefinite animation 1 条) — wait 重数；实际 spec 含 7 条新 pattern/gotcha。474/474 tests pass、analyze clean。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ac33a90` | (see git log) |
+| `fe9f9ad` | (see git log) |
+| `b88997c` | (see git log) |
+| `e52555f` | (see git log) |
+| `8041335` | (see git log) |
+| `1790412` | (see git log) |
+| `675a48a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
