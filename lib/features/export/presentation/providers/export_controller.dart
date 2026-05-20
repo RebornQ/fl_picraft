@@ -12,6 +12,7 @@ import '../../domain/entities/save_result.dart';
 import '../../domain/repositories/export_repository.dart';
 import 'export_dispatch.dart';
 import 'export_state.dart';
+import 'processed_bytes_cache.dart';
 import 'watermark_config_provider.dart';
 
 /// DI seam so widget tests can inject a fake repository without
@@ -64,6 +65,13 @@ class ExportController extends Notifier<ExportState> {
   /// [WatermarkConfig] is read at call time so the user's most recent
   /// toggle is honored even if they didn't pump the editor.
   ///
+  /// Optimization: before invoking the full compose+encode+save
+  /// pipeline, looks up the [processedBytesCacheProvider]. If the
+  /// preview controller has already rendered identical bytes for the
+  /// same input tuple, calls [ExportRepository.persistOnly] directly
+  /// — skipping the 1~2 s isolate hop. Cache misses still flow
+  /// through the original `exportAndSave` path.
+  ///
   /// Returns the [SaveResult] for the caller (the save button widget)
   /// to render as a snackbar. The notifier itself only flips
   /// [ExportState.isSaving] on the way in and out.
@@ -76,15 +84,40 @@ class ExportController extends Notifier<ExportState> {
 
     state = state.copyWith(isSaving: true);
     try {
-      final source = await _buildSource();
+      final kind = ref.read(currentExportSourceKindProvider);
+      final editorHash = _activeEditorStateHash(kind);
+      final watermark = ref.read(watermarkConfigProvider);
+      final format = state.format;
+      final quality = state.quality;
+
+      // Cache hit shortcut: if the preview pipeline has already
+      // processed identical bytes, skip the watermark+encode pass
+      // entirely and go straight to persist.
+      if (editorHash != null) {
+        final key = computeProcessedBytesCacheKey(
+          kind: kind,
+          editorStateHash: editorHash,
+          watermark: watermark,
+          format: format,
+          quality: quality,
+        );
+        final cached = ref.read(processedBytesCacheProvider.notifier).read(key);
+        if (cached != null) {
+          return await ref
+              .read(exportRepositoryProvider)
+              .persistOnly(cached, format);
+        }
+      }
+
+      final source = await _buildSource(kind);
       if (source == null) {
         return const SaveFailure('没有可导出的图片');
       }
       final request = ExportRequest(
         source: source,
-        format: state.format,
-        quality: state.quality,
-        watermark: ref.read(watermarkConfigProvider),
+        format: format,
+        quality: quality,
+        watermark: watermark,
       );
       return await ref.read(exportRepositoryProvider).exportAndSave(request);
     } catch (e) {
@@ -101,8 +134,7 @@ class ExportController extends Notifier<ExportState> {
   /// when the editor has nothing to render so [save] can surface a
   /// uniform "没有可导出的图片" failure regardless of which kind
   /// is active.
-  Future<ExportSource?> _buildSource() async {
-    final kind = ref.read(currentExportSourceKindProvider);
+  Future<ExportSource?> _buildSource(ExportSourceKind kind) async {
     switch (kind) {
       case ExportSourceKind.stitch:
         final editor = ref.read(stitchEditorControllerProvider);
@@ -118,6 +150,23 @@ class ExportController extends Notifier<ExportState> {
             .read(gridEditorControllerProvider.notifier)
             .renderCells();
         return GridExportSource(cells);
+    }
+  }
+
+  /// Snapshot the active editor's state hash for cache lookup, or
+  /// `null` when the editor has no content. Mirrors the
+  /// [PreviewController]'s same-named helper so the two share the key
+  /// derivation exactly.
+  int? _activeEditorStateHash(ExportSourceKind kind) {
+    switch (kind) {
+      case ExportSourceKind.stitch:
+        final editor = ref.read(stitchEditorControllerProvider);
+        if (!editor.hasImages) return null;
+        return editor.hashCode;
+      case ExportSourceKind.grid:
+        final editor = ref.read(gridEditorControllerProvider);
+        if (!editor.hasSource) return null;
+        return editor.hashCode;
     }
   }
 }

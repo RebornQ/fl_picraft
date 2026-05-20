@@ -7,14 +7,12 @@ import '../../domain/entities/export_format.dart';
 import '../../domain/entities/export_request.dart';
 import '../../domain/entities/export_source.dart';
 import '../../domain/entities/save_result.dart';
-import '../../domain/entities/watermark_config.dart';
 import '../../domain/repositories/export_repository.dart';
 import '../../domain/usecases/suggested_name.dart';
 import '../datasources/file_dialog_save_datasource.dart';
 import '../datasources/gallery_saver_datasource.dart';
 import '../datasources/web_blob_download_datasource.dart';
-import '../image_encoder.dart';
-import '../watermark_renderer.dart';
+import '../preview_renderer.dart';
 
 /// Signature for the platform-dispatch step. Exposed so tests can
 /// inject a deterministic fake that exercises the grid loop's
@@ -58,6 +56,69 @@ class ExportRepositoryImpl implements ExportRepository {
       case GridExportSource(:final cells):
         return _exportGrid(cells, request);
     }
+  }
+
+  @override
+  Future<SaveResult> persistOnly(
+    List<Uint8List> processed,
+    ExportFormat format,
+  ) async {
+    if (processed.isEmpty) {
+      return const SaveFailure('没有可导出的内容');
+    }
+    // Single-cell shortcut: behaves identically to a stitch export
+    // (one file, no per-cell index suffix). Avoids needing the caller
+    // to know whether they came from grid or stitch — the bytes count
+    // tells us.
+    if (processed.length == 1) {
+      try {
+        final name = suggestedName(format);
+        return await _persist(processed.single, format, name);
+      } catch (e) {
+        return SaveFailure(exportFailureMessage(e));
+      }
+    }
+
+    String? lastLocation;
+    var saved = 0;
+    final now = DateTime.now();
+    for (var i = 0; i < processed.length; i++) {
+      try {
+        final name = suggestedName(format, at: now, index: i + 1);
+        final result = await _persist(processed[i], format, name);
+        switch (result) {
+          case SaveSuccess(:final location):
+            saved++;
+            lastLocation = location ?? lastLocation;
+          case SaveCancelled():
+            if (saved > 0) {
+              return SaveSuccess(location: lastLocation, count: saved);
+            }
+            return result;
+          case SaveFailure(:final message):
+            if (saved == 0) return result;
+            return SaveFailure(
+              partialSaveFailureMessage(
+                saved: saved,
+                total: processed.length,
+                cause: message,
+              ),
+            );
+        }
+      } catch (e) {
+        if (saved == 0) {
+          return SaveFailure(exportFailureMessage(e));
+        }
+        return SaveFailure(
+          partialSaveFailureMessage(
+            saved: saved,
+            total: processed.length,
+            cause: e,
+          ),
+        );
+      }
+    }
+    return SaveSuccess(location: lastLocation, count: saved);
   }
 
   // ---- per-shape pipelines ----------------------------------------------
@@ -138,39 +199,23 @@ class ExportRepositoryImpl implements ExportRepository {
 
   /// Watermark composite + final encode.
   ///
-  /// Dispatched through [compute] so the watermark rasterizer's
-  /// `img.decodeImage` / `img.drawString` / `img.encodePng|Jpg` —
-  /// each multi-millisecond on real-sized photos — never blocks the
-  /// UI isolate. Mirrors the isolate-hop pattern already used by
-  /// `StitchImageRenderer` and `GridImageRenderer`.
-  ///
-  /// The repository previously ran this synchronously on the main
-  /// isolate, which prevented `ExportState.isSaving` from rendering
-  /// a loading state — the UI never got a frame to schedule before
-  /// the platform save dialog popped. See `.trellis/tasks/
-  /// 05-20-fix-export-save-ui-jank/prd.md` for the incident.
+  /// Thin wrapper around the public [processExportBytes] function
+  /// (`lib/features/export/data/preview_renderer.dart`) so the preview
+  /// path and the save path share a single rasterizer implementation.
   ///
   /// Wrapped in `Timeline.startSync('export.process')` so DevTools can
   /// triage where time is spent (process vs. save plugin) when an
-  /// export feels slow.
+  /// export feels slow. The preview path adds its own
+  /// `Timeline.startSync('export.preview')` region.
   Future<Uint8List> _processOne(Uint8List bytes, ExportRequest req) async {
     Timeline.startSync('export.process');
     try {
-      final request = _ProcessOneRequest(
-        bytes: bytes,
+      return await processExportBytes(
+        source: bytes,
         watermark: req.watermark,
         format: req.format,
         quality: req.quality,
       );
-      try {
-        return await compute(_processOneInIsolate, request);
-      } catch (_) {
-        // Fallback for pure-Dart unit tests where the Flutter binding
-        // is unavailable (compute throws). The synchronous path
-        // produces identical bytes. Mirrors
-        // `stitch_image_renderer.dart` and `grid_image_renderer.dart`.
-        return _processOneInIsolate(request);
-      }
     } finally {
       Timeline.finishSync();
     }
@@ -230,41 +275,4 @@ class ExportRepositoryImpl implements ExportRepository {
     if (dot <= 0) return name;
     return name.substring(0, dot);
   }
-}
-
-/// Argument bundle for [_processOneInIsolate]. SendPort-transferable
-/// (only `Uint8List`, primitives, and immutable value objects whose
-/// fields are themselves SendPort-transferable) so it can hop into a
-/// background isolate via [compute].
-///
-/// Library-private because nothing outside this file needs to construct
-/// one — [ExportRepositoryImpl] is the sole producer.
-class _ProcessOneRequest {
-  const _ProcessOneRequest({
-    required this.bytes,
-    required this.watermark,
-    required this.format,
-    required this.quality,
-  });
-
-  final Uint8List bytes;
-  final WatermarkConfig watermark;
-  final ExportFormat format;
-  final int quality;
-}
-
-/// Top-level (i.e. non-closure) entry function so it can be the
-/// argument to [compute].
-///
-/// Runs the two CPU-heavy stages — watermark composite + final encode —
-/// back-to-back inside the same isolate hop. Both callees
-/// ([applyWatermark], [encodeForExport]) are pure-Dart and isolate-safe
-/// per `.trellis/spec/frontend/directory-structure.md` → "Pattern:
-/// Isolate-safe rasterizer in `data/`".
-///
-/// Kept private to this library so it can't be accidentally invoked on
-/// the main isolate from outside.
-Future<Uint8List> _processOneInIsolate(_ProcessOneRequest r) async {
-  final watermarked = await applyWatermark(r.bytes, r.watermark);
-  return encodeForExport(watermarked, r.format, quality: r.quality);
 }

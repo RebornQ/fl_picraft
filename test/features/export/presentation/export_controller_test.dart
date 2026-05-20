@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:fl_picraft/features/export/domain/entities/export_format.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_request.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_source.dart';
 import 'package:fl_picraft/features/export/domain/entities/save_result.dart';
@@ -24,6 +25,8 @@ import 'package:image/image.dart' as img;
 /// real `gal` / `file_picker` / `package:web` adapters.
 class _RecordingRepo implements ExportRepository {
   ExportRequest? lastRequest;
+  List<Uint8List>? lastPersistOnlyBytes;
+  ExportFormat? lastPersistOnlyFormat;
 
   @override
   Future<SaveResult> exportAndSave(ExportRequest request) async {
@@ -35,6 +38,16 @@ class _RecordingRepo implements ExportRepository {
         count: cells.length,
       ),
     };
+  }
+
+  @override
+  Future<SaveResult> persistOnly(
+    List<Uint8List> processed,
+    ExportFormat format,
+  ) async {
+    lastPersistOnlyBytes = processed;
+    lastPersistOnlyFormat = format;
+    return SaveSuccess(location: '/tmp/test.png', count: processed.length);
   }
 }
 
