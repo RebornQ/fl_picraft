@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/breakpoints.dart';
 import '../providers/export_dispatch.dart';
 import '../widgets/format_quality_card.dart';
+import '../widgets/preview_card.dart';
 import '../widgets/save_action_button.dart';
 import '../widgets/save_disclaimer.dart';
 import '../widgets/watermark_card.dart';
@@ -21,8 +22,8 @@ import '../widgets/watermark_card.dart';
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact    | single column: FormatQuality → Watermark → Save → Disclaimer |
-/// | medium     | two-column row for FormatQuality + Watermark; Save and Disclaimer span the full row |
+/// | compact    | single column: Preview → FormatQuality → Watermark → Save → Disclaimer |
+/// | medium     | Preview spans the full row; FormatQuality + Watermark share a row; Save and Disclaimer span the full row |
 /// | expanded / large | same as medium — body fills the available width (no outer cap) |
 ///
 /// **Why a bare `Scaffold` (no shell-owned bottom nav)**: per
@@ -110,6 +111,11 @@ class _ExportBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Preview card spans the full row on every size class — per
+          // the parent task's decision 4 (顶部跨行), the user sees the
+          // current export's rendered preview before any settings.
+          const _SectionCard(child: PreviewCard()),
+          const SizedBox(height: 16),
           if (isCompact) ...const [
             _SectionCard(child: FormatQualityCard()),
             SizedBox(height: 16),
