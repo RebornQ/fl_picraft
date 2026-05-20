@@ -268,9 +268,7 @@ void main() {
     // comparison). Match the superclass via predicate, pinned through
     // the wrapping Tooltip.
     Finder findHeaderAddButton({required bool full}) {
-      final tooltipMessage = full
-          ? '已达上限 $kMaxImportSessionImages 张'
-          : '添加图片';
+      final tooltipMessage = full ? '已达上限 $kMaxImportSessionImages 张' : '添加图片';
       return find.descendant(
         of: find.byTooltip(tooltipMessage),
         matching: find.byWidgetPredicate((w) => w is TextButton),
@@ -297,42 +295,32 @@ void main() {
       await tester.pumpWidget(_harness(container));
       await tester.pumpAndSettle();
 
-      final button = tester.widget<TextButton>(
-        findHeaderAddButton(full: true),
-      );
+      final button = tester.widget<TextButton>(findHeaderAddButton(full: true));
       expect(button.onPressed, isNull);
-      expect(
-        find.byTooltip('已达上限 $kMaxImportSessionImages 张'),
-        findsOneWidget,
-      );
+      expect(find.byTooltip('已达上限 $kMaxImportSessionImages 张'), findsOneWidget);
     });
 
-    testWidgets(
-      'after removing one image while at cap, 添加 button re-enables',
-      (tester) async {
-        final container = await seedWithCount(kMaxImportSessionImages);
-        addTearDown(container.dispose);
+    testWidgets('after removing one image while at cap, 添加 button re-enables', (
+      tester,
+    ) async {
+      final container = await seedWithCount(kMaxImportSessionImages);
+      addTearDown(container.dispose);
 
-        await tester.pumpWidget(_harness(container));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(_harness(container));
+      await tester.pumpAndSettle();
 
-        expect(
-          tester
-              .widget<TextButton>(findHeaderAddButton(full: true))
-              .onPressed,
-          isNull,
-        );
+      expect(
+        tester.widget<TextButton>(findHeaderAddButton(full: true)).onPressed,
+        isNull,
+      );
 
-        await tester.tap(find.byTooltip('移除').first);
-        await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('移除').first);
+      await tester.pumpAndSettle();
 
-        expect(
-          tester
-              .widget<TextButton>(findHeaderAddButton(full: false))
-              .onPressed,
-          isNotNull,
-        );
-      },
-    );
+      expect(
+        tester.widget<TextButton>(findHeaderAddButton(full: false)).onPressed,
+        isNotNull,
+      );
+    });
   });
 }

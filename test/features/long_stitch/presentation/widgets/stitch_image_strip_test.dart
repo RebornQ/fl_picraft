@@ -234,9 +234,7 @@ void main() {
     // misses it. Match the superclass via predicate instead, then pin
     // the specific button via its tooltip ancestor.
     Finder findHeaderAddButton({required bool full}) {
-      final tooltipMessage = full
-          ? '已达上限 $kMaxImportSessionImages 张'
-          : '添加图片';
+      final tooltipMessage = full ? '已达上限 $kMaxImportSessionImages 张' : '添加图片';
       return find.descendant(
         of: find.byTooltip(tooltipMessage),
         matching: find.byWidgetPredicate((w) => w is TextButton),
@@ -263,9 +261,7 @@ void main() {
       await tester.pumpWidget(_stripHarness(container));
       await tester.pumpAndSettle();
 
-      final button = tester.widget<TextButton>(
-        findHeaderAddButton(full: true),
-      );
+      final button = tester.widget<TextButton>(findHeaderAddButton(full: true));
       expect(
         button.onPressed,
         isNull,
@@ -273,48 +269,37 @@ void main() {
       );
 
       // Tooltip says why.
-      expect(
-        find.byTooltip('已达上限 $kMaxImportSessionImages 张'),
-        findsOneWidget,
-      );
+      expect(find.byTooltip('已达上限 $kMaxImportSessionImages 张'), findsOneWidget);
     });
 
-    testWidgets(
-      'after removing one image while at cap, 添加 button re-enables',
-      (tester) async {
-        final container = await seedWithCount(kMaxImportSessionImages);
-        addTearDown(container.dispose);
+    testWidgets('after removing one image while at cap, 添加 button re-enables', (
+      tester,
+    ) async {
+      final container = await seedWithCount(kMaxImportSessionImages);
+      addTearDown(container.dispose);
 
-        await tester.pumpWidget(_stripHarness(container));
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(_stripHarness(container));
+      await tester.pumpAndSettle();
 
-        // Pre-condition: disabled
-        expect(
-          tester
-              .widget<TextButton>(findHeaderAddButton(full: true))
-              .onPressed,
-          isNull,
-        );
+      // Pre-condition: disabled
+      expect(
+        tester.widget<TextButton>(findHeaderAddButton(full: true)).onPressed,
+        isNull,
+      );
 
-        // Remove one (tap any × button — there are 20 of them, just pick
-        // the first).
-        await tester.tap(find.byTooltip('移除').first);
-        await tester.pumpAndSettle();
+      // Remove one (tap any × button — there are 20 of them, just pick
+      // the first).
+      await tester.tap(find.byTooltip('移除').first);
+      await tester.pumpAndSettle();
 
-        expect(
-          tester
-              .widget<TextButton>(findHeaderAddButton(full: false))
-              .onPressed,
-          isNotNull,
-          reason:
-              'removing one image at the cap should immediately re-enable '
-              'the 添加 button via the reactive sessionFull selector',
-        );
-        expect(
-          find.byTooltip('已达上限 $kMaxImportSessionImages 张'),
-          findsNothing,
-        );
-      },
-    );
+      expect(
+        tester.widget<TextButton>(findHeaderAddButton(full: false)).onPressed,
+        isNotNull,
+        reason:
+            'removing one image at the cap should immediately re-enable '
+            'the 添加 button via the reactive sessionFull selector',
+      );
+      expect(find.byTooltip('已达上限 $kMaxImportSessionImages 张'), findsNothing);
+    });
   });
 }

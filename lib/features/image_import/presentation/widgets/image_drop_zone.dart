@@ -84,9 +84,7 @@ class ImageDropZone extends ConsumerWidget {
         if (isFull) {
           final messenger = ScaffoldMessenger.maybeOf(context);
           messenger?.showSnackBar(
-            SnackBar(
-              content: Text('已达上限 $kMaxImportSessionImages 张'),
-            ),
+            SnackBar(content: Text('已达上限 $kMaxImportSessionImages 张')),
           );
           return;
         }
