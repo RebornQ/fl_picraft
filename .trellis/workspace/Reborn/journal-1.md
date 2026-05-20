@@ -1447,3 +1447,38 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 44: Subtask 1：macOS Settings 菜单桥接 + 桌面窗口管理父任务规划 + spec 沉淀
+
+**Date**: 2026-05-20
+**Task**: Subtask 1：macOS Settings 菜单桥接 + 桌面窗口管理父任务规划 + spec 沉淀
+**Branch**: `main`
+
+### Summary
+
+完成 05-20-desktop-window-mgmt-and-menu 父任务的 brainstorm：父 PRD（含 ADR-lite D-A~D-H 与 4-PR 实施计划）+ 三端 native 调研报告（macOS frameAutosaveName + contentMinSize / Windows PerMonitorV2 + WM_GETMINMAXINFO / Linux GTK Wayland 降级矩阵）+ 4 个 subtask 拆分及各自的 mini PRD/implement.jsonl/check.jsonl。落地 Subtask 1（macOS Settings 菜单桥接到 /settings 路由）：MainMenu.xib 文案改 'Settings…'（U+2026）+ <connections> target=Voe-Tx-rLC + IBAction openSettings: on AppDelegate + MenuChannelBridge.swift 封装 FlutterMethodChannel('app.fl_picraft/menu') + lib/core/native/menu_channel.dart 端 setMethodCallHandler 调 appRouter.go('/settings') + lib/main.dart 加 WidgetsFlutterBinding.ensureInitialized() + MenuChannel.bind + 4 cases 单测覆盖契约。途中踩 macOS Xcode 新文件需注册到 Runner.xcodeproj/project.pbxproj 4 段（PBXBuildFile/PBXFileReference/PBXGroup/PBXSourcesBuildPhase）的坑，已沉淀到 .trellis/spec/frontend/dependencies-and-platforms.md（含 Windows CMakeLists/Linux CMakeLists 三端对照表 + UUID 生成方法 + sanity-check 项）。验证：flutter analyze clean、flutter test 406 passed、flutter build macos --debug ✓。剩余 3 subtask（macOS/Windows/Linux 窗口策略）待续；当前父任务进度 1/4 done。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b4fef07` | (see git log) |
+| `a74abe7` | (see git log) |
+| `558d159` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
