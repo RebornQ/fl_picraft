@@ -57,10 +57,7 @@ class PreviewController extends Notifier<PreviewState> {
   @override
   PreviewState build() {
     // Listen to every input the render depends on. Each subsequent
-    // change schedules a debounced render via [_scheduleRender]. The
-    // synchronously returned state is [PreviewEmpty]; the initial
-    // [_scheduleRender] call below hydrates the page asynchronously
-    // when an editor already has content.
+    // change schedules a debounced render via [_scheduleRender].
     ref.listen(currentExportSourceKindProvider, (_, _) => _scheduleRender());
     ref.listen(watermarkConfigProvider, (_, _) => _scheduleRender());
     ref.listen(
@@ -79,12 +76,61 @@ class PreviewController extends Notifier<PreviewState> {
       _debounce = null;
     });
 
-    // Schedule an initial render so the page hydrates as soon as the
-    // editor is non-empty. Using `_scheduleRender()` keeps the same
-    // debounce / source-cache machinery in play.
-    _scheduleRender();
+    // Synchronously decide the initial state from the editor + cache.
+    //
+    // Why: [previewControllerProvider] is a plain (non-autoDispose)
+    // Notifier so the controller instance and its `state` field
+    // survive across `/export` page visits. A naive `return
+    // const PreviewEmpty()` here would cause the first frame to flash
+    // [PreviewEmpty] (or, on a stale instance, a leftover
+    // [PreviewReady]) before the debounced render eventually
+    // transitions into the real state — UX regression: stale-ready
+    // flash on re-mount.
+    //
+    // Fix: inspect the [processedBytesCacheProvider] synchronously.
+    //   - cache hit  → return [PreviewReady] directly, skip the
+    //     isolate hop entirely
+    //   - cache miss with source → enter [PreviewLoading] immediately
+    //     so the UI shows a skeleton, then queue the real render
+    //     via the debounce timer to do the real work
+    //   - no editor source → [PreviewEmpty]
+    //
+    // Counterpart fix in [_scheduleRender] handles the re-mount /
+    // dep-change path where `state` already exists but the inputs
+    // have moved on.
+    final initial = _initialStateFromCache();
+    if (initial is PreviewLoading) {
+      // Has source but cache miss — queue the real render directly.
+      // We avoid [_scheduleRender] here because it reads `state` to
+      // decide whether to pre-transition to Loading, but `state` is
+      // not yet initialized during [build]; the initial value will be
+      // [PreviewLoading] (from our return below) anyway, so no
+      // pre-transition is needed. Honor the pause-gate so a save in
+      // flight doesn't get preempted on first mount.
+      if (!ref.read(exportControllerProvider).isSaving) {
+        _debounce?.cancel();
+        _debounce = Timer(kPreviewDebounce, _runRender);
+      }
+    }
+    return initial;
+  }
 
-    return const PreviewEmpty();
+  /// Synchronously inspect the editor + processed-bytes cache to decide
+  /// the FIRST state the consumer should see. Counterpart to
+  /// [_scheduleRender]'s async path — see [build]'s comment for why
+  /// this is necessary.
+  PreviewState _initialStateFromCache() {
+    final key = _currentInputKey();
+    if (key == null) return const PreviewEmpty();
+    final cached = ref.read(processedBytesCacheProvider.notifier).read(key);
+    if (cached != null) {
+      _lastRenderedKey = key;
+      return PreviewReady(bytes: cached, totalSizeBytes: _sumLengths(cached));
+    }
+    // Has source but cache miss → enter Loading immediately so the UI
+    // shows a skeleton without first flashing whatever state lived on
+    // from a prior session (or [PreviewEmpty] on first mount).
+    return const PreviewLoading();
   }
 
   // ---- public API -------------------------------------------------------
@@ -129,6 +175,32 @@ class PreviewController extends Notifier<PreviewState> {
     // Pause gate: skip while a save is in flight to keep CPU available
     // for the save's isolate hop.
     if (ref.read(exportControllerProvider).isSaving) return;
+
+    // Synchronously pre-transition to Loading the moment the inputs
+    // differ from the last rendered key, instead of waiting for the
+    // 300 ms debounce window. This kills the "stale Ready frame
+    // flashes before Loading" UX bug on page re-mount: the consumer
+    // sees Loading immediately on the next rebuild rather than the
+    // leftover [PreviewReady] from before the dep change.
+    //
+    // Idempotent: if the state is already [PreviewLoading] we skip
+    // the re-assignment so consumers don't see redundant rebuilds
+    // (the AnimatedSwitcher keys by sealed-variant identity, so the
+    // visual would be the same anyway, but skipping keeps Riverpod
+    // listeners tidy).
+    final key = _currentInputKey();
+    if (key == null) {
+      // Editor lost its source (e.g. user cleared the image list while
+      // a render was pending). Cancel any pending render and surface
+      // Empty immediately.
+      _debounce?.cancel();
+      if (state is! PreviewEmpty) state = const PreviewEmpty();
+      return;
+    }
+    if (key != _lastRenderedKey && state is! PreviewLoading) {
+      state = PreviewLoading(staleBytes: _staleBytesFromState(state));
+    }
+
     _debounce?.cancel();
     _debounce = Timer(kPreviewDebounce, _runRender);
   }

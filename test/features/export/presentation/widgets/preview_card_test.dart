@@ -7,8 +7,6 @@ import 'package:fl_picraft/features/export/presentation/widgets/preview_card.dar
 import 'package:fl_picraft/features/export/presentation/widgets/preview_skeleton.dart';
 import 'package:fl_picraft/features/export/presentation/widgets/preview_thumbnail.dart';
 import 'package:fl_picraft/features/grid/presentation/widgets/grid_preview_canvas.dart';
-import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
-import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_preview_canvas.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,15 +60,12 @@ Widget _harness({
   return ProviderScope(
     overrides: [
       previewControllerProvider.overrideWith(() => stub),
+      // [currentExportSourceKindProvider] is still injected for safety
+      // in case future test wiring needs to dispatch on source kind,
+      // but per PRD §D4 (revised twice 2026-05-21) [PreviewSkeleton]
+      // no longer reads it, so flipping the value has no visible
+      // effect on the loading placeholder anymore.
       currentExportSourceKindProvider.overrideWith((_) => sourceKind),
-      // Editor providers need stable empty stubs because
-      // PreviewSkeleton's editor-canvas fallback path reads them.
-      importedImagesProvider(
-        ImageImportSessionKind.stitch,
-      ).overrideWith((_) => const []),
-      importedImagesProvider(
-        ImageImportSessionKind.grid,
-      ).overrideWith((_) => const []),
     ],
     child: MaterialApp(
       home: Scaffold(
@@ -112,21 +107,42 @@ void main() {
     });
 
     testWidgets(
-      'PreviewLoading(staleBytes: null) shows the editor canvas skeleton with the "加载中..." chip',
+      'PreviewLoading(staleBytes: null) shows the spinner + "加载中..." copy '
+      '(no editor canvas dispatch, per PRD §D4 revised twice)',
       (tester) async {
+        // Per the parent task's PRD §Decision §D4 (revised twice
+        // 2026-05-21): the skeleton no longer dispatches on
+        // [currentExportSourceKindProvider] / mounts a
+        // [StitchPreviewCanvas] / [GridPreviewCanvas] fallback —
+        // iteration 1's widget-canvas + Opacity 0.6 approach was
+        // re-tested in the wild and still misread as "the finished
+        // preview" because the canvas itself looks like a complete
+        // composition. Iteration 2 (this implementation) replaces the
+        // canvas with a Material standard
+        // [CircularProgressIndicator] + label so the placeholder is
+        // visually unmistakable as "loading".
         await tester.pumpWidget(_harness(state: const PreviewLoading()));
         await _settleAnimatedSwitcher(tester);
 
         expect(find.byType(PreviewSkeleton), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
         expect(find.text('加载中...'), findsOneWidget);
-        // Stitch source kind (default) → stitch canvas fallback.
-        expect(find.byType(StitchPreviewCanvas), findsOneWidget);
+        // Editor canvases MUST NOT mount inside the skeleton anymore.
+        expect(find.byType(StitchPreviewCanvas), findsNothing);
+        expect(find.byType(GridPreviewCanvas), findsNothing);
       },
     );
 
     testWidgets(
-      'PreviewLoading(staleBytes: [bytes]) renders the stale image + "刷新中..." chip',
+      'PreviewLoading(staleBytes: [bytes]) shows the spinner + "刷新中..." '
+      'copy (stale bytes never paint, no editor canvas dispatch)',
       (tester) async {
+        // Same iteration-2 contract as the staleBytes-null case: the
+        // skeleton is the spinner + label, full stop. The stale frame
+        // is intentionally NOT painted (a lifelike stale frame misled
+        // users into thinking their config change had not taken
+        // effect — see PRD §D4 revised twice for the full timeline).
+        // [staleBytes] only influences the text copy.
         final stale = _smallPng(seed: 1);
         await tester.pumpWidget(
           _harness(state: PreviewLoading(staleBytes: [stale])),
@@ -134,11 +150,13 @@ void main() {
         await _settleAnimatedSwitcher(tester);
 
         expect(find.byType(PreviewSkeleton), findsOneWidget);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
         expect(find.text('刷新中...'), findsOneWidget);
-        // Stale bytes painted via Image.memory.
-        expect(find.byType(Image), findsOneWidget);
-        // Editor canvas fallback should NOT mount when we have stale.
+        // Stale bytes must NOT surface as an [Image] widget.
+        expect(find.byType(Image), findsNothing);
+        // Editor canvases MUST NOT mount inside the skeleton anymore.
         expect(find.byType(StitchPreviewCanvas), findsNothing);
+        expect(find.byType(GridPreviewCanvas), findsNothing);
       },
     );
 
@@ -262,34 +280,6 @@ void main() {
           find.byWidgetPredicate((w) => w is Opacity && w.opacity == 0.5),
           findsOneWidget,
         );
-      },
-    );
-  });
-
-  group('PreviewCard — skeleton fallback dispatches on source kind', () {
-    testWidgets('grid source kind → GridPreviewCanvas fallback (no stale)', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _harness(
-          state: const PreviewLoading(),
-          sourceKind: ExportSourceKind.grid,
-        ),
-      );
-      await _settleAnimatedSwitcher(tester);
-
-      expect(find.byType(GridPreviewCanvas), findsOneWidget);
-      expect(find.byType(StitchPreviewCanvas), findsNothing);
-    });
-
-    testWidgets(
-      'stitch source kind → StitchPreviewCanvas fallback (no stale)',
-      (tester) async {
-        await tester.pumpWidget(_harness(state: const PreviewLoading()));
-        await _settleAnimatedSwitcher(tester);
-
-        expect(find.byType(StitchPreviewCanvas), findsOneWidget);
-        expect(find.byType(GridPreviewCanvas), findsNothing);
       },
     );
   });

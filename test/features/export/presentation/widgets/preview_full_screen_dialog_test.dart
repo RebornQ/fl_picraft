@@ -57,6 +57,20 @@ void main() {
       expect(iv.maxScale, 4.0);
     });
 
+    testWidgets(
+      'InteractiveViewer.boundaryMargin is infinite so pan is unlimited '
+      'after zoom-in',
+      (tester) async {
+        await tester.pumpWidget(_dialogHarness(_smallPng()));
+        await tester.pumpAndSettle();
+
+        final iv = tester.widget<InteractiveViewer>(
+          find.byType(InteractiveViewer),
+        );
+        expect(iv.boundaryMargin, const EdgeInsets.all(double.infinity));
+      },
+    );
+
     testWidgets('close button title and tooltip render', (tester) async {
       await tester.pumpWidget(_dialogHarness(_smallPng()));
       await tester.pumpAndSettle();

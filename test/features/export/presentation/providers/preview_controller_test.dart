@@ -4,9 +4,11 @@ import 'dart:typed_data';
 import 'package:fake_async/fake_async.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_format.dart';
 import 'package:fl_picraft/features/export/presentation/providers/export_controller.dart';
+import 'package:fl_picraft/features/export/presentation/providers/export_dispatch.dart';
 import 'package:fl_picraft/features/export/presentation/providers/preview_controller.dart';
 import 'package:fl_picraft/features/export/presentation/providers/preview_state.dart';
 import 'package:fl_picraft/features/export/presentation/providers/process_bytes_fn.dart';
+import 'package:fl_picraft/features/export/presentation/providers/processed_bytes_cache.dart';
 import 'package:fl_picraft/features/export/presentation/providers/watermark_config_provider.dart';
 import 'package:fl_picraft/features/grid/data/renderers/grid_image_renderer.dart';
 import 'package:fl_picraft/features/grid/domain/usecases/grid_render_request.dart';
@@ -417,4 +419,212 @@ void main() {
       });
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Bug-fix regression coverage — "stale Ready frame flashes before
+  // Loading on /export re-mount". See
+  // [PreviewController.build] / [PreviewController._scheduleRender]
+  // comments for the root cause and approach.
+  //
+  // The new contract:
+  //   * First build() returns the cache-aware initial state — never
+  //     [PreviewEmpty] when the editor has content but the cache has
+  //     no entry; never the leftover [PreviewReady] from a prior page
+  //     visit when the inputs have moved on.
+  //   * [_scheduleRender] synchronously pre-transitions to
+  //     [PreviewLoading] the moment the input key differs from
+  //     [_lastRenderedKey] — does NOT wait 300 ms.
+  // ─────────────────────────────────────────────────────────────────────
+
+  group('PreviewController — initial-state cache-awareness (bug fix)', () {
+    test(
+      'cache-hit on first build → first emitted state is PreviewReady (no Empty/Loading flash)',
+      () {
+        fakeAsync((async) {
+          final fake = _CountingProcessBytesFn();
+          final container = _makeContainer(
+            fake: fake,
+            stitchImages: [_fakeImage('a')],
+          );
+          addTearDown(container.dispose);
+
+          // Pre-warm the cache by computing the exact key the
+          // controller will derive on its first build(), then writing
+          // bytes under that key. Reading the dep providers first
+          // initializes them — the controller's build() reads the
+          // same providers and resolves to the same hashes / values.
+          final kind = container.read(currentExportSourceKindProvider);
+          final editorHash = container
+              .read(stitchEditorControllerProvider)
+              .hashCode;
+          final watermark = container.read(watermarkConfigProvider);
+          final exportState = container.read(exportControllerProvider);
+          final cacheKey = computeProcessedBytesCacheKey(
+            kind: kind,
+            editorStateHash: editorHash,
+            watermark: watermark,
+            format: exportState.format,
+            quality: exportState.quality,
+          );
+          final precachedBytes = [
+            Uint8List.fromList(const [99, 100, 101]),
+          ];
+          container
+              .read(processedBytesCacheProvider.notifier)
+              .write(cacheKey, precachedBytes);
+
+          // First read of the controller — build() should return
+          // Ready synchronously, no Empty/Loading flash.
+          final initialState = container.read(previewControllerProvider);
+          expect(
+            initialState,
+            isA<PreviewReady>(),
+            reason: 'build() must surface cache hit synchronously',
+          );
+          final ready = initialState as PreviewReady;
+          expect(ready.bytes, equals(precachedBytes));
+          expect(ready.totalSizeBytes, equals(3));
+
+          // The fake processFn should never be invoked — cache hit
+          // short-circuits the render pipeline entirely. Drain the
+          // debounce window to be sure nothing got queued either.
+          async.elapse(const Duration(milliseconds: 400));
+          async.flushMicrotasks();
+          expect(
+            fake.callCount,
+            0,
+            reason: 'cache hit must skip the isolate hop',
+          );
+          expect(
+            container.read(previewControllerProvider),
+            isA<PreviewReady>(),
+          );
+        });
+      },
+    );
+
+    test(
+      'no source on first build → first emitted state is PreviewEmpty (sanity)',
+      () {
+        fakeAsync((async) {
+          final fake = _CountingProcessBytesFn();
+          final container = _makeContainer(fake: fake /* no images */);
+          addTearDown(container.dispose);
+
+          // First read — synchronous Empty, no Loading flash.
+          final initial = container.read(previewControllerProvider);
+          expect(initial, isA<PreviewEmpty>());
+
+          // Drain to confirm nothing got queued either.
+          async.elapse(const Duration(milliseconds: 400));
+          async.flushMicrotasks();
+          expect(
+            container.read(previewControllerProvider),
+            isA<PreviewEmpty>(),
+          );
+          expect(fake.callCount, 0);
+        });
+      },
+    );
+
+    test(
+      'has source + cache miss on first build → first emitted state is PreviewLoading (NOT Empty)',
+      () {
+        fakeAsync((async) {
+          final fake = _CountingProcessBytesFn();
+          final container = _makeContainer(
+            fake: fake,
+            stitchImages: [_fakeImage('a')],
+          );
+          addTearDown(container.dispose);
+
+          // First read — must be Loading immediately, not Empty.
+          // Pre-fix behavior: Empty for 300 ms, then Loading.
+          final initial = container.read(previewControllerProvider);
+          expect(
+            initial,
+            isA<PreviewLoading>(),
+            reason:
+                'first frame must show a skeleton, not flash Empty for 300 ms',
+          );
+          expect(
+            fake.callCount,
+            0,
+            reason: 'render is queued but not yet invoked (inside debounce)',
+          );
+
+          // The render still runs through the normal debounce window.
+          async.elapse(const Duration(milliseconds: 400));
+          async.flushMicrotasks();
+          expect(
+            container.read(previewControllerProvider),
+            isA<PreviewReady>(),
+          );
+          expect(fake.callCount, 1);
+        });
+      },
+    );
+  });
+
+  group(
+    'PreviewController — synchronous pre-transition to Loading (bug fix)',
+    () {
+      test(
+        'input key change after PreviewReady immediately transitions to PreviewLoading (no 300 ms wait)',
+        () {
+          fakeAsync((async) {
+            final fake = _CountingProcessBytesFn();
+            final container = _makeContainer(
+              fake: fake,
+              stitchImages: [_fakeImage('a')],
+            );
+            addTearDown(container.dispose);
+
+            // Settle to Ready first.
+            container.read(previewControllerProvider);
+            async.elapse(const Duration(milliseconds: 400));
+            async.flushMicrotasks();
+            expect(
+              container.read(previewControllerProvider),
+              isA<PreviewReady>(),
+            );
+            expect(fake.callCount, 1);
+
+            final notifier = container.read(previewControllerProvider.notifier);
+            final keyBefore = notifier.debugLastRenderedKey;
+            expect(keyBefore, isNotNull);
+
+            // Mutate a dep — the listener will fire and `_scheduleRender`
+            // should synchronously transition to Loading rather than
+            // wait for the 300 ms debounce window. NO `async.elapse`
+            // between the mutation and the assertion — only a
+            // microtask flush so the Riverpod listener callback
+            // dispatches.
+            container.read(watermarkConfigProvider.notifier).setOpacity(0.4);
+            async.flushMicrotasks();
+            expect(
+              container.read(previewControllerProvider),
+              isA<PreviewLoading>(),
+              reason:
+                  'state must pre-transition to Loading synchronously, '
+                  'before the 300 ms debounce timer fires',
+            );
+            // Sanity: the debounce timer is queued but the fake hasn't
+            // run yet — the pre-transition does NOT call the fake.
+            expect(fake.callCount, 1);
+
+            // After the debounce + microtask flush, the render completes
+            // normally — the debounce contract is preserved.
+            async.elapse(const Duration(milliseconds: 350));
+            async.flushMicrotasks();
+            expect(
+              container.read(previewControllerProvider),
+              isA<PreviewReady>(),
+            );
+            expect(fake.callCount, 2);
+          });
+        },
+      );
+    },
+  );
 }

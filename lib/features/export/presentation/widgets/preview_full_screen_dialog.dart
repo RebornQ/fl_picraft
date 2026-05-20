@@ -10,6 +10,21 @@ import 'package:flutter/material.dart';
 /// top [AppBar] keeps a close button so the user can dismiss without
 /// having to know about barrier taps / system back.
 ///
+/// Layout contract for the viewer (load-bearing — see the PRD bug fix
+/// note in `.trellis/tasks/05-20-preview-ui/prd.md`):
+///
+/// * The [InteractiveViewer] fills the entire [Scaffold] body so pan /
+///   zoom always operates against the **full-screen viewport**, not
+///   the image's intrinsic display rect. If we wrapped the viewer in
+///   `Center` instead, the parent constraints would be stripped and
+///   the viewer would shrink to the image's `BoxFit.contain` rect —
+///   leaving the magnified-out-of-rect regions un-pannable.
+/// * [InteractiveViewer.boundaryMargin] is `EdgeInsets.all(double.infinity)`
+///   so the user can pan freely after zoom-in (typical photo-viewer
+///   feel — no hard wall against the visible viewport edge).
+/// * The [Image.memory] sits inside a [Center] **inside** the viewer
+///   so the image stays centered at the initial 1.0 scale.
+///
 /// Dismissal:
 /// * The close button → `Navigator.of(context).pop()`.
 /// * `barrierDismissible: true` (set by the caller on `showDialog`) →
@@ -34,11 +49,12 @@ class PreviewFullScreenDialog extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(),
           ),
         ),
-        body: Center(
-          child: InteractiveViewer(
-            panEnabled: true,
-            minScale: 0.5,
-            maxScale: 4.0,
+        body: InteractiveViewer(
+          panEnabled: true,
+          minScale: 0.5,
+          maxScale: 4.0,
+          boundaryMargin: const EdgeInsets.all(double.infinity),
+          child: Center(
             child: Image.memory(
               bytes,
               fit: BoxFit.contain,
