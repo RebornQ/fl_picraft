@@ -5,21 +5,33 @@ import '../../domain/entities/save_result.dart';
 import '../providers/export_controller.dart';
 import '../providers/export_dispatch.dart';
 
-/// Full-width primary save CTA at the bottom of the export panel.
+/// Primary save CTA for the export screen, rendered as a Material 3
+/// [FloatingActionButton.extended]. Previously this was an inline
+/// full-width [FilledButton] anchored at the bottom of the panel; the
+/// FAB form gives the primary action a stronger visual weight per MD3
+/// and keeps it reachable even when the user scrolls long settings.
 ///
-/// Mirrors the mockup's "保存至相册" button
-/// (`_4_导出页面/code.html` line 207). The idle copy is sourced from
+/// Mirrors the mockup's "保存至相册" copy
+/// (`_4_导出页面/code.html` line 207). The idle label is sourced from
 /// [exportSaveButtonLabelProvider] so it adapts to the active source
 /// (e.g. "保存 9 张至相册" when grid mode has 9 cells lined up).
 ///
-/// The button:
-/// * Disables itself while a save is in flight
+/// State contract:
+/// * Disabled (`onPressed: null`) while a save is in flight
 /// ([ExportState.isSaving]).
-/// * Disables itself when the active editor has nothing to export
+/// * Disabled when the active editor has nothing to export
 /// (see [canExportProvider]).
+/// * In-flight icon is replaced by a [CircularProgressIndicator] and
+/// the label flips to "保存中…".
 /// * Calls [ExportController.save] and renders the returned
 /// [SaveResult] as a snackbar (success → "已保存 …",
 /// cancel → silent, failure → error snackbar).
+///
+/// **heroTag** is explicitly set to `'export-save-fab'`. Per
+/// `.trellis/spec/frontend/component-guidelines.md` →
+/// "FloatingActionButton 默认 heroTag 在多 screen 同时存活时冲突",
+/// every FAB in the project must declare a unique tag. This sits in a
+/// namespace alongside `stitch-export-fab` / `grid-export-fab`.
 class SaveActionButton extends ConsumerWidget {
   const SaveActionButton({super.key});
 
@@ -30,38 +42,29 @@ class SaveActionButton extends ConsumerWidget {
     );
     final canExport = ref.watch(canExportProvider);
     final idleLabel = ref.watch(exportSaveButtonLabelProvider);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     final enabled = !isSaving && canExport;
 
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: enabled ? () => _onSavePressed(context, ref) : null,
-        style: FilledButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
-          textStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        icon: isSaving
-            ? SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(colorScheme.onPrimary),
-                ),
-              )
-            : const Icon(Icons.save_outlined),
-        label: Text(isSaving ? '保存中…' : idleLabel),
-      ),
+    return FloatingActionButton.extended(
+      // Namespaced hero tag — see class doc-comment. Without an
+      // explicit tag the default `_kDefaultHeroTag` would collide with
+      // the editor-side export FABs the moment the user navigates
+      // back to a long-stitch / grid editor screen that's still alive
+      // in the navigator stack.
+      heroTag: 'export-save-fab',
+      onPressed: enabled ? () => _onSavePressed(context, ref) : null,
+      tooltip: '保存至相册',
+      icon: isSaving
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              // Default `valueColor` lets the FAB foreground theme drive
+              // the spinner color, which keeps disabled / enabled
+              // contrast correct without hard-coding `onPrimary`.
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.save_outlined),
+      label: Text(isSaving ? '保存中…' : idleLabel),
     );
   }
 

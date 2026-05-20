@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec entrypoint — design token authority + guideline index, mandatory when touching theme-aware widgets."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "MD3 token pairing rules (primary ↔ onPrimary) + the FAB heroTag Gotcha at line 967-1023 that mandates `<feature>-<purpose>-fab` naming for all FloatingActionButton variants."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "WindowSizeClass conventions for ExportScreen body layout — must not regress compact/medium/expanded behavior when relocating SaveActionButton to the Scaffold FAB slot."}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod provider conventions — confirm exportControllerProvider/canExportProvider/exportSaveButtonLabelProvider wiring stays correct inside the new FAB widget."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint/test/format gates that the implementation must satisfy before completion."}

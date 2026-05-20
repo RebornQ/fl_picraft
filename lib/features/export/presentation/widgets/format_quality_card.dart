@@ -93,9 +93,7 @@ class _FormatButton extends StatelessWidget {
     // purple" combination because this project's `primaryContainer`
     // token is a mid-saturation purple (see `app_colors.dart`), not
     // the light tint Material 3 normally ships.
-    final fg = selected
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.onSurfaceVariant;
+    final fg = selected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant;
     return Semantics(
       button: true,
       selected: selected,

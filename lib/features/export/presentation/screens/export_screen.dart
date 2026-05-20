@@ -22,9 +22,9 @@ import '../widgets/watermark_card.dart';
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact    | single column: Preview → FormatQuality → Watermark → Save → Disclaimer |
-/// | medium     | Preview spans the full row; FormatQuality + Watermark share a row; Save and Disclaimer span the full row |
-/// | expanded / large | same as medium — body fills the available width (no outer cap) |
+/// | compact    | single column: Preview → FormatQuality → Watermark → Disclaimer; Save CTA floats as a Scaffold FAB |
+/// | medium     | Preview spans the full row; FormatQuality + Watermark share a row; Disclaimer spans the full row; Save CTA floats as a Scaffold FAB |
+/// | expanded / large | same as medium — body fills the available width (no outer cap); Save CTA floats as a Scaffold FAB |
 ///
 /// **Why a bare `Scaffold` (no shell-owned bottom nav)**: per
 /// `.trellis/spec/frontend/component-guidelines.md` →
@@ -68,6 +68,8 @@ class ExportScreen extends ConsumerWidget {
           title: const Text('导出'),
         ),
         body: const SafeArea(child: _ExportBody()),
+        floatingActionButton: const SaveActionButton(),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
     );
   }
@@ -138,12 +140,14 @@ class _ExportBody extends StatelessWidget {
               ],
             ),
           const SizedBox(height: 16),
-          // Save CTA + disclaimer keep their full-width single-column
-          // treatment on every size class so the primary action stays
-          // visually anchored.
-          const SaveActionButton(),
-          const SizedBox(height: 16),
+          // Disclaimer sits at the very bottom of the body. The Save
+          // CTA lives in the Scaffold's `floatingActionButton` slot
+          // (see [ExportScreen]); the trailing 88dp spacer below
+          // reserves clearance so the FAB doesn't visually cover the
+          // disclaimer when the user scrolls to the bottom
+          // (~56dp FAB + 16dp endFloat margin + 16dp breathing room).
           const SaveDisclaimer(),
+          const SizedBox(height: 88),
         ],
       ),
     );

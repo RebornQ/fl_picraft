@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Authoritative lint/test/format checklist used to gate the change before declaring done."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify MD3 token pairing (primary ↔ onPrimary) is correctly applied and FAB heroTag follows `<feature>-<purpose>-fab` convention (line 967-1023 Gotcha)."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Verify compact/medium/expanded ExportScreen layouts still render correctly after relocating SaveActionButton to the Scaffold FAB slot."}

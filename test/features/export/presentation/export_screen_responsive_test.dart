@@ -90,25 +90,6 @@ void main() {
       expect(watermark.dx, greaterThan(format.dx));
     });
 
-    testWidgets('SaveActionButton stays full-width on every size class', (
-      tester,
-    ) async {
-      // Verify Save button width is more than half the screen width
-      // (i.e., it spans the whole settings column, not just one of the
-      // two settings cards) on a medium viewport.
-      await tester.pumpWidget(_exportHarness(size: const Size(720, 1024)));
-      await tester.pumpAndSettle();
-
-      final saveBox = tester.renderObject<RenderBox>(
-        find.byType(SaveActionButton),
-      );
-      final formatBox = tester.renderObject<RenderBox>(
-        find.byType(FormatQualityCard),
-      );
-      // Save button is wider than a single setting card on medium+.
-      expect(saveBox.size.width, greaterThan(formatBox.size.width));
-    });
-
     testWidgets('content fills the container on very wide windows', (
       tester,
     ) async {
