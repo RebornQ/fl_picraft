@@ -456,6 +456,187 @@ restore semantics but do not call out the ordering hazard explicitly.
   no-animate variant is documented as NOT clamped by `minSize`; use it
   when restoring or setting explicit defaults.
 
+### Windows: `GetPrivateProfileIntW` silently returns 0 for negative integers
+
+> Captured from `05-20-windows-window-strategy` (Subtask 3 of
+> `05-20-desktop-window-mgmt-and-menu`).
+
+**Critical Gotcha**: `GetPrivateProfileIntW(section, key, defaultValue, file)`
+clamps any value that the INI file parses as less than zero to **0** —
+regardless of the `defaultValue` passed in:
+
+> "If the value of the key is less than zero, the return value is zero."
+> — [`GetPrivateProfileIntW` (Microsoft Learn)](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getprivateprofileintw)
+
+`WritePrivateProfileStringW` is symmetric on write — it happily persists
+`"-1234"` to disk. The asymmetry shows up on read: the original signed
+value is silently coerced to 0.
+
+**Concrete bite**: persisting `WINDOWPLACEMENT.rcNormalPosition.left` on a
+secondary monitor positioned LEFT of primary (virtual-screen X is
+negative). Save → quit → relaunch. The window now jumps to x=0 with no
+warning. Sanity bounds (e.g. `if (x < 0) reject`) cannot catch this
+because the round-trip already happened inside the read call.
+
+**Wrong**:
+
+```cpp
+int x = static_cast<int>(::GetPrivateProfileIntW(
+    L"Window", L"X", /*fallback=*/INT_MIN, path.c_str()));
+if (x == INT_MIN) return std::nullopt;   // missing-key path: OK
+// But x = 0 when the INI has X=-1234, indistinguishable from
+// the legitimate value X=0.
+```
+
+**Correct** (read the raw string, parse with `wcstol`):
+
+```cpp
+int ReadInt(const wchar_t* key, int fallback, const std::wstring& file) {
+  wchar_t buf[64] = {0};
+  DWORD len = ::GetPrivateProfileStringW(
+      L"Window", key,
+      /*default if missing=*/L"",
+      buf, ARRAYSIZE(buf), file.c_str());
+  if (len == 0) return fallback;       // missing or empty key
+
+  wchar_t* end = nullptr;
+  long v = ::wcstol(buf, &end, 10);    // signed, base-10, locale-independent
+  if (end == buf || *end != L'\0') return fallback;  // trailing junk → reject
+  if (v < INT_MIN || v > INT_MAX) return fallback;
+  return static_cast<int>(v);
+}
+```
+
+`wcstol(buf, &end, 10)` is locale-independent, preserves the sign, and
+lets us distinguish "missing", "garbage", and "valid negative" cleanly.
+The write side is unchanged — `WritePrivateProfileStringW` with
+`std::to_wstring(int)` already round-trips signed values fine.
+
+**Why it's easy to miss**: `GetPrivateProfileIntW` looks like the
+"obviously correct" choice for "read an INT from INI". The clamping
+behavior is buried two paragraphs into the Microsoft Learn page and
+contradicts the C-stdlib convention (`atoi("-1234") == -1234`).
+
+**When it's safe to use `GetPrivateProfileIntW` anyway**: any value
+that's **always** ≥ 0 by construction — e.g. window width / height
+(rejected if < 200 by sanity bounds), DPI (≥ 48 by sanity bounds). Use
+the integer flavor only for unsigned values; use string + `wcstol` for
+anything that might legitimately be negative.
+
+**Validation**:
+- Unit-test: write `"-1234"` via `WritePrivateProfileStringW`, read via
+  `GetPrivateProfileIntW` → returns `0` (confirms the API behavior).
+- Same write, read via `GetPrivateProfileStringW + wcstol` → returns
+  `-1234` (confirms the fix).
+- Manual smoke: drag the app to a monitor positioned LEFT of primary,
+  resize away from edge, close, relaunch. Window must restore to the
+  same negative X (visible on the same monitor), not jump to x=0.
+
+### Windows: `WINDOWPLACEMENT.rcNormalPosition` is workspace coordinates, not virtual-screen
+
+> Captured from `05-20-windows-window-strategy` (Subtask 3 of
+> `05-20-desktop-window-mgmt-and-menu`).
+
+**Critical Gotcha**: For top-level windows that do NOT have the
+`WS_EX_TOOLWINDOW` extended style (i.e. ordinary application windows),
+`WINDOWPLACEMENT::rcNormalPosition` is documented as **workspace
+coordinates** — i.e. relative to the work-area origin of the monitor
+containing the window:
+
+> "If the window is a top-level window that does not have the
+> `WS_EX_TOOLWINDOW` extended window style, then the coordinates
+> represented by the following members are in workspace coordinates:
+> `ptMinPosition`, `ptMaxPosition`, and `rcNormalPosition`."
+> — [`WINDOWPLACEMENT` (Microsoft Learn)](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-windowplacement)
+
+`CreateWindow` and `SetWindowPos`, on the other hand, expect
+**virtual-screen coordinates**. So persisting `rcNormalPosition` and
+restoring it verbatim works correctly only when workspace == virtual
+screen, which happens on the **default** Windows layout: single monitor
+(or primary at virtual-screen origin) + bottom taskbar. Any of the
+following layouts break the round-trip by a fixed offset:
+
+| Layout | `rcWork.left/top` | Restore offset on relaunch |
+|---|---|---|
+| Bottom taskbar, primary at (0,0) | (0, 0) | none — works |
+| Top taskbar | (0, taskbarH) | window opens `taskbarH` px higher |
+| Left taskbar | (taskbarW, 0) | window opens `taskbarW` px more left |
+| Multi-monitor, primary's `rcWork` non-zero | non-zero | offset by `rcWork.left/top` |
+
+**Why we still use `rcNormalPosition`**: it's the only field that returns
+the **restored** rect even when the window is currently maximized
+(`GetWindowRect` returns the maximized rect, polluting the persisted
+size). Maximized-rect contamination is a worse failure mode than a few
+pixels of offset for non-default layouts. ADR-lite §D-E in
+`.trellis/tasks/05-20-desktop-window-mgmt-and-menu/prd.md` codifies this
+trade-off explicitly.
+
+**Wrong** (silent offset for non-default layouts):
+
+```cpp
+// On WM_CLOSE:
+WINDOWPLACEMENT wp{ sizeof(WINDOWPLACEMENT) };
+::GetWindowPlacement(hwnd, &wp);
+const RECT& n = wp.rcNormalPosition;
+SaveWindowState({ n.left, n.top, ... });   // ← workspace coords
+
+// On relaunch:
+::CreateWindow(... saved.x, saved.y, ...); // ← virtual-screen expected
+// Window opens off by rcWork.left/top from where the user left it.
+```
+
+**Correct (option A — convert workspace → virtual-screen on save)**:
+
+```cpp
+WINDOWPLACEMENT wp{ sizeof(WINDOWPLACEMENT) };
+::GetWindowPlacement(hwnd, &wp);
+HMONITOR mon = ::MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+MONITORINFO mi{ sizeof(MONITORINFO) };
+::GetMonitorInfoW(mon, &mi);
+SaveWindowState({
+  wp.rcNormalPosition.left + mi.rcWork.left,   // workspace → virtual screen
+  wp.rcNormalPosition.top  + mi.rcWork.top,
+  wp.rcNormalPosition.right  - wp.rcNormalPosition.left,
+  wp.rcNormalPosition.bottom - wp.rcNormalPosition.top,
+  ::GetDpiForWindow(hwnd),
+});
+```
+
+**Correct (option B — restore via `SetWindowPlacement`)**: symmetric API,
+also accepts workspace coordinates, so no math needed:
+
+```cpp
+// On relaunch, after CreateWindow:
+WINDOWPLACEMENT wp{ sizeof(WINDOWPLACEMENT) };
+wp.length = sizeof(WINDOWPLACEMENT);
+wp.showCmd = SW_SHOWNORMAL;
+wp.rcNormalPosition = { saved.x, saved.y,
+                        saved.x + saved.w, saved.y + saved.h };
+::SetWindowPlacement(hwnd, &wp);
+```
+
+Option B requires a second placement call after `CreateWindow` (an extra
+Flutter view resize event — `flutter_window.cpp` warns about "unnecessary
+surface creation / destruction"). Option A keeps the contract symmetric
+through `CreateWindow`. Choose based on whether the extra resize matters.
+
+**Current state in this repo**: `windows/runner/win32_window.cpp` stores
+`rcNormalPosition` directly without conversion. This is a known
+limitation that only affects non-default Windows layouts (top/left
+taskbar or non-(0,0) primary `rcWork`). The default-Windows-user happy
+path is unaffected. If a future task wants to fix it, option A is the
+smaller diff (one extra `MonitorFromWindow + GetMonitorInfoW` on save
+side).
+
+**Validation**:
+- Default layout (bottom taskbar, single monitor at (0,0)): relaunch
+  position matches exactly. AC4 passes.
+- Top taskbar: window opens `taskbarH` (≈ 30 px on default scaling)
+  higher than where it was closed. Visible but tolerable; doesn't
+  reposition off-screen.
+- Multi-monitor with primary's `rcWork.left = 1920`: window opens 1920
+  px left of where it should. Reproduces the bug.
+
 ### Desktop runners: register new native source files with the build system
 
 > Captured from `05-20-macos-settings-menu-bridge` (Subtask 1 of
@@ -689,6 +870,8 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
 | `MACOSX_DEPLOYMENT_TARGET` lower than a plugin's floor (e.g. `gal` ≥ 11.0) | `pod install` or `flutter build macos` errors with `The plugin "X" requires a higher minimum macOS deployment version` | Bump Podfile **and** every `MACOSX_DEPLOYMENT_TARGET` in `project.pbxproj` to the plugin floor |
 | New native source file dropped on disk without registering it in `Runner.xcodeproj/project.pbxproj` (macOS) / `windows/runner/CMakeLists.txt` (Windows) / `linux/runner/CMakeLists.txt` (Linux) | macOS: Swift compile error `cannot find type 'X' in scope` at the call site (the new file itself was never compiled). Windows: MSVC `LNK2019: unresolved external symbol` or `C2065: undeclared identifier`. Linux: ld `undefined reference`. **`flutter analyze` is silent** in all three cases because it only walks Dart. | Mirror an existing entry (e.g. `AppDelegate.swift`) in all 4 pbxproj sections with two fresh UUIDs; for Windows / Linux append the filename to `RUNNER_SOURCES` / `add_executable`. See "Desktop runners: register new native source files". Always run `flutter build <platform>` before declaring done. |
 | `NSWindow.setFrameAutosaveName` called BEFORE `setFrame(default, display: true)` in `awakeFromNib` | First-launch window uses the xib frame (NOT the computed 80% default); user resizes never visibly restore on subsequent launches. **No compile warning, no runtime exception** — `flutter analyze` cannot catch it. | Reorder: `contentMinSize` → compute and `setFrame(default, display: true)` → `setFrameAutosaveName(name)` **LAST**. See "macOS: `NSWindow.setFrameAutosaveName` MUST come after `setFrame`". Smoke-verify by `defaults delete <bundle-id>` + launch + resize + relaunch. |
+| `GetPrivateProfileIntW` used to read a signed integer (e.g. a window's virtual-screen X/Y on a secondary monitor LEFT/ABOVE primary) | Negative values silently round-trip to `0` regardless of the `defaultValue` passed in; sanity bounds on the read value cannot detect the loss. Window jumps to (0, …) on relaunch. | Use `GetPrivateProfileStringW + wcstol(buf, &end, 10)` to parse signed integers manually. `GetPrivateProfileIntW` is only safe for values that are always ≥ 0 (width, height, DPI). See "Windows: `GetPrivateProfileIntW` silently returns 0 for negative integers". |
+| `WINDOWPLACEMENT.rcNormalPosition` persisted as if it were virtual-screen coordinates | Non-default Windows layouts (top/left taskbar, multi-monitor with non-(0,0) primary `rcWork`) see restored window offset by `rcWork.left/top` pixels. Default Windows layout (bottom taskbar + primary at (0,0)) unaffected. | Either convert workspace → virtual-screen on save (`+ rcWork.left/top` via `MonitorFromWindow + GetMonitorInfoW`), or restore via `SetWindowPlacement` (also accepts workspace coords, no math). See "Windows: `WINDOWPLACEMENT.rcNormalPosition` is workspace coordinates". |
 | `file_picker.saveFile()` called on web | Returns `null` silently; user sees "save did nothing" with no error | Route web through a `package:web` Blob adapter (conditional import) |
 | `URL.createObjectURL` without matching `revokeObjectURL` | Blob bytes leak in browser memory until tab closes; large exports compound | Revoke immediately after `<a>.click()` |
 | `gal.putImageBytes(..., album: '')` | Creates a real album named "" in Photos / Gallery | Normalize empty strings to `null` before the call |
