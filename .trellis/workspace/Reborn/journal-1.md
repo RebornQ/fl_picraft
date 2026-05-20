@@ -1584,3 +1584,36 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 48: 移动端控制栏紧凑化（长图 sheet + 宫格 flex 倾斜 + 选中卡自动可见）
+
+**Date**: 2026-05-20
+**Task**: 移动端控制栏紧凑化（长图 sheet + 宫格 flex 倾斜 + 选中卡自动可见）
+**Branch**: `main`
+
+### Summary
+
+compact/medium 下压低长图 sheet 上限至 min(0.22h, 320)（floor 200 不变），宫格 chrome 改用 Expanded(flex:3)+Expanded(flex:2) 倾斜分配剩余空间；轻量压缩 _BentoCard 128→104 与 GridTypeSelector strip 104→92 缓解 chrome 拥挤。顺手修复 GridTypeSelector 默认末位 g3x3 首屏不可见（StatefulWidget + ScrollController + PostFrameCallback animateTo）。原 Flexible(loose)+ConstrainedBox 方案因 chrome 收缩暴露页背景被回滚，spec 新增 Lesson 沉淀该踩坑。413 tests passed / 3 skipped。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8cd0768` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
