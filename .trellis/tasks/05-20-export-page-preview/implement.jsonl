@@ -1,0 +1,13 @@
+{"file": ".trellis/tasks/05-20-export-page-preview/prd.md", "reason": "父任务的完整需求 + ADR + 实施计划，是两个 subtask 的总纲"}
+{"file": ".trellis/tasks/05-20-preview-renderer-infra/prd.md", "reason": "Subtask A（渲染基础设施）的需求 + AC + 与 Subtask B 的契约"}
+{"file": ".trellis/tasks/05-20-preview-ui/prd.md", "reason": "Subtask B（UI 集成）的需求 + AC + 对 Subtask A provider 的依赖"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack、设计 token、Inter 字体与 MD3 颜色"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增 widgets/providers 在 features/export/{presentation,data,domain}/ 的归属、cross-feature 引用规则（骨架占位复用 stitch/grid 编辑器组件）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "AsyncNotifier 防抖+缓存模式、跨 feature 通过 provider 派生（不直接 import controller）的约定"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "卡片视觉风格、AnimatedSwitcher 淡入、Dialog.fullscreen 用法、a11y 标签"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "三种 size class 下预览区与既有卡片堆叠的布局适配"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "PreviewError 状态的用户文案"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "PreviewState sealed class、AsyncValue 模式约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Timeline.startSync 标记、widget + provider 测试覆盖要求"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "previewExportBytes 函数与 _processOne 共享内部实现、骨架占位复用 editor 预览组件"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "渲染管线在 data/、provider 在 presentation/、widget 不绕过 provider"}

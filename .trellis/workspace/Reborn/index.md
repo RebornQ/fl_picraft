@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 49
-- **Last Active**: 2026-05-20
+- **Total Sessions**: 50
+- **Last Active**: 2026-05-21
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1652 | Active |
+| `journal-1.md` | ~1687 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 50 | 2026-05-21 | 导出页面预览基础设施（Subtask A：渲染管线 + save cache 共享 + Riverpod controller） | `100e671`, `98fd023`, `4275f40` | `main` |
 | 49 | 2026-05-20 | 长图拼接：导入图片 20 张上限 UI 封锁 | `8906f0a` | `main` |
 | 48 | 2026-05-20 | 移动端控制栏紧凑化（长图 sheet + 宫格 flex 倾斜 + 选中卡自动可见） | `8cd0768` | `main` |
 | 47 | 2026-05-20 | Subtask 4：Linux GTK 3 窗口策略 + Wayland 降级矩阵 spec 沉淀（父任务 4/4 done 收尾） | `4f6e1f3`, `36679e1` | `main` |

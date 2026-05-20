@@ -1,0 +1,14 @@
+{"file": ".trellis/tasks/05-20-export-page-preview/prd.md", "reason": "父任务 PRD：核对 4 大决策 + 加分项全纳入、Out-of-Scope 边界"}
+{"file": ".trellis/tasks/05-20-preview-renderer-infra/prd.md", "reason": "Subtask A AC 核对：previewExportBytes 抽取、防抖/缓存/暂停契约、单元测试"}
+{"file": ".trellis/tasks/05-20-preview-ui/prd.md", "reason": "Subtask B AC 核对：5 种状态分派、stitch/grid 两路、全屏 Dialog、文件大小标签"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint / format / test / Timeline 标记的最终验收清单"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "视觉一致性、卡片样式、可访问性、AnimatedSwitcher 行为"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "三 size class 下布局回归"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "provider 防抖/缓存/暂停的实现是否符合规约"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "PreviewError 文案是否符合错误信息表"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "PreviewState sealed 设计、null 安全、AsyncValue 分派"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增文件路径、跨 feature 引用是否走 public provider"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "UI ↔ provider ↔ renderer 三层是否各司其职"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "previewExportBytes 与 _processOne 是否真正共享实现、未重复造轮子"}
+{"file": ".trellis/spec/guides/index.md", "reason": "思维指南索引"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Tech stack 一致性最终核对"}

@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/05-20-preview-ui/prd.md", "reason": "本 subtask 的需求 + AC + 5 widget 文件清单"}
+{"file": ".trellis/tasks/05-20-export-page-preview/prd.md", "reason": "父任务 PRD：决策 2（Grid 水平滚动）、决策 3（点击全屏 Dialog）、决策 4（顶部跨行布局）、加分项（文件大小标签、骨架占位）"}
+{"file": ".trellis/tasks/05-20-preview-renderer-infra/prd.md", "reason": "Subtask A 的 PreviewState sealed 定义和 previewControllerProvider API 契约（Subtask B 唯一消费入口）"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增 widgets 在 features/export/presentation/widgets/、跨 feature 引用 stitch_preview_canvas / grid_preview_canvas 的 public provider 规则"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "卡片样式（surfaceContainerLow + 圆角 + border）、AnimatedSwitcher 淡入、Dialog.fullscreen + InteractiveViewer、a11y 标签"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "windowSizeClassOf + 三 size class 下 _ExportBody 顶部插入新行的适配"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "ref.watch(previewControllerProvider) 的 AsyncValue.when 分派、不直接调用 renderer"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "PreviewError 的用户文案（'预览暂不可用' + '重试'）"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "对 sealed PreviewState 的 switch 分派必须穷尽"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "widget 测试覆盖 5 种状态 + Dialog 开关、不破坏现有 export_screen_test"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "_SectionCard 复用、骨架占位复用 stitch/grid 编辑器组件"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "widget 仅消费 provider，不绕过到 data/domain"}

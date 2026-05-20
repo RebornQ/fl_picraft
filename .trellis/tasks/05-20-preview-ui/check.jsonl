@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/05-20-preview-ui/prd.md", "reason": "本 subtask AC 清单：5 widget、5 种状态、全屏 Dialog、文件大小标签、size class 适配"}
+{"file": ".trellis/tasks/05-20-export-page-preview/prd.md", "reason": "父任务 Out-of-Scope 边界：不修改既有 FormatQuality/Watermark/Save 卡片"}
+{"file": ".trellis/tasks/05-20-preview-renderer-infra/prd.md", "reason": "Subtask A 的 provider API 是否被正确消费（不绕过 provider 直接调 renderer）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint / format / test green、不破坏现有测试"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "视觉风格、可访问性 a11y、Dialog 行为一致性"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "三 size class 下布局回归无遗漏"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "PreviewError 文案匹配错误信息表"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "sealed switch 穷尽，无 default"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "widgets 文件归属、跨 feature 引用合规"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "widget 不绕过 provider 调底层"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "_SectionCard 与编辑器 canvas 的复用是否到位"}
