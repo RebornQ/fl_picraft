@@ -191,6 +191,13 @@ class GridEditorScreen extends ConsumerWidget {
       ),
       floatingActionButton: state.hasSource
           ? FloatingActionButton.extended(
+              // Namespaced hero tag so this FAB doesn't collide with the
+              // stitch editor's export FAB when both editor branches are
+              // kept alive by `StatefulShellRoute`. Without a unique tag
+              // Flutter's default `_kDefaultHeroTag` triggers the
+              // "multiple heroes share the same tag within a subtree"
+              // assertion the moment the user taps either FAB.
+              heroTag: 'grid-export-fab',
               onPressed: () => _onExportPressed(context, ref),
               tooltip: '导出每张子图',
               icon: const Icon(Icons.output),

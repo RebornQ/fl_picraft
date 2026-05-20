@@ -115,6 +115,13 @@ class StitchEditorScreen extends ConsumerWidget {
       ),
       floatingActionButton: state.hasImages
           ? FloatingActionButton.extended(
+              // Namespaced hero tag so this FAB doesn't collide with the
+              // grid editor's export FAB when both editor branches are
+              // kept alive by `StatefulShellRoute`. Without a unique tag
+              // Flutter's default `_kDefaultHeroTag` triggers the
+              // "multiple heroes share the same tag within a subtree"
+              // assertion the moment the user taps either FAB.
+              heroTag: 'stitch-export-fab',
               onPressed: () => _onExportPressed(context, ref),
               tooltip: '导出拼接图',
               icon: const Icon(Icons.output),
