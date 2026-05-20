@@ -4,6 +4,7 @@
 #include <flutter_windows.h>
 
 #include "resource.h"
+#include "window_state.h"
 
 namespace {
 
@@ -179,6 +180,28 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_CLOSE: {
+      // Persist the window's RESTORED outer rect (NOT the maximized rect)
+      // before DefWindowProc continues with DestroyWindow.
+      // GetWindowPlacement.rcNormalPosition is the pre-maximize size —
+      // this is what we want to restore on next launch. Falling through
+      // (break) lets the default close path proceed.
+      WINDOWPLACEMENT wp{};
+      wp.length = sizeof(WINDOWPLACEMENT);
+      if (::GetWindowPlacement(hwnd, &wp)) {
+        const RECT& n = wp.rcNormalPosition;
+        WindowState s{
+            n.left,
+            n.top,
+            n.right - n.left,
+            n.bottom - n.top,
+            ::GetDpiForWindow(hwnd),
+        };
+        SaveWindowState(s);
+      }
+      break;  // let DefWindowProc continue with DestroyWindow
+    }
+
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();
@@ -195,6 +218,33 @@ Win32Window::MessageHandler(HWND hwnd,
       SetWindowPos(hwnd, nullptr, newRectSize->left, newRectSize->top, newWidth,
                    newHeight, SWP_NOZORDER | SWP_NOACTIVATE);
 
+      return 0;
+    }
+    case WM_GETMINMAXINFO: {
+      // Enforce a minimum CLIENT-area size of 1280x800 logical (96-DPI)
+      // pixels. Under PerMonitorV2 the OS interprets
+      // MINMAXINFO->ptMinTrackSize in PHYSICAL pixels, so:
+      //   1. DPI-scale the client minimum.
+      //   2. Expand client rect -> outer window rect via
+      //      AdjustWindowRectExForDpi (adds DPI-aware titlebar / borders).
+      //   3. Store the outer rect's dimensions in ptMinTrackSize.
+      // The style flags must match Win32Window::Create's CreateWindow
+      // call (WS_OVERLAPPEDWINDOW). The DPI changes automatically with
+      // WM_DPICHANGED -> the next WM_GETMINMAXINFO sees the new DPI.
+      constexpr LONG kMinClientLogicalW = 1280;
+      constexpr LONG kMinClientLogicalH = 800;
+      UINT dpi = ::GetDpiForWindow(hwnd);
+      if (dpi == 0) {
+        dpi = 96;  // pre-creation fallback (defensive)
+      }
+      double scale = dpi / 96.0;
+      RECT rect{0, 0,
+                static_cast<LONG>(kMinClientLogicalW * scale),
+                static_cast<LONG>(kMinClientLogicalH * scale)};
+      ::AdjustWindowRectExForDpi(&rect, WS_OVERLAPPEDWINDOW, FALSE, 0, dpi);
+      auto* mmi = reinterpret_cast<MINMAXINFO*>(lparam);
+      mmi->ptMinTrackSize.x = rect.right - rect.left;
+      mmi->ptMinTrackSize.y = rect.bottom - rect.top;
       return 0;
     }
     case WM_SIZE: {

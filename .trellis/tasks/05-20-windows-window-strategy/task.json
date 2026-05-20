@@ -3,7 +3,7 @@
   "name": "windows-window-strategy",
   "title": "Windows 原生窗口策略（Win32 80% 默认 / WM_GETMINMAXINFO / INI 持久化）",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
