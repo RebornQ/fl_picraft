@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Re-check dart format / flutter analyze / 测试 —— 新增 widget 测试覆盖 360×800 与 720×412 两个尺寸下的 chrome 高度断言；FAB clearance 80 dp 在 _buildControlsPanelChrome 内部仍生效。"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Re-check expanded/large 侧边面板分支（line 266–349）未被波及；compact/medium 改用 Flexible(loose) + ConstrainedBox 后，canvas Expanded 仍能正确抢占剩余高度（spec 中 height-first 原则）。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Re-check 新引入的 Flexible / ConstrainedBox / 新增 import 符合 widget 结构约定（const、prop 顺序、无无谓 Container），顶部 Dartdoc 'Layout breakdown' 段落已同步更新。"}

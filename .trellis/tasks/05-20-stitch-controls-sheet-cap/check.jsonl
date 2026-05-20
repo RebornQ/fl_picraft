@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Re-check dart format / flutter analyze / 测试基线 —— 新增 widget 测试覆盖 360×800 与 720×412 两个 MediaQuery 尺寸下的 sheet 高度断言；现有 stitch editor widget 测试不破。"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Re-check expanded/large 路径未受波及：stitch_editor_screen.dart 内的 useSidePanel 分支仍包 StitchControlsPanel 在自身 SingleChildScrollView 中，未引入 sheet 上限逻辑。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Re-check 触动的 ConstrainedBox / Material / SingleChildScrollView 链路仍符合 const / prop 顺序约束；顶部 Dartdoc 注释已同步新数值。"}

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "WindowSizeClass 与 compact/medium 单列骨架的权威约束 —— 本次改动严格限定在 compact/medium 路径，必须确认不破 expanded/large 侧边面板的 dual-form 模式。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget 结构约定（const constructor、prop 顺序、不要无谓 Container）。在改 StitchControlsSheet / GridEditorScreen 时，新引入的 ConstrainedBox / Flexible / Padding 都要遵循。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint + 测试基线 —— 包括 dart format / flutter analyze / 单引号 / sort_child_properties_last / const 等。新增的 widget 测试与高度断言要遵循该规约。"}
+{"file": ".trellis/tasks/archive/2026-05/05-18-long-image-stitch-toolbar-and-subtitle-mode/prd.md", "reason": "上次把 StitchControlsSheet 上限从 0.4 → 0.28 的 ADR-lite 与落地点说明 —— 本次再调一档到 0.22，需要保持决策记录的连续性。"}

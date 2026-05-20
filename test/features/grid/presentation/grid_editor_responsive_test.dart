@@ -434,27 +434,25 @@ void main() {
       },
     );
 
-    testWidgets('compact panel chrome fills the column remaining height', (
+    testWidgets('compact panel chrome follows the 3:2 flex split', (
       tester,
     ) async {
-      // 360×900 mimics a typical tall-phone portrait viewport — the
-      // exact case where the pre-fix bare-panel `Flexible(loose)` slot
-      // collapsed to the panel's intrinsic height and left a strip of
-      // bare page background below it. With the chrome wrapped in an
-      // `Expanded` slot the chrome should fill its share of the
-      // column's free space (≈ free_height / 2).
+      // 360×900 mimics a typical tall-phone portrait viewport.
       //
-      // Body height ≈ 900 − 56 (AppBar) − 16 (top pad) − 16 (bottom
-      // pad; FAB clearance moved inside the chrome's scrollview) =
-      // 812 dp. Non-flex children inside the Column: a single 16 dp
-      // SizedBox between the canvas and the chrome (the source-size
-      // warning is not rendered for the test's 1024×1024 stub image).
-      // Free space = 812 − 16 = 796 dp, distributed evenly between
-      // the canvas `Expanded` and the chrome `Expanded` → each gets
-      // ≈ 398 dp. The loose [200, 500] band covers minor padding /
-      // chrome variance while still catching a regression to "chrome
-      // collapses to panel intrinsic" (~350 dp would still pass; but
-      // a collapse to a ~0 dp slot or growth past 500 would fail).
+      // Per the 05-20 grid-controls-chrome-cap ADR-lite (revised), the
+      // compact chrome slot is `Expanded(flex: 2)` and the canvas slot
+      // is `Expanded(flex: 3)`. An earlier attempt at
+      // `Flexible(loose) + ConstrainedBox(maxHeight: ...)` was reverted
+      // because the chrome collapsed to its intrinsic height and a
+      // strip of bare page background bled through below it. The 3:2
+      // flex split returns ≈ 60 % of the column's remaining height to
+      // the canvas while still letting the chrome's background paint
+      // edge-to-edge inside its slot.
+      //
+      // On 360×900: body height ≈ 900 − 56 (AppBar) − 32 (outer Padding
+      // 16 top + 16 bottom) = 812 dp. Minus the canvas/chrome 16 dp gap
+      // = 796 dp of flex space (the source-size warning is not rendered
+      // when the stub image is 1024×1024). chrome ≈ 796 * 2/5 ≈ 318 dp.
       await _setViewportSize(tester, const Size(360, 900));
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
@@ -462,20 +460,43 @@ void main() {
       final chromeSize = tester.getSize(
         find.byKey(kGridControlsPanelChromeKey),
       );
+      final canvasSize = tester.getSize(find.byType(GridPreviewCanvas));
+
+      // canvas : chrome ≈ 3 : 2. The canvas square is also bounded by
+      // the column width (≈ 328 dp), so on a tall narrow phone the
+      // canvas height is clamped to its width and the ratio assertion
+      // below targets `chrome ≈ available * 2/5` against the canvas's
+      // **flex-slot height** rather than the canvas square's rendered
+      // height. We assert on the flex slot indirectly:
+      //   canvas_slot_height = chrome_size_height * 1.5  (3:2)
+      // chrome should be ≈ 318 dp on this viewport (±15 dp tolerance
+      // for AppBar / safe-area variations across host platforms).
+      expect(
+        chromeSize.height,
+        inInclusiveRange(290, 345),
+        reason:
+            'compact chrome should be ≈ 318 dp on a 360×900 viewport '
+            '(3:2 flex split of ~796 dp). Actually ${chromeSize.height}',
+      );
+
+      // Lower bound: the panel still must be tall enough to show the
+      // grid-type selector + the first parameter card. A regression
+      // that collapses the chrome to ~0 dp would fail this.
       expect(
         chromeSize.height,
         greaterThan(200),
         reason:
-            'compact chrome should fill ~free_height/2 (≈ 398 dp on a '
-            '900 dp viewport), actually ${chromeSize.height}',
+            'compact chrome should at least fit the grid-type selector + '
+            'first parameter card. Actually ${chromeSize.height}',
       );
+
+      // Canvas is square (height == width) on this viewport because the
+      // 328 dp column width is the limiting axis, not the flex slot
+      // height. Sanity: canvas height ≈ canvas width.
       expect(
-        chromeSize.height,
-        lessThan(500),
-        reason:
-            'compact chrome should not exceed its Expanded share '
-            '(~398 dp). Actually ${chromeSize.height} — has the canvas '
-            'lost its Expanded slot?',
+        (canvasSize.width - canvasSize.height).abs(),
+        lessThan(0.5),
+        reason: 'canvas should be square on a 360-wide viewport',
       );
 
       // Width = column width = viewport − 32 dp side padding = 328 dp.
@@ -513,13 +534,15 @@ void main() {
       },
     );
 
-    testWidgets('medium panel chrome fills the column remaining height', (
+    testWidgets('medium panel chrome follows the 3:2 flex split', (
       tester,
     ) async {
       // 720×1200 medium width (phone landscape / small tablet). Same
-      // single-column skeleton as compact, so the chrome should also
-      // fill ~free_height/2 ≈ (1200 − 56 − 16 − 16 − 16) / 2 = 548 dp.
-      // The [300, 700] band covers minor variance.
+      // single-column skeleton as compact; chrome takes ≈ 2/5 of the
+      // remaining column height per the 3:2 flex split.
+      //
+      // body height ≈ 1200 − 56 − 32 = 1112 dp; minus 16 dp gap = 1096
+      // dp flex space. chrome ≈ 1096 * 2/5 ≈ 438 dp.
       await _setViewportSize(tester, const Size(720, 1200));
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
@@ -527,8 +550,16 @@ void main() {
       final chromeSize = tester.getSize(
         find.byKey(kGridControlsPanelChromeKey),
       );
+      // Expected ≈ 438 dp on a 1200 dp viewport. Tolerance ±20 dp for
+      // AppBar / safe-area variations + flex-rounding.
+      expect(
+        chromeSize.height,
+        inInclusiveRange(415, 465),
+        reason:
+            'medium chrome should be ≈ 438 dp on a 720×1200 viewport '
+            '(3:2 flex split of ~1096 dp). Actually ${chromeSize.height}',
+      );
       expect(chromeSize.height, greaterThan(300));
-      expect(chromeSize.height, lessThan(700));
 
       // Width = viewport − 32 dp side padding = 688 dp.
       expect((chromeSize.width - 688).abs(), lessThan(1.0));
@@ -537,84 +568,122 @@ void main() {
     });
 
     testWidgets(
-      'compact chrome bottom edge sits ~16 dp above the body bottom (hasSource)',
+      'compact canvas claims its 3/5 share of the column (hasSource)',
       (tester) async {
-        // With a source image imported (`hasSource == true`), the
-        // extended FAB is visible. The 05-17-portrait-grid-panel-bottom-
-        // spacing refactor moved FAB clearance from the outer Padding
-        // (was 96 dp on the bottom) into the chrome's scrollview
-        // internal padding (now 80 dp). The chrome's visible bottom
-        // edge should therefore rest on the body bottom − 16 dp (the
-        // outer Padding's new bottom inset). Body bottom in this test
-        // harness = viewport_height − AppBar_height (~56 dp).
+        // Per the 05-20 grid-controls-chrome-cap ADR-lite (revised),
+        // the canvas slot is `Expanded(flex: 3)` and the chrome slot
+        // is `Expanded(flex: 2)`. This test verifies the canvas slot
+        // height is comfortably larger than the chrome height — a
+        // regression that flipped the flex back to 1:1 (the original
+        // bug) would shrink the canvas closer to the chrome's size.
+        //
+        // On 360×900: column flex space ≈ 796 dp. canvas_slot ≈ 478 dp
+        // (3/5). The canvas square is then `min(column_width, slot_h)
+        // = min(328, 478) = 328` — width-bounded. We assert the
+        // canvas's rendered height ≥ 320 dp (close to the column
+        // width).
         await _setViewportSize(tester, const Size(360, 900));
         await tester.pumpWidget(_gridHarness());
         await tester.pumpAndSettle();
 
-        final view = tester.view;
-        final viewportHeight = view.physicalSize.height / view.devicePixelRatio;
-        final chromeBottom = tester
-            .getBottomLeft(find.byKey(kGridControlsPanelChromeKey))
-            .dy;
-        final gap = viewportHeight - chromeBottom;
+        final canvas = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
+        final chromeSize = tester.getSize(
+          find.byKey(kGridControlsPanelChromeKey),
+        );
 
-        // Outer Padding bottom = 16; tolerance 16 dp absorbs minor
-        // chrome rendering variance. A regression that restores the
-        // 96 dp outer-Padding inset would fail this with gap ≈ 96.
         expect(
-          gap,
-          lessThan(32),
+          canvas.size.height,
+          greaterThan(320),
           reason:
-              'chrome bottom should sit ≤ 32 dp above the viewport bottom; '
-              'gap = $gap. A larger gap means the FAB clearance leaked '
-              'back into the outer Padding.',
+              'canvas should claim its 3/5 share of the column; height = '
+              '${canvas.size.height}, chrome = ${chromeSize.height}',
+        );
+
+        // canvas slot : chrome ≈ 3 : 2 → the chrome height should be
+        // ≈ canvas_slot * 2/3. Because the canvas is width-bounded
+        // (square of width 328 dp), the canvas's rendered height does
+        // NOT reflect its slot height — but the chrome's height does
+        // reflect the chrome's slot. We instead assert chrome height
+        // is ≈ 318 dp (already covered by the "follows the 3:2 flex
+        // split" test); here we just verify the canvas isn't being
+        // starved.
+        expect(canvas.size.height, greaterThanOrEqualTo(chromeSize.height));
+
+        // The outer Padding's bottom inset must stay at 16 dp (FAB
+        // clearance lives inside the chrome's scrollview). A regression
+        // that restores a 96 dp outer-Padding bottom inset would push
+        // the chrome up ~80 dp and leak page background below it.
+        final outerPadding = tester
+            .widgetList<Padding>(
+              find.descendant(
+                of: find.byType(GridEditorScreen),
+                matching: find.byType(Padding),
+              ),
+            )
+            .firstWhere(
+              (p) =>
+                  p.padding == const EdgeInsets.fromLTRB(16, 16, 16, 16) ||
+                  p.padding == const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              orElse: () => const Padding(padding: EdgeInsets.zero),
+            );
+        expect(
+          outerPadding.padding,
+          const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          reason:
+              'outer body Padding bottom must stay 16 dp — FAB clearance '
+              'belongs inside the chrome\'s scrollview, not the outer pad.',
         );
       },
     );
 
     testWidgets(
-      'compact chrome bottom edge sits ~16 dp above the body bottom (no source)',
+      'compact canvas claims its 3/5 share of the column (no source)',
       (tester) async {
         // Without a source image (`hasSource == false`), the FAB is
-        // hidden. The chrome should still extend to body bottom − 16 dp
-        // — the outer Padding doesn't reserve FAB clearance at all.
+        // hidden and the chrome's scrollview bottom padding shrinks
+        // to 16 dp. The canvas still claims its 3/5 flex share — same
+        // contract as the hasSource case.
         await _setViewportSize(tester, const Size(360, 900));
         await tester.pumpWidget(_gridHarness(images: const []));
         await tester.pumpAndSettle();
 
-        final view = tester.view;
-        final viewportHeight = view.physicalSize.height / view.devicePixelRatio;
-        final chromeBottom = tester
-            .getBottomLeft(find.byKey(kGridControlsPanelChromeKey))
-            .dy;
-        final gap = viewportHeight - chromeBottom;
-
+        final canvas = tester.renderObject<RenderBox>(
+          find.byType(GridPreviewCanvas),
+        );
         expect(
-          gap,
-          lessThan(32),
+          canvas.size.height,
+          greaterThan(320),
           reason:
-              'chrome bottom should sit ≤ 32 dp above the viewport bottom '
-              'even when the FAB is hidden; gap = $gap',
+              'canvas should claim its 3/5 share of the column even when '
+              'the FAB is hidden; height = ${canvas.size.height}',
         );
       },
     );
 
-    testWidgets('medium chrome bottom edge sits ~16 dp above the body bottom', (
+    testWidgets('medium canvas claims its 3/5 share of the column', (
       tester,
     ) async {
-      // Same FAB-clearance contract at medium width.
+      // Same contract at medium width (720×1200). canvas slot ≈ 658 dp
+      // (3/5 of ~1096 dp). On 720 dp wide canvas is bounded by slot
+      // height (≈ 658) and by width (688 minus its own padding); the
+      // square ends up ≈ min(688, 658) = 658 dp. We assert > 500 dp
+      // to give a comfortable lower bound.
       await _setViewportSize(tester, const Size(720, 1200));
       await tester.pumpWidget(_gridHarness());
       await tester.pumpAndSettle();
 
-      final view = tester.view;
-      final viewportHeight = view.physicalSize.height / view.devicePixelRatio;
-      final chromeBottom = tester
-          .getBottomLeft(find.byKey(kGridControlsPanelChromeKey))
-          .dy;
-      final gap = viewportHeight - chromeBottom;
-
-      expect(gap, lessThan(32));
+      final canvas = tester.renderObject<RenderBox>(
+        find.byType(GridPreviewCanvas),
+      );
+      expect(
+        canvas.size.height,
+        greaterThan(500),
+        reason:
+            'medium canvas should claim its 3/5 share of the column; '
+            'height = ${canvas.size.height}',
+      );
     });
 
     testWidgets(

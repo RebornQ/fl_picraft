@@ -15,7 +15,7 @@ import 'stitch_controls_panel.dart';
 /// same panel against the right edge of the canvas — see
 /// `stitch_editor_screen.dart` for the responsive switch.
 ///
-/// The sheet caps its own height at `min(screenHeight * 0.28, 360)` (with a
+/// The sheet caps its own height at `min(screenHeight * 0.22, 320)` (with a
 /// 200 dp floor for very short windows) and wraps the panel in a
 /// [SingleChildScrollView] so the sheet itself never grows past the cap
 /// while every control stays reachable through scrolling. This frees up
@@ -35,7 +35,7 @@ class StitchControlsSheet extends StatelessWidget {
     // cap. A LayoutBuilder wouldn't see screen height because the
     // sheet's parent column doesn't pass it down as constraints.
     final screenHeight = MediaQuery.sizeOf(context).height;
-    final maxHeight = math.max(200.0, math.min(screenHeight * 0.28, 360.0));
+    final maxHeight = math.max(200.0, math.min(screenHeight * 0.22, 320.0));
     return Material(
       elevation: 8,
       color: colorScheme.surface,

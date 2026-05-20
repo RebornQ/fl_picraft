@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "WindowSizeClass 约束 —— 本次只改 compact/medium 路径下的 StitchControlsSheet 上限公式，必须确认 expanded/large 路径（stitch_editor_screen.dart 内的右侧面板分支，把 StitchControlsPanel 包在 SingleChildScrollView 中）不受影响。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget 结构约定 —— ConstrainedBox / Padding / Material 的 prop 顺序、const 化、避免无谓 Container 等；改 stitch_controls_sheet.dart 时遵循。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint + 测试基线 —— 新增 widget 测试断言 sheet 高度上限，命名 *_test.dart 放在 test/ 对应路径；保持 dart format / flutter analyze 干净。"}
+{"file": ".trellis/tasks/archive/2026-05/05-18-long-image-stitch-toolbar-and-subtitle-mode/prd.md", "reason": "上一次把 sheet 上限从 0.4 → 0.28 的 ADR-lite 与落地点说明 —— 本次再调一档到 0.22，文件顶部 Dartdoc 注释也要同步更新（'caps its own height at min(screenHeight * 0.28, 360)' → 新数值）。"}

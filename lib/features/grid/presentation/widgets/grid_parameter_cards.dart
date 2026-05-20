@@ -129,7 +129,7 @@ class _BentoCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Container(
-            height: 128,
+            height: 104,
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

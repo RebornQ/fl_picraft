@@ -14,7 +14,16 @@ import '../../domain/entities/grid_type.dart';
 /// the others are dimmed. Subtask A hides the toggle that flips this
 /// flag on, so today every caller passes `null`; the API stays in place
 /// for forward compatibility with Subtask B's geometry work.
-class GridTypeSelector extends StatelessWidget {
+///
+/// Default-selection visibility (05-20 Addendum, grid-controls-chrome-cap):
+/// the editor defaults to [GridType.g3x3] (九宫格), which sits at the
+/// **end** of [kGridTypeSelectorOrder] (index 4 / 5). A naked
+/// [ListView.separated] would mount with `offset == 0`, hiding the
+/// selected card off-screen on first paint. This widget is therefore a
+/// [StatefulWidget] that drives a [ScrollController] from `initState` +
+/// `didUpdateWidget` via a post-frame callback, scrolling so the active
+/// card is visible. The animation runs ~300 ms with [Curves.easeOut].
+class GridTypeSelector extends StatefulWidget {
   const GridTypeSelector({
     super.key,
     required this.value,
@@ -28,6 +37,57 @@ class GridTypeSelector extends StatelessWidget {
   /// When non-null, only this grid type's card is tappable. All other
   /// cards are rendered with reduced opacity and consume taps silently.
   final GridType? lockedTo;
+
+  @override
+  State<GridTypeSelector> createState() => _GridTypeSelectorState();
+}
+
+class _GridTypeSelectorState extends State<GridTypeSelector> {
+  /// Estimated per-card stride along the scroll axis:
+  /// card `minWidth` (120) + `SizedBox(width: 12)` separator = 132 dp.
+  static const double _cardStride = 132.0;
+
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scheduleScrollToSelected();
+  }
+
+  @override
+  void didUpdateWidget(covariant GridTypeSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _scheduleScrollToSelected();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scheduleScrollToSelected() {
+    final index = kGridTypeSelectorOrder.indexOf(widget.value);
+    if (index <= 0) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      final target = (index * _cardStride).clamp(0.0, maxExtent);
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,21 +110,23 @@ class GridTypeSelector extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 104,
+          height: 92,
           child: ListView.separated(
+            controller: _scrollController,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             itemCount: kGridTypeSelectorOrder.length,
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final type = kGridTypeSelectorOrder[index];
-              final isDisabled = lockedTo != null && type != lockedTo;
+              final isDisabled =
+                  widget.lockedTo != null && type != widget.lockedTo;
               return _GridTypeCard(
                 key: ValueKey('grid-type-${type.name}'),
                 type: type,
-                selected: type == value,
+                selected: type == widget.value,
                 disabled: isDisabled,
-                onTap: isDisabled ? null : () => onChanged(type),
+                onTap: isDisabled ? null : () => widget.onChanged(type),
               );
             },
           ),

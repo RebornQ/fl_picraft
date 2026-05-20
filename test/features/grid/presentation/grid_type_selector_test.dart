@@ -148,4 +148,101 @@ void main() {
     await tester.pumpAndSettle();
     expect(lastValue, GridType.g3x3);
   });
+
+  // ────────────────────────────────────────────────────────────────
+  // Default-selection visibility (05-20 grid-controls-chrome-cap
+  // Addendum). The editor defaults to g3x3 which sits at the end of
+  // kGridTypeSelectorOrder; without auto-scroll the selected card is
+  // off-screen on first paint.
+  // ────────────────────────────────────────────────────────────────
+
+  ScrollController controllerOfFirstScrollable(WidgetTester tester) {
+    final scrollable = tester.widget<Scrollable>(find.byType(Scrollable).first);
+    return scrollable.controller!;
+  }
+
+  testWidgets(
+    'value = g3x3 (last) auto-scrolls so selected card becomes visible',
+    (tester) async {
+      // Narrow viewport so g3x3 is genuinely off-screen at offset 0.
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        wrap(GridTypeSelector(value: GridType.g3x3, onChanged: (_) {})),
+      );
+      await tester.pumpAndSettle();
+
+      final controller = controllerOfFirstScrollable(tester);
+      expect(
+        controller.offset,
+        greaterThan(0),
+        reason: 'g3x3 sits at index 4; default mount should auto-scroll',
+      );
+    },
+  );
+
+  testWidgets('value = g1x2 (first) keeps offset at 0 (no scroll needed)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      wrap(GridTypeSelector(value: GridType.g1x2, onChanged: (_) {})),
+    );
+    await tester.pumpAndSettle();
+
+    final controller = controllerOfFirstScrollable(tester);
+    expect(controller.offset, 0.0);
+  });
+
+  testWidgets(
+    'didUpdateWidget: switching value from g1x2 to g3x3 auto-scrolls',
+    (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      var currentValue = GridType.g1x2;
+      late StateSetter setOuterState;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SafeArea(
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  setOuterState = setState;
+                  return GridTypeSelector(
+                    value: currentValue,
+                    onChanged: (_) {},
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final controllerBefore = controllerOfFirstScrollable(tester);
+      expect(controllerBefore.offset, 0.0);
+
+      setOuterState(() => currentValue = GridType.g3x3);
+      await tester.pumpAndSettle();
+
+      final controllerAfter = controllerOfFirstScrollable(tester);
+      expect(
+        controllerAfter.offset,
+        greaterThan(0),
+        reason: 'didUpdateWidget should re-trigger scroll-to-selected',
+      );
+    },
+  );
 }

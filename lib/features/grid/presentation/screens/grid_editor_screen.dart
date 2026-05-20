@@ -132,8 +132,8 @@ Widget _buildControlsPanelChrome(
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(Center(AspectRatio(cols/rows, canvas)))` + optional source-size warning + `Expanded(chrome > SingleChildScrollView > GridControlsPanel)`. The chrome (`kGridControlsPanelChromeKey`) is a `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab matching the expanded / large side panel; `Expanded` (not `Flexible(loose)`) makes the chrome fill the column's remaining height so no bare page background leaks below it. The outer [Padding] uses 16 dp on every side; FAB clearance for the extended FAB lives **inside** the chrome's [SingleChildScrollView] (80 dp when `hasSource` else 16 dp), so the chrome's visible bottom rests on the body bottom − 16 dp and no page background bleeds between the chrome and the [AppBottomNavBar] owned by `AppShell`. Overflow scrolls inside the chrome; no page-level scroll. |
-/// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton + chrome + scrollview-internal FAB clearance. |
+/// | compact (<600 dp) | single-column height-first [Column] skeleton: `Expanded(flex: 3, Center(AspectRatio(cols/rows, canvas)))` + optional source-size warning + `Expanded(flex: 2, chrome > SingleChildScrollView > GridControlsPanel)`. The chrome (`kGridControlsPanelChromeKey`) is a `surfaceContainerLow` + `outlineVariant` 16 dp rounded slab matching the expanded / large side panel. Per the 05-20 grid-controls-chrome-cap ADR-lite (revised), the chrome slot stays `Expanded` (an earlier attempt at `Flexible(loose) + ConstrainedBox` was reverted because the chrome collapsed to its intrinsic height and a strip of bare page background bled through below it — exactly the "Chrome-wrapped panel wrapped in Flexible(loose)" mismatch warned about in `.trellis/spec/frontend/responsive-layout.md`). To still hand back vertical space to the preview, the canvas's `Expanded` carries `flex: 3` and the chrome's `Expanded` carries `flex: 2` — canvas gets ≈ 60 % of the column's remaining height, chrome gets ≈ 40 %, while the chrome's background still fills its slot edge-to-edge so no page bleed reappears. The intrinsic chrome height was also trimmed by lightly compressing the bento cards (`_BentoCard.height` 128 → 104) and the `GridTypeSelector` strip (104 → 92), so even at flex = 2 the chrome no longer feels cramped. The outer [Padding] uses 16 dp on every side; FAB clearance for the extended FAB lives **inside** the chrome's [SingleChildScrollView] (80 dp when `hasSource` else 16 dp), so the chrome's visible bottom rests on body bottom − 16 dp (no page bleed under the bottom nav). |
+/// | medium (600–840 dp) | same as compact — phone-landscape keeps the height-first single-column skeleton + 3:2 canvas:chrome flex split + scrollview-internal FAB clearance. |
 /// | expanded (840–1200 dp) | two-column [Row] (`crossAxisAlignment: stretch`): canvas claims the left `Expanded` slot via `Column(stretch) > Expanded(Center(AspectRatio(cols/rows, canvas)))` so it fits by height; right panel docks [GridControlsPanel] at `clamp(380, container * 0.25, 480)` dp inside the **same** chrome container built by `_buildControlsPanelChrome` (default 16 dp scrollview bottom padding — the FAB floats over the canvas column, not the docked panel, so no extra clearance is needed), stretched to fill the row's full height and scrolls internally. |
 /// | large (≥1200 dp) | same as expanded — body fills the available width, side panel stays in `[380, 480]` dp with the surface chrome, canvas size is `min(leftColWidth, rowHeight * cols/rows)`. |
 ///
@@ -359,24 +359,32 @@ class _GridEditorBody extends ConsumerWidget {
     // before they can adjust spacing / corner radius.
     //
     // Layout breakdown:
-    // * `Expanded` slot → `Center(AspectRatio(cols/rows, GridPreviewCanvas))`
-    //   pins the canvas to a centered rectangle of aspect cols/rows that
-    //   grows with the available height (bounded to width when the
-    //   viewport is wide).
+    // * `Expanded(flex: 3)` slot → `Center(AspectRatio(cols/rows,
+    //   GridPreviewCanvas))` pins the canvas to a centered rectangle of
+    //   aspect cols/rows that grows with the available height (bounded
+    //   to width when the viewport is wide).
     // * Optional `_SourceSizeWarning` lives just below the canvas as a
     //   non-scrolling fixed-height banner.
-    // * `Expanded` chrome slot wraps [GridControlsPanel] in the same
-    //   surface chrome used by the expanded / large side panel (see
-    //   [_buildControlsPanelChrome]). Using `Expanded` (instead of
-    //   `Flexible(fit: FlexFit.loose)`) lets the chrome fill the
-    //   column's remaining height — the chrome background covers what
-    //   would otherwise be a strip of bare page bleed below a short
-    //   panel on a tall phone viewport. Internal scrolling stays inside
-    //   the chrome via the [SingleChildScrollView] inside
-    //   [_buildControlsPanelChrome]. The "use Flexible(loose) — not
-    //   Expanded" gotcha in `.trellis/spec/frontend/responsive-layout.md`
-    //   applies to **bare** controls slots; with chrome, the reverse is
-    //   correct.
+    // * `Expanded(flex: 2)` chrome slot wraps [GridControlsPanel] in the
+    //   same surface chrome used by the expanded / large side panel
+    //   (see [_buildControlsPanelChrome]). Per the 05-20
+    //   grid-controls-chrome-cap ADR-lite (revised), the slot stays
+    //   `Expanded` — an earlier attempt at
+    //   `Flexible(fit: FlexFit.loose) + ConstrainedBox(maxHeight: ...)`
+    //   was reverted because the chrome collapsed to its intrinsic
+    //   height and a strip of bare page background bled through below
+    //   it (the exact "Chrome-wrapped panel wrapped in Flexible(loose)"
+    //   mismatch warned about in `.trellis/spec/frontend/
+    //   responsive-layout.md`). To still hand back vertical space to
+    //   the preview, the canvas's `Expanded` carries `flex: 3` and the
+    //   chrome's `Expanded` carries `flex: 2` — canvas gets ≈ 60 % of
+    //   the column's remaining height, chrome gets ≈ 40 %, while the
+    //   chrome's `BoxDecoration` still draws edge-to-edge inside its
+    //   slot. The intrinsic chrome height was additionally trimmed by
+    //   the bento card / type selector compression (see
+    //   `grid_parameter_cards.dart` `_BentoCard.height` 128 → 104 and
+    //   `grid_type_selector.dart` strip height 104 → 92) so even at
+    //   flex = 2 the chrome no longer feels cramped.
     //
     // **FAB clearance** lives **inside** the chrome's
     // [SingleChildScrollView] (via the `bottomPadding` argument to
@@ -386,10 +394,10 @@ class _GridEditorBody extends ConsumerWidget {
     // edge to stop 96 dp above the body bottom and exposed a strip of
     // bare page background between the chrome and the [AppBottomNavBar]
     // owned by `AppShell`. Moving the clearance into the scrollview's
-    // internal padding lets the chrome's visible bottom rest at body
-    // bottom − 16 dp (no page bleed) while still scrolling the last
-    // parameter card clear of the floating FAB. The 80 dp value covers
-    // the extended FAB's ~48 dp height plus a ~32 dp safe buffer.
+    // internal padding lets the scrollable content stop 80 dp above
+    // the chrome's bottom edge, leaving the last parameter card clear
+    // of the floating FAB. The 80 dp value covers the extended FAB's
+    // ~48 dp height plus a ~32 dp safe buffer.
     return Padding(
       // 16 dp on every side — FAB clearance lives in the chrome's
       // scrollview internal padding (see [_buildControlsPanelChrome]).
@@ -398,6 +406,7 @@ class _GridEditorBody extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
+            flex: 3,
             child: Center(
               child: AspectRatio(
                 aspectRatio: canvasAspect,
@@ -411,6 +420,7 @@ class _GridEditorBody extends ConsumerWidget {
           ],
           const SizedBox(height: 16),
           Expanded(
+            flex: 2,
             child: _buildControlsPanelChrome(
               context,
               // 80 dp clears the extended FAB (~48 dp) plus a ~32 dp

@@ -1,0 +1,29 @@
+{
+  "id": "mobile-control-bar-compact",
+  "name": "mobile-control-bar-compact",
+  "title": "mobile-control-bar-compact",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Reborn",
+  "assignee": "Reborn",
+  "createdAt": "2026-05-20",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-20-stitch-controls-sheet-cap",
+    "05-20-grid-controls-chrome-cap"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

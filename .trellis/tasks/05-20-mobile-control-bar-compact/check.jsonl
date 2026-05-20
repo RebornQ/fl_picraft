@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "权威 lint + 测试基线 —— 验证 dart format / flutter analyze 干净；新增的 widget 高度断言测试遵循文件命名 / 测试结构约定；不破现有 stitch editor widget 测试。"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Re-check 两个 feature 的 compact/medium 改动均未破坏 expanded/large 侧边面板分支；StitchControlsSheet 与 GridEditorScreen 的 size class 行为符合 spec。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Re-check 新引入的 ConstrainedBox / Flexible(loose) / Padding 没有违反 const constructor / 无谓 Container / sort_child_properties_last 等约定。"}
