@@ -3,7 +3,7 @@
   "name": "macos-window-strategy",
   "title": "macOS 原生窗口策略（80% 默认 / 最小 1280×800 / frameAutosaveName 持久化）",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
