@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/05-20-preview-renderer-infra/prd.md", "reason": "本 subtask AC 清单：重构、provider 契约、单元测试 4 项"}
+{"file": ".trellis/tasks/05-20-export-page-preview/prd.md", "reason": "父任务 Out-of-Scope 与 Subtask A 边界确认（不引入 UI 改动）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "lint / format / test green、Timeline 标记到位"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "防抖/缓存/暂停门的实现是否符合 provider 规约"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "PreviewState sealed class 是否完整覆盖所有变体"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增文件路径是否合规"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "_processOne 与 previewExportBytes 是否真正共享内部实现（避免复制粘贴）"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "data/ 层纯 Dart、无 dart:ui 引用"}

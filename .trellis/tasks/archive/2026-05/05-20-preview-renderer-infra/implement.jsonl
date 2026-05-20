@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/05-20-preview-renderer-infra/prd.md", "reason": "本 subtask 的需求 + AC + 测试契约"}
+{"file": ".trellis/tasks/05-20-export-page-preview/prd.md", "reason": "父任务 PRD：决策 1（真实导出渲染）+ 决策 5（保存中暂停/失败降级是 MVP）+ Technical Approach 的 provider 拓扑图"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "preview_renderer.dart 应放在 lib/features/export/data/、preview_controller.dart 在 presentation/providers/、preview_state.dart 在 presentation/providers/"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "AsyncNotifier 模式、ref.listen 跨 provider 订阅、防抖 Timer 与 dispose 顺序"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "PreviewState sealed class 风格、不可变状态、AsyncValue 与 sealed 的搭配"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "PreviewError 内部错误信息（不直接面向用户）的格式"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Timeline.startSync('export.preview') 命名约定、provider 单元测试用 FakeAsync 的范式"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "previewExportBytes 与 ExportRepositoryImpl._processOne 共享内部实现的重构指引"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "纯 Dart 渲染函数在 data/、不引入 dart:ui、可 isolate-safe 的分层契约"}
