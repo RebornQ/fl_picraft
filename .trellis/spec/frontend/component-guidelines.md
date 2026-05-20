@@ -893,6 +893,134 @@ Widget build(BuildContext context) {
 }
 ```
 
+### Gotcha: stale-while-loading 占位会让用户误以为是最新结果
+
+**Symptom**: 用户调整某个配置（水印/格式/质量/滤镜参数等），预览区在防抖+重渲染期间
+显示了"上一次的真实渲染结果"作为占位（"无白屏闪烁"的优化）。用户看到画面没变，
+以为「设置没生效」/「就是这个效果」，开始反复调、点保存确认、报 bug。本质上：**视觉
+占位的"信息含量"远高于 chip 文案/spinner 的"状态提示"**——stale 帧太"逼真"，盖过了
+"刷新中..."的语义提示。
+
+**Cause**: 把"占位"当成"过渡"——以为用 stale 帧 + chip 就能让用户既知道"在刷新"
+又有"参考"。但用户对画面的第一感知是"它就是结果"，chip 是次要信号。当 stale 与
+配置变更后的真实结果差异不大（如水印 opacity 从 50% 调到 60%）时，用户根本看不出
+差别；当差异大（如切了水印开关）时，用户会信 stale 不会信 chip。
+
+**Fix**: 占位状态使用**视觉上明显不同于"完成态"的形态**：
+
+```dart
+// ❌ Wrong — stale 帧 + chip，看上去像是完成的预览
+case PreviewLoading(:final staleBytes?):
+  return Stack([
+    Image.memory(staleBytes),           // 用户以为这是最新结果
+    Positioned(child: _RefreshingChip()), // 用户没注意到这个 chip
+  ]);
+
+// ❌ Also wrong (iteration 1 in this project) — widget canvas 仍像"完成的预览"
+// 即便 + Opacity(0.6) + chip，canvas 本身就是"完整的预览图样貌"
+// （只是不含水印/格式编码），还会随用户在编辑器侧的源图变化跳动，
+// 与"在加载中"语义脱节
+case PreviewLoading(:final staleBytes):
+  return Stack([
+    Opacity(opacity: 0.6, child: const StitchPreviewCanvas()),
+    Positioned(child: _LoadingChip(label: '加载中...')),
+  ]);
+
+// ✅ Correct — Material 标准 spinner + 文案，视觉上明确"不是结果"
+case PreviewLoading(:final staleBytes):
+  return ColoredBox(
+    color: colorScheme.surfaceContainerLow,
+    child: Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 12),
+          // 文案差异：staleBytes == null → "加载中..."，否则 "刷新中..."
+          Text(staleBytes == null ? '加载中...' : '刷新中...'),
+        ],
+      ),
+    ),
+  );
+```
+
+**Heuristic**: 任何"配置变更 → 异步重计算 → 结果替换"流程，loading 占位应该用
+**视觉上明显能区分"未完成"的形态**（spinner + 文案是最朴素也最稳妥的选择），
+而不是"上一次的真实结果 + 一个 chip"或"虽然不是结果但样貌仍像结果的 widget
+canvas + chip"。规则更朴素：**别给用户看任何"看上去像是结果"的图，并指望他读
+chip 文案理解 "其实在 reloading"**。
+
+**例外**：**错误状态**下用 stale 作半透明背景是可以的——明确的错误标题（如
+"预览暂不可用"）已经告知用户当前状态，stale 此时只起"上一次还在那"的安抚作用，
+不会引发"误以为是最新"的歧义。Loading（无明确错误信号）和 Error（有明确错误信号）
+在这一点上语义不同。
+
+**Reference**: `lib/features/export/presentation/widgets/preview_skeleton.dart` —
+`PreviewLoading.staleBytes` 字段被 controller 一直传递（保留扩展空间），但 widget
+**忽略它**，主视觉只画 Material 标准 `CircularProgressIndicator` + 文案
+（按 staleBytes 是否非空切换"加载中..."/"刷新中..."）。`PreviewError` 仍保留 stale
+半透明背景作为对比。决策详见
+`.trellis/tasks/05-20-preview-ui/prd.md` §D4 (revised twice 2026-05-21)
+——记录了从 "stale + chip" → "widget canvas + chip" → "spinner + 文案"
+的两次迭代历程及理由。
+
+### Gotcha: `FloatingActionButton` 默认 heroTag 在多 screen 同时存活时冲突
+
+**Symptom**: 在拥有 `StatefulShellRoute.indexedStack` / `IndexedStack` / Drawer 多 page
+等"多 screen 同时挂载"的应用里，点击任意一个 screen 上的 `FloatingActionButton` 后
+应用抛断言：
+
+```
+Hero animation: There are multiple heroes that share the same tag within a subtree.
+... multiple heroes had the following tag: <default FloatingActionButton tag>
+```
+
+**Cause**: `FloatingActionButton` 在 build 时自动把自己包进 `Hero(tag: _kDefaultHeroTag)`
+以支持 FAB 的滑入/翻转过渡动画（MD3 标准 transition）。`_kDefaultHeroTag` 是 Flutter
+内部常量、所有未显式指定 `heroTag` 的 FAB **共用同一个**。一旦两个或更多 FAB 同时
+存活于同一个 hero 子树（`StatefulShellRoute` 的 IndexedStack 让所有 branch screen
+始终在 widget tree 里，即便不显示），点击其中任意一个触发路由切换 → Flutter 收集
+所有同 tag 的 Hero → 检测到多于 1 个 → 断言抛出。
+
+注意：单 screen 应用下默认 heroTag **没问题**——Flutter 会在路由切换时只看 from / to
+两个 route 的 hero 子树，单 FAB 的话不会冲突。bug 的触发条件是"多 FAB 同时存活"。
+
+**Fix**: 对每个 `FloatingActionButton` 显式声明 `heroTag`，命名约定
+`<feature>-<purpose>-fab`：
+
+```dart
+// ❌ Wrong — 当多 screen 共存时崩溃
+FloatingActionButton.extended(
+  onPressed: _onExportPressed,
+  icon: const Icon(Icons.output),
+  label: const Text('导出'),
+)
+
+// ✅ Correct — 显式唯一 tag，保留默认 hero 过渡动画
+FloatingActionButton.extended(
+  // StatefulShellRoute 让 stitch / grid 两个 editor screen 同时存活，
+  // 默认 heroTag (_kDefaultHeroTag) 会与兄弟 screen 的 FAB 冲突
+  // 触发 "multiple heroes share the same tag" 断言。
+  heroTag: 'stitch-export-fab',
+  onPressed: _onExportPressed,
+  icon: const Icon(Icons.output),
+  label: const Text('导出'),
+)
+```
+
+**Don't reach for `heroTag: null`** —— 那会**禁用** hero animation，FAB 在路由切换时
+不再有 MD3 标准的滑入/翻转过渡。除非你确实不想要动画，否则始终给唯一字符串。
+
+**Prevention**: 任何 `lib/features/<feature>/presentation/screens/*` 下的
+`FloatingActionButton`（含 `.extended` / `.large` / `.small` 等变体）必须带
+`heroTag`，命名 `<feature>-<purpose>-fab`。多 FAB 同 feature 时再加序号
+（`stitch-export-fab` / `stitch-share-fab`）。新增 screen 时如果用了 FAB，先
+`grep -rn "FloatingActionButton" lib/` 看看有没有其他 screen 已经在用——避免命名碰撞。
+
+**Reference**: `lib/features/long_stitch/presentation/screens/stitch_editor_screen.dart`
++ `lib/features/grid/presentation/screens/grid_editor_screen.dart` 同时存在
+"导出"FAB，分别用 `heroTag: 'stitch-export-fab'` / `'grid-export-fab'` 避免冲突。
+
 ---
 
 ## Best Practices

@@ -642,6 +642,112 @@ identity-fields like timestamps or source paths instead).
 and `preview_controller.dart` use `StitchEditorState.hashCode` / `GridEditorState.hashCode`
 (both have complete field hashes) rather than `identityHashCode(sourceBytes)`.
 
+### ❌ Don't: rely on async dependency-listens to set the initial state in a non-`autoDispose` controller
+
+**Symptom**: User leaves a page, comes back — UI briefly **flashes the prior render**
+(an old `PreviewReady` frame, an old `AsyncData`, an old computed widget) for ~300 ms
+before transitioning into the correct new state (typically `Loading`). Looks like a
+"glitch" on every re-mount when there's already a cached result.
+
+**Cause**: Two compounding pieces of Riverpod behavior:
+
+1. A `NotifierProvider` (without `.autoDispose`) keeps the controller instance AND its
+   `state` alive across consumer mount/unmount cycles. Returning to the page → first
+   `ref.watch` immediately yields whatever `state` was when the user last left.
+2. `build()` returns `PreviewEmpty` (or some "neutral" initial state), then registers
+   `ref.listen(...)` callbacks that re-fire `_scheduleRender()` after the build returns.
+   The render itself is async (debounce timer + isolate hop), so the state stays at the
+   old `PreviewReady` until the next render lands — that's the "flash" window.
+
+If you wrap the controller in `AsyncNotifierProvider` instead, you get the same problem
+with the `AsyncValue.previous` payload — `previous` survives across mounts, the consumer
+sees it on the first frame, and the new request only updates the state seconds later.
+
+**Fix**: make `build()` **synchronously compute** the correct initial state from
+whatever caches / current inputs the controller has access to — don't rely on async
+listens to "catch up" afterwards.
+
+```dart
+// ❌ Wrong — build() returns a neutral state, async listens correct it later.
+@override
+PreviewState build() {
+  ref.listen(deps, (_, _) => _scheduleRender());
+  _scheduleRender();              // async — debounce timer hasn't fired yet
+  return const PreviewEmpty();    // ← consumer sees Empty (or stale prior state!) for 300 ms
+}
+
+// ✅ Correct — build() consults the same caches the async path would, decides the
+// initial state synchronously, only kicks off the async render if needed.
+@override
+PreviewState build() {
+  ref.listen(deps, (_, _) => _scheduleRender());
+
+  final initial = _initialStateFromCache();   // synchronous: cache hit → Ready,
+                                              // miss + has source → Loading,
+                                              // no source → Empty
+  if (initial is PreviewLoading) {
+    // Queue the timer directly; do NOT call _scheduleRender() because Riverpod's
+    // `state` getter throws when accessed before build() returns, and
+    // _scheduleRender does state-checking.
+    _debounce = Timer(kPreviewDebounce, _runRender);
+  }
+  return initial;
+}
+```
+
+**Also fix the listen path** so a dependency change that diverges from the last
+rendered key immediately pre-transitions the state to Loading instead of waiting for
+the debounce:
+
+```dart
+void _scheduleRender() {
+  if (ref.read(exportControllerProvider).isSaving) return;
+
+  final key = _currentInputKey();
+  if (key == null) {
+    _debounce?.cancel();
+    if (state is! PreviewEmpty) state = const PreviewEmpty();
+    return;
+  }
+  // Pre-transition the moment inputs diverge from the last rendered key — kills
+  // the stale-frame flash on re-mount when an outer listen fires asynchronously.
+  if (key != _lastRenderedKey && state is! PreviewLoading) {
+    state = PreviewLoading(staleBytes: _staleBytesFromState(state));
+  }
+  _debounce?.cancel();
+  _debounce = Timer(kPreviewDebounce, _runRender);
+}
+```
+
+**Riverpod gotcha (deviation noted in the implementation)**: `build()` cannot call
+`_scheduleRender()` directly because the latter reads `state`, and Riverpod throws
+`StateError('Tried to read the state of an uninitialized provider')` if anything
+touches `state` before `build()` returns. Split the timer-queuing logic out and let
+`build()` set the initial state via its return value, then queue the timer separately.
+
+**Alternative fix** (when the controller doesn't need to survive across visits):
+switch to `.autoDispose`, so the controller is destroyed on unmount and `build()`
+runs fresh on remount. This sidesteps the stale-state issue but loses any per-instance
+caches (`_cachedSource` etc.). The persistent caches that DO need to survive (the
+result cache shared with `save`) should live in a separate provider that isn't
+`autoDispose`. Pick whichever pattern fits the cache topology; both work.
+
+**Prevention heuristic**: whenever a controller (a) is not `.autoDispose`, AND (b)
+exposes a state whose validity depends on async-computed dependencies, ask the
+question: *"What does the consumer see on the first frame of a re-mount?"* If the
+answer is "whatever it was when I left," you need a synchronous `build()` that
+recomputes the initial state from current inputs — never trust `ref.listen` callbacks
+to update state before the consumer reads it for the first time.
+
+**Reference**: `lib/features/export/presentation/providers/preview_controller.dart` —
+`build()` consults `processedBytesCacheProvider` and the active editor state to
+synchronously emit `PreviewReady` / `PreviewLoading` / `PreviewEmpty`;
+`_scheduleRender` synchronously pre-transitions to `PreviewLoading` when the input
+key has moved on. Tests:
+`preview_controller_test.dart::cache-hit on first build → first emitted state is PreviewReady`
+and `::input key change after PreviewReady immediately transitions to PreviewLoading`
+lock in the contract.
+
 ### ❌ Don't
 
 ```dart
