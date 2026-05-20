@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 46
+- **Total Sessions**: 47
 - **Last Active**: 2026-05-20
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1552 | Active |
+| `journal-1.md` | ~1586 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 47 | 2026-05-20 | Subtask 4：Linux GTK 3 窗口策略 + Wayland 降级矩阵 spec 沉淀（父任务 4/4 done 收尾） | `4f6e1f3`, `36679e1` | `main` |
 | 46 | 2026-05-20 | Subtask 3：Windows 窗口策略（INI + WM_GETMINMAXINFO + WM_CLOSE rcNormalPosition）+ Win32 双 spec 沉淀 | `b292b6c`, `ba3cb7b` | `main` |
 | 45 | 2026-05-20 | Subtask 2：macOS 窗口策略（80% 默认 + contentMinSize + frameAutosaveName）+ NSWindow 时序 spec 沉淀 | `17884a7`, `e888439` | `main` |
 | 44 | 2026-05-20 | Subtask 1：macOS Settings 菜单桥接 + 桌面窗口管理父任务规划 + spec 沉淀 | `b4fef07`, `a74abe7`, `558d159` | `main` |

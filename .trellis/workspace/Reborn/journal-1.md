@@ -1550,3 +1550,37 @@ Renamed user-visible application name to Fl PiCraft across iOS / Android / macOS
 ### Next Steps
 
 - None - task complete
+
+
+## Session 47: Subtask 4：Linux GTK 3 窗口策略 + Wayland 降级矩阵 spec 沉淀（父任务 4/4 done 收尾）
+
+**Date**: 2026-05-20
+**Task**: Subtask 4：Linux GTK 3 窗口策略 + Wayland 降级矩阵 spec 沉淀（父任务 4/4 done 收尾）
+**Branch**: `main`
+
+### Summary
+
+落地 05-20-desktop-window-mgmt-and-menu 父任务的 Subtask 4（Linux GTK 3 原生窗口策略，最后一棒）：仅改 1 个文件 linux/runner/my_application.cc，新增 #ifdef GDK_WINDOWING_WAYLAND header 守卫 + 7 个 static helpers（state_file_path / ensure_state_dir / SavedGeometry struct / load_saved_geometry / rect_is_visible / compute_default_geometry / apply_initial_geometry）+ delete-event signal handler。核心设计：gtk_window_set_geometry_hints(NULL, &hints, GDK_HINT_MIN_SIZE) 设最小 1280×800（geometry_widget=nullptr 匹配 GTK 3.20+）→ gdk_display_get_primary_monitor() ?? gdk_display_get_monitor(display, 0) Wayland fallback + gdk_monitor_get_workarea × 80% + MAX(1280,...)/MAX(800,...) 防御 clamp（Subtask 2/3 carry-forward）→ gtk_window_set_default_size 后跟 gtk_window_move(x,y) 在 #ifdef GDK_WINDOWING_X11 + GDK_IS_X11_DISPLAY 守卫下调用；delete-event 回调 gtk_window_get_size 无条件读尺寸 + gtk_window_get_position 同 X11 守卫；g_key_file_save_to_file 原子写入（GLib 2.40+ 内部 g_file_set_contents 临时文件 + rename）；return FALSE 让 GTK 继续 destroy。CMakeLists 无需改动（PkgConfig::GTK 已传递性带入 gdk-x11 + gdk-wayland）。trellis-check 21 项 PASS + 1 UNVERIFIED（flutter build linux 本机不可用）。同步沉淀 Linux Wayland 降级矩阵到 .trellis/spec/frontend/dependencies-and-platforms.md 新增 §'Linux: GTK 3 Wayland window-API degradation matrix'：4 个 API（primary_monitor / workarea / get_position / move）X11 vs Wayland 行为对比表 + GTK 3.24 源码追溯（class_init 未注册对应 vfunc）+ Wrong vs Correct 双层守卫代码示例（#ifdef GDK_WINDOWING_X11 + GDK_IS_X11_DISPLAY runtime）+ 单位约定（logical 像素，不要乘 scale_factor，与 Windows 物理像素路线相反）+ GLib 自动原子写入与 Win32 手动 flush 对比 + GTK 3 vs GTK 4 swap-points 表 + X11/Wayland 双 session smoke 模板。Validation & Error Matrix +1 综合条目。\n\n至此 05-20-desktop-window-mgmt-and-menu 父任务全部完成（4/4 subtasks archived → 父任务也归档）。3 端 native 实现 + 5 条 spec 沉淀（Desktop runners 注册 / macOS NSWindow autosave 时序 / Win32 INI 负值 / Win32 WINDOWPLACEMENT workspace 坐标 / Linux Wayland 4-API 降级）形成完整 cross-platform 对称布局。剩余物理 smoke 验证待用户在真实 macOS / Windows / Linux 机器上各自跑 prd.md Smoke Verify Script；本机 macOS 已通过 PR-1/2 自动化验证（analyze + test + build），Win/Linux 自动化在本机不可达（无 SDK），通过代码 + 研究文档 + spec 三重交叉复核保证逻辑正确性。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f6e1f3` | (see git log) |
+| `36679e1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
