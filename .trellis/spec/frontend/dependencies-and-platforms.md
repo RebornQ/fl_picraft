@@ -637,6 +637,177 @@ side).
 - Multi-monitor with primary's `rcWork.left = 1920`: window opens 1920
   px left of where it should. Reproduces the bug.
 
+### Linux: GTK 3 Wayland window-API degradation matrix
+
+> Captured from `05-20-linux-window-strategy` (Subtask 4 of
+> `05-20-desktop-window-mgmt-and-menu`).
+
+**Critical Gotcha**: GTK 3 + Wayland silently degrades a set of
+window-management APIs to no-ops or constant-return values. The same
+code that works correctly on X11 quietly produces wrong-but-not-error
+results on Wayland. There is no `g_warning`, no exception, no compile
+hint — the function just returns a default value or does nothing.
+
+Four APIs differ:
+
+| API | X11 behavior | Wayland behavior | Source |
+|---|---|---|---|
+| `gdk_display_get_primary_monitor()` | Returns the X11 RandR primary monitor | **Returns NULL** | `gtk-3-24/gdk/wayland/gdkdisplay-wayland.c` — `gdk_wayland_display_class_init` does not register the `get_primary_monitor` vfunc; base `gdk_display.c` falls through to NULL |
+| `gdk_monitor_get_workarea(mon, &rect)` | Reads `_NET_WORKAREA` (EWMH), subtracts panels / docks | Returns the full `monitor->geometry` (no panel subtraction) | `gtk-3-24/gdk/wayland/gdkmonitor-wayland.c` — class_init does not override `get_workarea`; base `gdk_monitor.c` falls through to geometry |
+| `gtk_window_get_position(win, &x, &y)` | Returns workspace coordinates (mostly accurate, modulo WM gravity quirks) | **Always returns `(0, 0)`** | Documented design: Wayland protocol does not expose global window position to clients ([`Gtk.Window.get_position`](https://docs.gtk.org/gtk3/method.Window.get_position.html)) |
+| `gtk_window_move(win, x, y)` | Asks the WM to place the window (usually honored before map) | **Silent no-op** — compositor owns placement | Documented design ([`Gtk.Window.move`](https://docs.gtk.org/gtk3/method.Window.move.html)) |
+
+**Why this is dangerous**: code that persists `(x, y, w, h)` across
+launches "works" on X11 and silently corrupts the saved state on
+Wayland — `get_position` returns `(0, 0)`, the INI file ends up with
+`x=0\ny=0`, then on session-switch back to X11 the window opens at
+(0, 0) instead of where the user left it.
+
+**Required guards**: wrap all position read/write with both a build-time
+guard (`#ifdef GDK_WINDOWING_X11` so the code compiles even on
+Wayland-only builds where the X11 backend isn't linked) AND a runtime
+check (`GDK_IS_X11_DISPLAY(display)` so behavior is correct on X11-built
+apps running in Wayland sessions). Size reads (`gtk_window_get_size`)
+are NOT affected — they work correctly on both backends and should be
+called unconditionally.
+
+**Wrong** (silently pollutes saved state on Wayland):
+
+```c
+static gboolean on_delete(GtkWidget *widget, GdkEvent *e, gpointer u) {
+  GtkWindow *win = GTK_WINDOW(widget);
+  int x = 0, y = 0, w = 0, h = 0;
+  gtk_window_get_size(win, &w, &h);
+  gtk_window_get_position(win, &x, &y);  // (0,0) on Wayland — bug
+  save_state(x, y, w, h);
+  return FALSE;
+}
+
+static void apply_geometry(GtkWindow *win, int x, int y, int w, int h) {
+  gtk_window_set_default_size(win, w, h);
+  gtk_window_move(win, x, y);            // no-op on Wayland
+}
+```
+
+**Correct** (size unconditional, position double-guarded):
+
+```c
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#endif
+#ifdef GDK_WINDOWING_WAYLAND
+#include <gdk/gdkwayland.h>
+#endif
+
+static gboolean on_delete(GtkWidget *widget, GdkEvent *e, gpointer u) {
+  GtkWindow *win = GTK_WINDOW(widget);
+  int x = 0, y = 0, w = 0, h = 0;
+  gtk_window_get_size(win, &w, &h);       // both backends — always works
+#ifdef GDK_WINDOWING_X11
+  GdkDisplay *d = gtk_widget_get_display(widget);
+  if (GDK_IS_X11_DISPLAY(d)) {
+    gtk_window_get_position(win, &x, &y); // honored only on X11
+  }
+#endif
+  save_state(x, y, w, h);                 // (0,0) on Wayland is OK if the
+                                          // restore path is also guarded
+  return FALSE;                           // GDK_EVENT_PROPAGATE
+}
+
+static void apply_geometry(GtkWindow *win, int x, int y, int w, int h) {
+  gtk_window_set_default_size(win, w, h); // both backends
+#ifdef GDK_WINDOWING_X11
+  GdkDisplay *d = gtk_widget_get_display(GTK_WIDGET(win));
+  if (GDK_IS_X11_DISPLAY(d)) gtk_window_move(win, x, y);
+#endif
+}
+
+static GdkMonitor *primary_or_fallback(GdkDisplay *d) {
+  GdkMonitor *m = gdk_display_get_primary_monitor(d);  // NULL on Wayland
+  if (m == NULL && gdk_display_get_n_monitors(d) > 0) {
+    m = gdk_display_get_monitor(d, 0);                 // fallback
+  }
+  return m;                                            // still NULL on
+                                                       // truly headless
+}
+```
+
+**Why we still call `gtk_window_move` even when guarded**: when the X11
+backend is compiled in but the runtime session is Wayland, the call is a
+no-op and harmless — keeping it gives a single code path that works
+across session switches without conditional compile.
+
+**Unit conventions** (do NOT mirror the Windows DPI math):
+
+All four GTK sizing APIs operate in **logical (application) pixels**:
+
+- `gdk_monitor_get_workarea` / `gdk_monitor_get_geometry`
+- `gtk_window_set_default_size`
+- `gtk_window_set_geometry_hints` (min/max sizes)
+- `gtk_window_get_size`
+
+Do NOT multiply by `gdk_monitor_get_scale_factor`. GDK applies the scale
+factor under the hood when negotiating with the WM. A frame saved on
+HiDPI restores correctly on stdDPI and vice versa — same property as
+macOS points, opposite of Windows which we persist as physical pixels.
+
+**Persistence atomicity**: `g_key_file_save_to_file` internally calls
+`g_file_set_contents` (GLib 2.40+), which writes to a temp file and
+renames atomically. Crash mid-write leaves the previous file intact.
+**No manual fsync or flush call is needed** — this is the opposite of
+Win32's `WritePrivateProfileStringW`, which requires an explicit
+`WritePrivateProfileStringW(NULL, NULL, NULL, path)` flush to commit
+cached writes.
+
+**GTK 3 vs GTK 4 swap-points** (Flutter Linux runner is locked to GTK 3 —
+do NOT import GTK 4 idioms):
+
+| Concern | GTK 3 (this project) | GTK 4 (NOT used) |
+|---|---|---|
+| Window close signal | `delete-event` (return `FALSE` to allow destroy) | `close-request` |
+| Minimum size | `gtk_window_set_geometry_hints(win, NULL, &h, GDK_HINT_MIN_SIZE)` | `gtk_widget_set_size_request(win, min_w, min_h)` |
+| `geometry_widget` arg | `NULL` (ignored since 3.20) | API removed |
+| Signal hookup | `g_signal_connect(win, "delete-event", ...)` | `g_signal_connect(win, "close-request", ...)` |
+
+**Backend detection at runtime** for code that needs to branch:
+
+```c
+GdkDisplay *d = gtk_widget_get_display(GTK_WIDGET(window));
+#ifdef GDK_WINDOWING_WAYLAND
+gboolean is_wayland = GDK_IS_WAYLAND_DISPLAY(d);
+#else
+gboolean is_wayland = FALSE;
+#endif
+```
+
+**Validation** (smoke test on a Linux box with BOTH session types —
+typically log out and pick `Ubuntu on Xorg` vs `Ubuntu` at the GDM /
+SDDM display manager):
+
+1. **X11, fresh state**: window opens 80%-centered on primary monitor's
+   work area (panel subtracted via `_NET_WORKAREA`).
+2. **X11, after resize + close + relaunch**: window opens at the saved
+   `(x, y, w, h)` — exact restoration.
+3. **Wayland, fresh state**: window opens at compositor-chosen position
+   (often centered or tiled per the compositor's policy), with 80% of
+   monitor 0 geometry as size (panel NOT subtracted since Wayland doesn't
+   expose `_NET_WORKAREA`).
+4. **Wayland, after resize + close + relaunch**: window size restores
+   correctly; position is irrelevant — compositor decides.
+5. **Either session, INI on disk after Wayland close**: `[Window]\nx=0\n
+   y=0\nwidth=<actual>\nheight=<actual>` — confirms the X11 guard worked
+   (size persisted, position correctly left at 0 because unread).
+
+**Related**: cross-platform window-state spec — macOS uses
+`frameAutosaveName` (system handles everything in points); Windows
+persists physical pixels + DPI snapshot; Linux persists logical pixels
+and guards position. All three converge on the same Dart-layer
+expectation: "min size 1280×800, default 80% × work area, persist user's
+resize across launches." See sibling sections for each platform's
+specific gotchas. `g_signal_connect` (NOT `g_signal_connect_after`) is
+critical for `delete-event` — the default handler destroys the window,
+so state-save must run BEFORE.
+
 ### Desktop runners: register new native source files with the build system
 
 > Captured from `05-20-macos-settings-menu-bridge` (Subtask 1 of
@@ -872,6 +1043,7 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
 | `NSWindow.setFrameAutosaveName` called BEFORE `setFrame(default, display: true)` in `awakeFromNib` | First-launch window uses the xib frame (NOT the computed 80% default); user resizes never visibly restore on subsequent launches. **No compile warning, no runtime exception** — `flutter analyze` cannot catch it. | Reorder: `contentMinSize` → compute and `setFrame(default, display: true)` → `setFrameAutosaveName(name)` **LAST**. See "macOS: `NSWindow.setFrameAutosaveName` MUST come after `setFrame`". Smoke-verify by `defaults delete <bundle-id>` + launch + resize + relaunch. |
 | `GetPrivateProfileIntW` used to read a signed integer (e.g. a window's virtual-screen X/Y on a secondary monitor LEFT/ABOVE primary) | Negative values silently round-trip to `0` regardless of the `defaultValue` passed in; sanity bounds on the read value cannot detect the loss. Window jumps to (0, …) on relaunch. | Use `GetPrivateProfileStringW + wcstol(buf, &end, 10)` to parse signed integers manually. `GetPrivateProfileIntW` is only safe for values that are always ≥ 0 (width, height, DPI). See "Windows: `GetPrivateProfileIntW` silently returns 0 for negative integers". |
 | `WINDOWPLACEMENT.rcNormalPosition` persisted as if it were virtual-screen coordinates | Non-default Windows layouts (top/left taskbar, multi-monitor with non-(0,0) primary `rcWork`) see restored window offset by `rcWork.left/top` pixels. Default Windows layout (bottom taskbar + primary at (0,0)) unaffected. | Either convert workspace → virtual-screen on save (`+ rcWork.left/top` via `MonitorFromWindow + GetMonitorInfoW`), or restore via `SetWindowPlacement` (also accepts workspace coords, no math). See "Windows: `WINDOWPLACEMENT.rcNormalPosition` is workspace coordinates". |
+| `gdk_display_get_primary_monitor()` used without NULL-fallback, OR `gtk_window_get_position` / `gtk_window_move` called unguarded on Wayland | Wayland: `get_primary_monitor` returns `NULL`; `get_position` always returns `(0, 0)`; `move` is a silent no-op. **Same code works on X11.** Persisted INI ends up with `x=0\ny=0` on Wayland; first-launch crashes / wrong-monitor on Wayland if the primary_monitor NULL is dereferenced. | (1) `gdk_display_get_primary_monitor() ?? gdk_display_get_monitor(display, 0)` fallback (with `n_monitors > 0` guard). (2) Guard position reads/writes with `#ifdef GDK_WINDOWING_X11` (compile-time) AND `GDK_IS_X11_DISPLAY(display)` (runtime). Size APIs (`get_size`, `set_default_size`, `set_geometry_hints`) are unaffected — call unconditionally. See "Linux: GTK 3 Wayland window-API degradation matrix". |
 | `file_picker.saveFile()` called on web | Returns `null` silently; user sees "save did nothing" with no error | Route web through a `package:web` Blob adapter (conditional import) |
 | `URL.createObjectURL` without matching `revokeObjectURL` | Blob bytes leak in browser memory until tab closes; large exports compound | Revoke immediately after `<a>.click()` |
 | `gal.putImageBytes(..., album: '')` | Creates a real album named "" in Photos / Gallery | Normalize empty strings to `null` before the call |
