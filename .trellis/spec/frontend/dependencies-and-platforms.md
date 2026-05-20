@@ -13,6 +13,8 @@ Apply this spec when you:
 - Touch `ios/Runner/Info.plist`, `android/app/src/main/AndroidManifest.xml`
 - Touch `macos/Runner/*.entitlements` (Debug or Release)
 - Modify `android/app/build.gradle.kts` SDK targets
+- Add, rename, or remove a native source file under `macos/Runner/`,
+  `windows/runner/`, or `linux/runner/`
 
 ---
 
@@ -354,12 +356,160 @@ they differ. Both must move together.
 - `flutter build macos --debug` reaches link without the gal-deployment
   error.
 
+### Desktop runners: register new native source files with the build system
+
+> Captured from `05-20-macos-settings-menu-bridge` (Subtask 1 of
+> `05-20-desktop-window-mgmt-and-menu`).
+
+**Critical Gotcha**: Dropping a new native source file on disk under
+`macos/Runner/`, `windows/runner/`, or `linux/runner/` is **not** enough.
+Each platform's build system maintains its own source-file index that does
+NOT auto-discover newly-created files. The Swift / C++ / C compiler fails
+at build time, and `flutter analyze` cannot catch it because analyze only
+walks the Dart source graph.
+
+**Required**: When adding a new native source file, edit the corresponding
+platform's project / build file in the same change.
+
+| Platform | File to edit | What to add |
+|----------|--------------|-------------|
+| **macOS** | `macos/Runner.xcodeproj/project.pbxproj` | 4 entries — see "macOS: 4-section pbxproj edit" below |
+| **Windows** | `windows/runner/CMakeLists.txt` | Filename appended to `RUNNER_SOURCES` list |
+| **Linux** | `linux/runner/CMakeLists.txt` | Filename appended to the executable target's source list |
+
+#### macOS: 4-section pbxproj edit
+
+Adding e.g. `macos/Runner/Foo.swift` requires generating two fresh 24-char
+hex UUIDs (uppercase, matching the existing convention) and editing **all
+four** of these `Runner.xcodeproj/project.pbxproj` sections:
+
+```
+PBXBuildFile         — build-instance UUID, references the file UUID
+PBXFileReference     — file UUID, points at physical path "Foo.swift"
+PBXGroup             — Runner group's children list (sourceTree visibility)
+PBXSourcesBuildPhase — Runner target's compile-sources list
+```
+
+**Generate UUIDs** that don't collide with existing IDs:
+
+```bash
+python3 -c "import secrets; print(secrets.token_hex(12).upper())"
+# run twice — once for the BuildFile UUID, once for the FileReference UUID
+```
+
+**Mirror an existing entry**: grep the pbxproj for `AppDelegate.swift` and
+you will see it referenced exactly 4 times (once per section). Add the same
+4 entries for the new file with the two new UUIDs:
+
+```diff
+ /* Begin PBXBuildFile section */
+ ...
+ 33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC10F02044A3C60003C045 /* AppDelegate.swift */; };
++<NEW_BUILD_UUID> /* Foo.swift in Sources */ = {isa = PBXBuildFile; fileRef = <NEW_REF_UUID> /* Foo.swift */; };
+ ...
+ /* End PBXBuildFile section */
+
+ /* Begin PBXFileReference section */
+ ...
+ 33CC10F02044A3C60003C045 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
++<NEW_REF_UUID> /* Foo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Foo.swift; sourceTree = "<group>"; };
+ ...
+ /* End PBXFileReference section */
+
+ /* Begin PBXGroup section */ ... Runner group children ...
+   33CC10F02044A3C60003C045 /* AppDelegate.swift */,
++  <NEW_REF_UUID> /* Foo.swift */,
+ ...
+
+ /* Begin PBXSourcesBuildPhase section */ ... Runner target Sources ...
+   33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
++  <NEW_BUILD_UUID> /* Foo.swift in Sources */,
+ ...
+```
+
+**Sanity-check before committing the pbxproj edit**:
+
+- The new BUILD UUID appears exactly **2** times (PBXBuildFile + PBXSourcesBuildPhase).
+- The new REF UUID appears exactly **3** times (PBXBuildFile.fileRef + PBXFileReference + PBXGroup children).
+- The literal filename (`Foo.swift`) appears exactly **4** times — one Xcode comment per section.
+
+#### Windows: append to `RUNNER_SOURCES`
+
+```cmake
+# windows/runner/CMakeLists.txt
+set(RUNNER_SOURCES
+  "flutter_window.cpp"
+  "main.cpp"
+  "utils.cpp"
+  "win32_window.cpp"
+  "foo.cpp"   # ← new
+  "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
+  "Runner.rc"
+  "runner.exe.manifest"
+)
+```
+
+Header files (`foo.h`) do **not** belong in `RUNNER_SOURCES` — they reach
+the compiler via `#include` from the listed translation units. Only `.cpp`
+files belong here. If the new code uses a system library outside the
+default link set (e.g. `shcore.lib`, `shell32.lib`), also append it to the
+existing `target_link_libraries(${BINARY_NAME} PRIVATE ...)` call.
+
+#### Linux: append to the executable's source list
+
+```cmake
+# linux/runner/CMakeLists.txt — inside add_executable(...)
+add_executable(${BINARY_NAME}
+  "main.cc"
+  "my_application.cc"
+  "foo.cc"   # ← new
+  "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
+)
+```
+
+GTK / GLib / GDK are already linked via `PkgConfig::GTK` — no new
+`pkg_check_modules` is needed unless the code uses a library outside the
+GTK 3 + GLib graph (e.g. `pkg-config --libs xkbcommon`).
+
+#### Symptoms when this is forgotten
+
+| Platform | Build command | What you see |
+|---|---|---|
+| macOS | `flutter build macos --debug` | Swift frontend: `error: cannot find type 'Foo' in scope` at the call site (NOT the new file itself — Xcode never even tried to compile it) |
+| Windows | `flutter build windows --debug` | MSVC: `LNK2019: unresolved external symbol "...Foo..."` or `error C2065: 'Foo': undeclared identifier` |
+| Linux | `flutter build linux --debug` | ld: `undefined reference to '...foo...'` |
+
+`flutter analyze` is silent in all three cases because it only inspects
+Dart sources. **Therefore**: always run a `flutter build <platform>` for
+the platform whose native runner you touched, before declaring the task
+done. CI should also cover this — until CI matrix builds exist, the
+implementing engineer is the last line of defence.
+
+**Common Mistake**: An implementing agent uses the `Write` tool to create
+the new file, sees `flutter analyze` clean, runs the Dart-side tests
+(green), and ships the change. The first user to actually run the desktop
+build hits the compile error days later. **Always** add a `flutter build
+<platform>` step to the verification list when the change touches any
+runner directory.
+
+**Validation**:
+
+- macOS: `flutter build macos --debug` finishes with "✓ Built …app". After
+  the fact, `grep -c "Foo.swift" macos/Runner.xcodeproj/project.pbxproj`
+  returns `4` (one Xcode comment per section).
+- Windows: `flutter build windows --debug` finishes; `grep "foo.cpp"
+  windows/runner/CMakeLists.txt` returns one hit inside the
+  `RUNNER_SOURCES` list.
+- Linux: `flutter build linux --debug` finishes; `grep "foo.cc"
+  linux/runner/CMakeLists.txt` returns one hit inside the `add_executable`
+  argument list.
+
 ### Desktop / Web: Verification only
 
 | Platform | Manifest edits | Verification |
 |----------|----------------|--------------|
-| Windows | None | `flutter build windows` succeeds; `super_drag_and_drop` plugin appears in `windows/flutter/generated_plugins.cmake` |
-| Linux | None | `flutter build linux` succeeds; same plugin check |
+| Windows | None for manifests; for new native sources see "Desktop runners" above | `flutter build windows` succeeds; `super_drag_and_drop` plugin appears in `windows/flutter/generated_plugins.cmake` |
+| Linux | None for manifests; for new native sources see "Desktop runners" above | `flutter build linux` succeeds; same plugin check |
 | Web | Optional Inter font preload in `web/index.html` | `flutter build web` succeeds; `image_picker` web fallback works |
 
 ### Web: File save uses `package:web` Blob — NOT `file_picker.saveFile()`
@@ -437,6 +587,7 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
 | Unconstrained Riverpod 3.x upgrade | Runtime "type X is not a subtype of Y" from any provider | Pin back to `^2.6.x` |
 | Hand-pinned `targetSdk = 34` | Flutter SDK bump silently regresses to 34, blocking new APIs | Restore `flutter.targetSdkVersion` |
 | `MACOSX_DEPLOYMENT_TARGET` lower than a plugin's floor (e.g. `gal` ≥ 11.0) | `pod install` or `flutter build macos` errors with `The plugin "X" requires a higher minimum macOS deployment version` | Bump Podfile **and** every `MACOSX_DEPLOYMENT_TARGET` in `project.pbxproj` to the plugin floor |
+| New native source file dropped on disk without registering it in `Runner.xcodeproj/project.pbxproj` (macOS) / `windows/runner/CMakeLists.txt` (Windows) / `linux/runner/CMakeLists.txt` (Linux) | macOS: Swift compile error `cannot find type 'X' in scope` at the call site (the new file itself was never compiled). Windows: MSVC `LNK2019: unresolved external symbol` or `C2065: undeclared identifier`. Linux: ld `undefined reference`. **`flutter analyze` is silent** in all three cases because it only walks Dart. | Mirror an existing entry (e.g. `AppDelegate.swift`) in all 4 pbxproj sections with two fresh UUIDs; for Windows / Linux append the filename to `RUNNER_SOURCES` / `add_executable`. See "Desktop runners: register new native source files". Always run `flutter build <platform>` before declaring done. |
 | `file_picker.saveFile()` called on web | Returns `null` silently; user sees "save did nothing" with no error | Route web through a `package:web` Blob adapter (conditional import) |
 | `URL.createObjectURL` without matching `revokeObjectURL` | Blob bytes leak in browser memory until tab closes; large exports compound | Revoke immediately after `<a>.click()` |
 | `gal.putImageBytes(..., album: '')` | Creates a real album named "" in Photos / Gallery | Normalize empty strings to `null` before the call |
