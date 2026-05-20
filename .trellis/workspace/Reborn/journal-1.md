@@ -1724,3 +1724,36 @@ Subtask B of 05-20-export-page-preview 完成，父任务 2/2 done 一并 archiv
 ### Next Steps
 
 - None - task complete
+
+
+## Session 52: 导出页面微调：FormatQualityCard fg 修正 + SaveActionButton 改 FAB.extended
+
+**Date**: 2026-05-21
+**Task**: 导出页面微调：FormatQualityCard fg 修正 + SaveActionButton 改 FAB.extended
+**Branch**: `main`
+
+### Summary
+
+导出页面两处 UI 收尾微调：(1) FormatQualityCard._FormatButton 选中态 fg 从 onPrimaryContainer 改回 onPrimary，对齐 MD3 token 配对规则（背景 primary + 前景 onPrimary），修复上次 05-19 任务遗留的注释/实现漂移；(2) SaveActionButton 从 inline 全宽 FilledButton 重构为 FloatingActionButton.extended，加入 stitch/grid 命名族 (heroTag: 'export-save-fab')，遵守 component-guidelines.md:967 的 FAB heroTag 强制约定；export_screen Scaffold 增 floatingActionButton + endFloat 槽位，body 末尾 88dp 防遮挡。删除失效的 'stays full-width' 响应式测试。三件套全绿（473 tests）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `036b9b9` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 51
+- **Total Sessions**: 52
 - **Last Active**: 2026-05-21
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1726 | Active |
+| `journal-1.md` | ~1759 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 52 | 2026-05-21 | 导出页面微调：FormatQualityCard fg 修正 + SaveActionButton 改 FAB.extended | `036b9b9` | `main` |
 | 51 | 2026-05-21 | 导出页面预览 UI 集成（Subtask B）+ 实测反馈四轮修复 + cache 生命期 audit | `ac33a90`, `fe9f9ad`, `b88997c`, `e52555f`, `8041335`, `1790412`, `675a48a` | `main` |
 | 50 | 2026-05-21 | 导出页面预览基础设施（Subtask A：渲染管线 + save cache 共享 + Riverpod controller） | `100e671`, `98fd023`, `4275f40` | `main` |
 | 49 | 2026-05-20 | 长图拼接：导入图片 20 张上限 UI 封锁 | `8906f0a` | `main` |
