@@ -211,3 +211,17 @@ final importedImagesProvider =
       return ref.watch(imageImportControllerProvider(kind)).valueOrNull ??
           const [];
     });
+
+/// Whether the per-mode session has reached the
+/// [kMaxImportSessionImages] cap. UI surfaces (header "添加" buttons,
+/// drag-drop zones) watch this to disable / reject further additions
+/// reactively — keeps the magic comparison out of widgets so
+/// [kMaxImportSessionImages] stays the single source of truth.
+///
+/// Reactive: flips back to `false` the instant the user removes any
+/// image, so callers can re-enable / re-accept without bespoke logic.
+final imageImportSessionFullProvider =
+    Provider.family<bool, ImageImportSessionKind>((ref, kind) {
+      final count = ref.watch(importedImagesProvider(kind)).length;
+      return count >= kMaxImportSessionImages;
+    });

@@ -819,6 +819,40 @@ return ImportedImage(bytes: bytes, width: info.width, height: info.height);
 - 颜色空间归一化（如 ICC profile / sRGB —— 当前未覆盖，未来扩展点）
 - 元数据宽高记录的是**烘焙后**的方向
 
+### Gotcha: `TextButton.icon` / `IconButton.icon` 不能用 `find.byType(TextButton)` 定位
+
+**Symptom**: 用 `find.byType(TextButton)` 在 widget 测试里查找一个 `TextButton.icon(...)` 时返回 0 个匹配，断言 `findsOneWidget` 失败；改成 `find.byWidgetPredicate((w) => w is TextButton)` 立刻就能找到。`IconButton.icon` 同样的现象。
+
+**Cause**: `TextButton.icon` 这类 `.icon` 命名构造器在 Flutter SDK 内部返回的是**私有子类**（`_TextButtonWithIcon` extends `TextButton`、`_IconButtonM3` extends `IconButton` 等），而 `find.byType(T)` 的匹配语义是**严格按 `runtimeType` 等于 T**（不是 `is T`）—— 因此私有子类不会被 `find.byType(父类)` 匹配到。
+
+**Fix**: 用 `find.byWidgetPredicate((w) => w is TextButton)` 替代 `find.byType(TextButton)`，谓词走的是 Dart 的 `is` 子类型检查，能正确捕获私有子类：
+
+```dart
+// ❌ Wrong — strict runtimeType match misses the private subclass
+final btn = find.byType(TextButton);
+expect(btn, findsOneWidget);  // 失败：找到 0 个
+
+// ✅ Correct — subtype-aware predicate
+final btn = find.byWidgetPredicate((w) => w is TextButton);
+expect(btn, findsOneWidget);
+```
+
+**When multiple `.icon` buttons coexist**（例如「添加」「清空」两个相邻 `TextButton.icon`），结合 `find.ancestor` + 唯一 `tooltip` 来 pin（与上面 "Pattern: Direct render-size guard" 的 pin-by-tooltip 思路一致）：
+
+```dart
+final addButton = find.ancestor(
+  of: find.byTooltip('已达上限 20 张'),  // 或对应的可用 tooltip
+  matching: find.byWidgetPredicate((w) => w is TextButton),
+);
+expect(tester.widget<TextButton>(addButton).onPressed, isNull);
+```
+
+**Why this matters**：现在常用的 disabled-state 断言（`onPressed == null`）依赖能取到那个 `TextButton` widget；若 finder 找不到，整个测试只会停在 `findsOneWidget` 失败，看不到真正的 disabled / enabled 状态，给人「按钮根本没渲染」的误判。
+
+**Reference implementations**: `test/features/long_stitch/presentation/widgets/stitch_image_strip_test.dart` 与 `stitch_vertical_image_list_test.dart` 的 "session-cap" 测试组同时使用 `find.byWidgetPredicate((w) => w is TextButton)` + `find.byTooltip(...)` pin（来自 `05-20-stitch-import-limit-20`）。
+
+**See also**: "Pattern: Direct render-size guard for private widget a11y-critical children" — 同样的 pin-by-tooltip 思路，只是断言的目标不同（render size vs `onPressed == null`）。
+
 ### ❌ Don't
 
 ```dart

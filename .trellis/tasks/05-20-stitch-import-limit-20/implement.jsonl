@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget 组件设计规范：disabled 按钮、Tooltip、ReorderableRow key 稳定性约束（涉及置灰按钮 + Tooltip + 不破坏 reorder）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod 状态管理规范：暴露 isSessionFull selector / getter 的正确方式（NotifierProvider + ref.watch select）"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "错误反馈规范：拖拽拒绝时的 snackbar 文案与触发风格，与现有 TooManyImages.toString() 链路对齐"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "类型安全：使用 kMaxImportSessionImages 常量而非魔法数字 20"}

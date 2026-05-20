@@ -1,8 +1,10 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../../domain/entities/image_import_session_kind.dart';
+import '../../domain/repositories/image_import_repository.dart'
+    show kMaxImportSessionImages;
 import '../providers/image_import_provider.dart';
 
 /// Wraps a [child] in a `DropRegion` that funnels dropped images into
@@ -72,6 +74,22 @@ class ImageDropZone extends ConsumerWidget {
       },
       onPerformDrop: (event) async {
         onDragOver?.call(false);
+        // Gate session-full BEFORE attempting extraction so we don't
+        // waste cycles decoding bytes the controller would just refuse.
+        // The controller's `_appendCapped` is the authoritative cap, but
+        // surfacing the rejection here lets us show an immediate
+        // snackbar (the controller's `lastWarning` is not currently
+        // wired to any listener) and skip the no-op import round-trip.
+        final isFull = ref.read(imageImportSessionFullProvider(sessionKind));
+        if (isFull) {
+          final messenger = ScaffoldMessenger.maybeOf(context);
+          messenger?.showSnackBar(
+            SnackBar(
+              content: Text('已达上限 $kMaxImportSessionImages 张'),
+            ),
+          );
+          return;
+        }
         final raw = await dataSource.extractDroppedImages(event);
         if (raw.isEmpty) return;
         await ref

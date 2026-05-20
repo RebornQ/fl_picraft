@@ -249,4 +249,90 @@ void main() {
       );
     });
   });
+
+  // ---------------------------------------------------------------------
+  // PRD: `.trellis/tasks/05-20-stitch-import-limit-20`
+  //
+  // Vertical list (wide-screen layout) header "添加" button must mirror
+  // the strip's session-cap behavior — disabled at 20, tooltip explains
+  // why, re-enables when one is removed.
+  // ---------------------------------------------------------------------
+  group('StitchVerticalImageList — session cap', () {
+    Future<ProviderContainer> seedWithCount(int n) async {
+      final stubs = List.generate(n, (i) => _stub(tag: 'v$i'));
+      return _seedContainer(stubs);
+    }
+
+    // `TextButton.icon` returns a `_TextButtonWithIcon` subclass that
+    // doesn't match `find.byType(TextButton)` (strict runtimeType
+    // comparison). Match the superclass via predicate, pinned through
+    // the wrapping Tooltip.
+    Finder findHeaderAddButton({required bool full}) {
+      final tooltipMessage = full
+          ? '已达上限 $kMaxImportSessionImages 张'
+          : '添加图片';
+      return find.descendant(
+        of: find.byTooltip(tooltipMessage),
+        matching: find.byWidgetPredicate((w) => w is TextButton),
+      );
+    }
+
+    testWidgets('count = 19 → 添加 button is enabled', (tester) async {
+      final container = await seedWithCount(19);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_harness(container));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<TextButton>(
+        findHeaderAddButton(full: false),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+
+    testWidgets('count = 20 → 添加 button is disabled', (tester) async {
+      final container = await seedWithCount(kMaxImportSessionImages);
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(_harness(container));
+      await tester.pumpAndSettle();
+
+      final button = tester.widget<TextButton>(
+        findHeaderAddButton(full: true),
+      );
+      expect(button.onPressed, isNull);
+      expect(
+        find.byTooltip('已达上限 $kMaxImportSessionImages 张'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'after removing one image while at cap, 添加 button re-enables',
+      (tester) async {
+        final container = await seedWithCount(kMaxImportSessionImages);
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(_harness(container));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<TextButton>(findHeaderAddButton(full: true))
+              .onPressed,
+          isNull,
+        );
+
+        await tester.tap(find.byTooltip('移除').first);
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<TextButton>(findHeaderAddButton(full: false))
+              .onPressed,
+          isNotNull,
+        );
+      },
+    );
+  });
 }

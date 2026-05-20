@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端质量门：flutter analyze / flutter test 必须全绿，覆盖 enabled/disabled 切换"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget 测试规范：验证 count=20 时按钮 onPressed=null + Tooltip 出现 + ReorderableRow 仍可用"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层一致性：UI 的 isSessionFull 判断与 provider 的 _isSessionFull / _appendCapped 上限逻辑共享 kMaxImportSessionImages，不能分叉硬编码"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用性检查：isSessionFull 应在 provider 暴露作为 selector，而非在两个 widget 各自硬编码 imageCount >= 20"}

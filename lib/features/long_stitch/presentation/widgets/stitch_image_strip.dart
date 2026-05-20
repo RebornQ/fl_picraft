@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reorderables/reorderables.dart';
 
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/domain/repositories/image_import_repository.dart'
     show kMaxImportSessionImages;
+import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../providers/stitch_editor_provider.dart';
 import 'stitch_clear_confirm.dart';
 
@@ -44,6 +46,9 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(stitchEditorControllerProvider);
+    final isSessionFull = ref.watch(
+      imageImportSessionFullProvider(ImageImportSessionKind.stitch),
+    );
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final hasImages = state.images.isNotEmpty;
@@ -77,17 +82,24 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextButton.icon(
-                    onPressed: () => ref
-                        .read(stitchEditorControllerProvider.notifier)
-                        .addFromGallery(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('添加'),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 36),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.compact,
+                  Tooltip(
+                    message: isSessionFull
+                        ? '已达上限 $kMaxImportSessionImages 张'
+                        : '添加图片',
+                    child: TextButton.icon(
+                      onPressed: isSessionFull
+                          ? null
+                          : () => ref
+                                .read(stitchEditorControllerProvider.notifier)
+                                .addFromGallery(),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('添加'),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(0, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ),
                   if (hasImages) ...[

@@ -452,6 +452,114 @@ void main() {
       expect(gridState.valueOrNull, isEmpty);
     });
   });
+
+  // PRD: `.trellis/tasks/05-20-stitch-import-limit-20`
+  //
+  // Reactive selector exposed for UI surfaces (header "添加" button,
+  // ImageDropZone) to gate further additions without hardcoding the
+  // `kMaxImportSessionImages` comparison in widgets.
+  group('imageImportSessionFullProvider', () {
+    late _MockRepo repo;
+
+    setUp(() {
+      repo = _MockRepo();
+    });
+
+    ProviderContainer makeContainer() {
+      return ProviderContainer(
+        overrides: [imageImportRepositoryProvider.overrideWithValue(repo)],
+      );
+    }
+
+    test('false when empty', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await container.read(imageImportControllerProvider(kind).future);
+      expect(container.read(imageImportSessionFullProvider(kind)), isFalse);
+    });
+
+    test('false when below cap', () async {
+      when(() => repo.pickFromGallery(limit: any(named: 'limit'))).thenAnswer(
+        (_) async => ImportSuccess(
+          List.generate(kMaxImportSessionImages - 1, (i) => _image('p$i')),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await container.read(imageImportControllerProvider(kind).future);
+      await container
+          .read(imageImportControllerProvider(kind).notifier)
+          .pickFromGallery();
+
+      expect(container.read(imageImportSessionFullProvider(kind)), isFalse);
+    });
+
+    test('true at cap, false again after a removal', () async {
+      when(() => repo.pickFromGallery(limit: any(named: 'limit'))).thenAnswer(
+        (_) async => ImportSuccess(
+          List.generate(kMaxImportSessionImages, (i) => _image('p$i')),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await container.read(imageImportControllerProvider(kind).future);
+      await container
+          .read(imageImportControllerProvider(kind).notifier)
+          .pickFromGallery();
+
+      expect(container.read(imageImportSessionFullProvider(kind)), isTrue);
+
+      container.read(imageImportControllerProvider(kind).notifier).removeAt(0);
+
+      expect(
+        container.read(imageImportSessionFullProvider(kind)),
+        isFalse,
+        reason:
+            'after a single removal at cap the selector must drop back '
+            'to false so UI surfaces re-enable',
+      );
+    });
+
+    test('per-mode: stitch full does not flip grid', () async {
+      when(() => repo.pickFromGallery(limit: any(named: 'limit'))).thenAnswer(
+        (_) async => ImportSuccess(
+          List.generate(kMaxImportSessionImages, (i) => _image('p$i')),
+        ),
+      );
+
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.stitch).future,
+      );
+      await container.read(
+        imageImportControllerProvider(ImageImportSessionKind.grid).future,
+      );
+      await container
+          .read(
+            imageImportControllerProvider(
+              ImageImportSessionKind.stitch,
+            ).notifier,
+          )
+          .pickFromGallery();
+
+      expect(
+        container.read(
+          imageImportSessionFullProvider(ImageImportSessionKind.stitch),
+        ),
+        isTrue,
+      );
+      expect(
+        container.read(
+          imageImportSessionFullProvider(ImageImportSessionKind.grid),
+        ),
+        isFalse,
+      );
+    });
+  });
 }
 
 ImportedImage _image(String path) {

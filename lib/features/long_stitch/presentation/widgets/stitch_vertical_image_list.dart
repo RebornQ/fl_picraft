@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reorderables/reorderables.dart';
 
+import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
 import '../../../image_import/domain/repositories/image_import_repository.dart'
     show kMaxImportSessionImages;
+import '../../../image_import/presentation/providers/image_import_provider.dart';
 import '../providers/stitch_editor_provider.dart';
 import 'stitch_clear_confirm.dart';
 
@@ -51,6 +53,9 @@ class StitchVerticalImageList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(stitchEditorControllerProvider);
     final notifier = ref.read(stitchEditorControllerProvider.notifier);
+    final isSessionFull = ref.watch(
+      imageImportSessionFullProvider(ImageImportSessionKind.stitch),
+    );
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final hasImages = state.images.isNotEmpty;
@@ -64,6 +69,7 @@ class StitchVerticalImageList extends ConsumerWidget {
           _Header(
             count: state.imageCount,
             hasImages: hasImages,
+            isSessionFull: isSessionFull,
             onAdd: () => notifier.addFromGallery(),
             onClear: () => _onClearPressed(context, ref, state.imageCount),
             colorScheme: colorScheme,
@@ -143,6 +149,7 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.count,
     required this.hasImages,
+    required this.isSessionFull,
     required this.onAdd,
     required this.onClear,
     required this.colorScheme,
@@ -151,6 +158,7 @@ class _Header extends StatelessWidget {
 
   final int count;
   final bool hasImages;
+  final bool isSessionFull;
   final VoidCallback onAdd;
   final VoidCallback onClear;
   final ColorScheme colorScheme;
@@ -187,15 +195,20 @@ class _Header extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('添加'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
+            Tooltip(
+              message: isSessionFull
+                  ? '已达上限 $kMaxImportSessionImages 张'
+                  : '添加图片',
+              child: TextButton.icon(
+                onPressed: isSessionFull ? null : onAdd,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('添加'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
             ),
             if (hasImages)
