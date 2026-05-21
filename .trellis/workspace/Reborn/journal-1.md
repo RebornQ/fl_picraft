@@ -1826,3 +1826,36 @@ Subtask B of 05-20-export-page-preview 完成，父任务 2/2 done 一并 archiv
 ### Next Steps
 
 - None - task complete
+
+
+## Session 55: 全屏预览升级为沉浸式照片查看器
+
+**Date**: 2026-05-22
+**Task**: 全屏预览升级为沉浸式照片查看器
+**Branch**: `main`
+
+### Summary
+
+导出页面 PreviewFullScreenDialog 全面升级为主流相册级沉浸式查看器：黑底全屏 + AppBar 透明叠加 + chrome 3 秒自动隐藏 + 常驻浮动 X；统一手势契约（minScale=1.0、未放大禁 pan、双击 2.0x 放大且双击点为锚 / 留白区回退中心、双击复位）；多图 PageView + 自定义 _ImmersivePageScrollPhysics 实现 photo-gallery 风格边缘弹切；向下拖关闭手势。修复两个回归：桌面端 PageView 鼠标拖动经自定义 ScrollBehavior 接通；放大态 vertical drag recognizer 通过 null callback 退出 arena 保证 InteractiveViewer 单指 pan 不被吞。两份 ADR（自定义 ScrollPhysics / 5 手势分层）+ 3 个 Flutter sharp-edge Gotcha 沉淀进 component-guidelines.md。测试 24/24，全项目 545/545。会话前期顺手修了 GridEditorScreen AppBar actions 多余 Padding 间距过宽问题（已被合并进 ab35c33）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a81d9bc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
