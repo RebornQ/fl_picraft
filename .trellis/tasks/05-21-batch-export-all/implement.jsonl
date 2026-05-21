@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/05-21-batch-export-all/prd.md", "reason": "本任务总纲：6 项决策、AC、ADR-lite、三个 PR 拆分、平台 dispatch 决策表，是所有实现决策的唯一权威源"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Flutter 技术栈、MD3 设计 token、字体颜色体系，Web 提示文案需遵守"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增 batch_persist_*.dart 在 features/export/data/datasources/ 的归属；Clean Architecture 分层约束；conditional import 结构规范"}
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "Web blob download 原有约定 + Web ZIP 新路径、file_picker.getDirectoryPath 桌面用法、archive 包引入、三层平台防护（UI/repo/datasource）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "ExportController 仍为 Notifier；修改不能破坏现有 isSaving / processedBytesCacheProvider 契约"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "SaveResult sealed 三态语义保留；BatchPersistAdapter 接口设计遵循 null safety 与 exhaustive switch"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "SaveFailure / partialSaveFailureMessage / saveFailureMessage 文案规范，新增桌面取消/Web ZIP 失败场景需复用或扩展"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Web 提示文案的样式、a11y 标签、MD3 color role（colorScheme.onSurfaceVariant）"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Web 提示文案在 compact / medium / expanded 三种 size class 下的位置（export_screen 顶部跨行 vs medium+ 双列布局对齐）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试覆盖要求（单元 + widget）、analyze / format 闸口、Timeline 标记的使用（export.process / export.save 高峰）"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "BatchPersistAdapter 与现有 _persist 单文件路径不能重复造轮；web_blob_download 在 zip 路径要复用而不是另写"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Adapter 在 data/datasources/、注入点在 repository、UI 不直接感知平台分支；ExportController 仍只调 repository 接口"}

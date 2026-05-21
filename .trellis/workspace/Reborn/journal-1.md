@@ -1757,3 +1757,36 @@ Subtask B of 05-20-export-page-preview 完成，父任务 2/2 done 一并 archiv
 ### Next Steps
 
 - None - task complete
+
+
+## Session 53: 新增关于页面（独立 feature + url_launcher manifest spec）
+
+**Date**: 2026-05-21
+**Task**: 新增关于页面（独立 feature + url_launcher manifest spec）
+**Branch**: `main`
+
+### Summary
+
+新增 features/about/ 独立 feature 承载 AboutScreen（112dp 图标 / 应用名 / 描述副标题 / 动态版本号 / 项目源码-问题反馈-开源许可三个 ListTile，subtitle 显示去 https:// URL）。core/constants/app_info.dart 用 class AppInfo 聚合元信息（与 Breakpoints 一致）。settings 加「关于」入口 + GoRouter /settings/about 子路由（push 语义）。引入 package_info_plus + url_launcher（archive/path 附带提交供 batch-export-all 复用）。trellis-check 发现并修复 url_launcher 在 Android 11+/iOS 9+ 的 silent canLaunchUrl 失败（缺 <queries> / LSApplicationQueriesSchemes），并把该 lesson 固化到 spec/frontend/dependencies-and-platforms.md（+87 行 cross-platform section + Validation Matrix 一行）。PRD 经过 grill 固化 9 个决策（D1-D9）。13 个新测试全过 + flutter analyze 干净 + flutter test 486 passed。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `513d677` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
