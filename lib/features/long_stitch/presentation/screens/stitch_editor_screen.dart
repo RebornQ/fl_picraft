@@ -82,6 +82,11 @@ class StitchEditorScreen extends ConsumerWidget {
       },
     );
 
+    final sizeClass = windowSizeClassOf(context);
+    final useSidePanel =
+        sizeClass == WindowSizeClass.expanded ||
+        sizeClass == WindowSizeClass.large;
+
     return Scaffold(
       appBar: AppBar(
         leading: Navigator.canPop(context)
@@ -111,9 +116,30 @@ class StitchEditorScreen extends ConsumerWidget {
           //     child: const Text('导出'),
           //   ),
           // ),
+          if (!useSidePanel)
+            Container(
+              margin: EdgeInsets.only(right: 6),
+              child: IconButton(
+                icon: const Icon(Icons.save_outlined, size: 28),
+                tooltip: '导出每张子图',
+                style: ButtonStyle(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                alignment: AlignmentGeometry.center,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 6,
+                ),
+                onPressed: state.hasImages
+                    ? () => _onExportPressed(context, ref)
+                    : null,
+              ),
+            ),
         ],
       ),
-      floatingActionButton: state.hasImages
+      // TODO 备注：勿删，保留备用
+      floatingActionButton: useSidePanel && state.hasImages
           ? FloatingActionButton.extended(
               // Namespaced hero tag so this FAB doesn't collide with the
               // grid editor's export FAB when both editor branches are

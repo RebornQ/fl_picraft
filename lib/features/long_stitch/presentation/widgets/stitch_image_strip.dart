@@ -54,7 +54,7 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
     final hasImages = state.images.isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       color: colorScheme.surfaceContainerLow,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,8 +120,11 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
                       icon: Icon(
                         _expanded ? Icons.expand_less : Icons.expand_more,
                       ),
-                      iconSize: 20,
-                      visualDensity: VisualDensity.compact,
+                      iconSize: 18,
+                      style: ButtonStyle(
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
                       padding: const EdgeInsets.all(4),
                       constraints: const BoxConstraints(
                         minWidth: 32,
@@ -134,7 +137,6 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
           if (state.images.isEmpty)
             _EmptyHint(
               onPickGallery: () => ref
@@ -145,34 +147,37 @@ class _StitchImageStripState extends ConsumerState<StitchImageStrip> {
                   .pasteFromClipboard(),
             )
           else if (_expanded)
-            SizedBox(
-              height: 140,
-              child: ReorderableRow(
-                needsLongPressDraggable: true,
-                onReorder: (oldIndex, newIndex) {
-                  ref
-                      .read(stitchEditorControllerProvider.notifier)
-                      .reorder(oldIndex, newIndex);
-                },
-                children: [
-                  for (var i = 0; i < state.images.length; i++)
-                    Padding(
-                      // Use the image instance's identity as the key
-                      // so the reorderable framework can track each
-                      // card across position changes — encoding the
-                      // index here would invalidate the key on every
-                      // reorder and break the drag animation.
-                      key: ObjectKey(state.images[i]),
-                      padding: const EdgeInsets.all(4),
-                      child: _ImageCard(
-                        index: i,
-                        image: state.images[i],
-                        onRemove: () => ref
-                            .read(stitchEditorControllerProvider.notifier)
-                            .removeImage(i),
+            Container(
+              margin: EdgeInsets.only(top: 4),
+              child: SizedBox(
+                height: 140,
+                child: ReorderableRow(
+                  needsLongPressDraggable: true,
+                  onReorder: (oldIndex, newIndex) {
+                    ref
+                        .read(stitchEditorControllerProvider.notifier)
+                        .reorder(oldIndex, newIndex);
+                  },
+                  children: [
+                    for (var i = 0; i < state.images.length; i++)
+                      Padding(
+                        // Use the image instance's identity as the key
+                        // so the reorderable framework can track each
+                        // card across position changes — encoding the
+                        // index here would invalidate the key on every
+                        // reorder and break the drag animation.
+                        key: ObjectKey(state.images[i]),
+                        padding: const EdgeInsets.all(4),
+                        child: _ImageCard(
+                          index: i,
+                          image: state.images[i],
+                          onRemove: () => ref
+                              .read(stitchEditorControllerProvider.notifier)
+                              .removeImage(i),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             )
           else
@@ -303,6 +308,7 @@ class _EmptyHint extends StatelessWidget {
 
     return Container(
       height: 140,
+      margin: EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
