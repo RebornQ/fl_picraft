@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "验证 flutter_lints / dart format / 测试覆盖 / const 使用 —— check 阶段必查"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "验证 widget 文件结构、StatefulWidget 生命周期方法顺序（initState → didChangeDependencies → build → dispose）"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "验证局部 UI 状态没有错误地引入 Riverpod；TransformationController / AnimationController 在 dispose() 中正确释放"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "验证 Matrix4 / Animation<Matrix4> / TapDownDetails 等类型使用是否符合 null-safe 与显式类型规范"}

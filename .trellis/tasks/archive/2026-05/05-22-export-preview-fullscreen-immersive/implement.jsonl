@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "StatefulWidget 结构 / imports / const 构造 / 命名约定 —— 本任务把 PreviewFullScreenDialog 升级为 StatefulWidget 并新增 _PreviewPage 私有 StatefulWidget，需要严格遵守 widget 文件结构"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "本任务的所有状态（_chromeVisible / _currentZoomed / TransformationController / AnimationController）都是 ephemeral 局部 UI 状态，必须用 StatefulWidget + setState 而非 Riverpod —— 该 spec 给出明确判定标准"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter_lints / dart format / const 强制等编码约束 —— 影响构造函数、imports、私有命名（_PreviewPage 下划线前缀）"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Matrix4 / Offset / Animation<Matrix4> 等强类型 API 操作较多 —— 防止 dynamic 泄漏与 null 误用"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "确认 _PreviewPage 如作为私有类放在同一文件 vs 抽到单独文件 的 spec 立场 —— 当前 PRD 默认放在 preview_full_screen_dialog.dart 内"}
