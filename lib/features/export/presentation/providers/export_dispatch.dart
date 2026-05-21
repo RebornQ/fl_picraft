@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../grid/domain/entities/grid_type.dart';
@@ -58,6 +59,13 @@ final canExportProvider = Provider<bool>((ref) {
 /// [GridEditorState.gridType] so the user knows up-front how many
 /// files the save will produce. The "保存中…" in-flight copy is owned
 /// by the button itself since it depends on transient state.
+///
+/// **Web grid branch**: Per PRD §05-21-batch-export-all the Web grid
+/// export bundles all cells into a single ZIP download (rather than
+/// triggering N separate browser downloads). The button label calls
+/// this out explicitly so the user knows what to expect before they
+/// tap save — replaces the generic "保存 N 张到本地" copy with
+/// "保存 N 张为 ZIP".
 final exportSaveButtonLabelProvider = Provider<String>((ref) {
   final kind = ref.watch(currentExportSourceKindProvider);
   final mobile = GallerySaverDataSource.isSupported;
@@ -67,6 +75,7 @@ final exportSaveButtonLabelProvider = Provider<String>((ref) {
     case ExportSourceKind.grid:
       final type = ref.watch(gridEditorControllerProvider).gridType;
       final count = type.cellCount;
+      if (kIsWeb) return '保存 $count 张为 ZIP';
       return mobile ? '保存 $count 张至相册' : '保存 $count 张到本地';
   }
 });

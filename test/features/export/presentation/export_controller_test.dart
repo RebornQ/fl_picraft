@@ -276,5 +276,48 @@ void main() {
       expect(gridLabel, contains('9'));
       expect(gridLabel, contains('张'));
     });
+
+    test(
+      'non-web grid label routes to mobile/desktop branches (never to ZIP copy)',
+      () {
+        // Unit tests run on the host VM (`kIsWeb == false`). The grid
+        // branch therefore picks the mobile / desktop copy — proves
+        // the Web ZIP branch is gated by `kIsWeb` and does not fire
+        // outside the web target. The ZIP branch itself is verified
+        // by Web smoke tests per PRD §Definition of Done.
+        final container = ProviderContainer(
+          overrides: [
+            importedImagesProvider(
+              ImageImportSessionKind.stitch,
+            ).overrideWithValue([_fakeImage('a')]),
+            importedImagesProvider(
+              ImageImportSessionKind.grid,
+            ).overrideWithValue([_fakeImage('a')]),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.read(currentExportSourceKindProvider.notifier).state =
+            ExportSourceKind.grid;
+
+        final gridLabel = container.read(exportSaveButtonLabelProvider);
+        expect(
+          gridLabel,
+          isNot(contains('ZIP')),
+          reason:
+              'On non-web targets the grid label must NOT include the '
+              'Web-only "ZIP" copy.',
+        );
+        // Must still match one of the non-web grid copies.
+        final isMobileOrDesktopCopy =
+            gridLabel.contains('至相册') || gridLabel.contains('到本地');
+        expect(
+          isMobileOrDesktopCopy,
+          isTrue,
+          reason:
+              'Expected the grid label to surface either the mobile '
+              '"至相册" copy or the desktop "到本地" copy; got "$gridLabel".',
+        );
+      },
+    );
   });
 }

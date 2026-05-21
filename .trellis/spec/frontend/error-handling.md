@@ -190,6 +190,55 @@ catch (e) {
 
 Either don't catch (let the original exception propagate), or catch and convert to a typed failure (`SaveFailure(message: exportFailureMessage(e))`).
 
+### Don't: re-wrap an already-translated `SaveFailure`
+
+```dart
+// ❌ Wrong — `WebBlobDownloadDataSource.save()` already returns a
+// SaveFailure with a zh-CN frame (e.g. "保存失败：浏览器拒绝下载").
+// Throwing its message back out, then catching at the outer layer and
+// piping through `saveFailureMessage(e)` again, double-frames the
+// snackbar copy as "保存失败：保存失败：浏览器拒绝下载".
+Future<void> _wrap(...) async {
+  final result = await ds.save(...);
+  if (result is SaveFailure) throw Exception(result.message);  // ❌ unwraps
+}
+
+try {
+  await _wrap(...);
+} catch (e) {
+  return SaveFailure(message: saveFailureMessage(e));  // ❌ re-wraps
+}
+```
+
+**Why it's bad**: `core/errors/user_facing_messages.dart` helpers (`saveFailureMessage`, `exportFailureMessage`, `partialSaveFailureMessage`) prepend a zh-CN frame ("保存失败：…", "导出失败：…"). Threading an already-framed message through a second helper produces visible double prefixes on the user's snackbar.
+
+**Instead**: keep `SaveResult` flowing as a typed value end-to-end. Wrappers that compose with downstream `SaveFailure` returns must forward them verbatim — only the outermost `try/catch` over **raw exceptions** (synchronous throws, plugin errors) calls a translation helper.
+
+```dart
+// ✅ Correct — typed result flows through; raw throws translate once.
+typedef WebBlobDownloader = Future<SaveResult> Function(
+  Uint8List bytes, {required String fileName, required String mimeType});
+
+Future<SaveResult> persistMany(...) async {
+  try {
+    final bytes = composeZip(...);
+    final result = await _downloader(bytes, fileName: name, mimeType: mime);
+    return switch (result) {
+      SaveSuccess() => SaveSuccess(location: 'Downloads', count: total),  // enrich
+      SaveCancelled() => result,                                          // forward
+      SaveFailure() => result,                                            // forward — no re-wrap
+    };
+  } catch (e) {
+    // Only raw exceptions (composer OOM, JS interop throws) end up here.
+    return SaveFailure(message: saveFailureMessage(e));
+  }
+}
+```
+
+**Rule**: if a callee's return type is `SaveResult` (or any sealed failure type), the caller MUST pattern-match and forward `SaveFailure` / `SaveCancelled` directly. Translation helpers are only for catching `Object` / `Exception` (raw throws).
+
+**Required test**: per-adapter, inject a downloader / datasource stub that returns `SaveFailure(message: '保存失败：...')` and assert the surfaced `SaveFailure.message` contains exactly **one** "保存失败：" prefix.
+
 ### Don't: log AND show
 
 ```dart

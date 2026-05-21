@@ -446,6 +446,29 @@ try {
 
 **Where to add markers**: the entry point of every async operation in `data/renderers/` and `data/repositories/` that takes >100 ms in the typical case. Don't pepper them everywhere — the value is in stage-level granularity (decode / compose / encode), not statement-level.
 
+**Refactor guardrail**: when a code path is restructured (e.g. extracted into an adapter, moved behind a new abstraction, batched into a stream), audit that every previously-instrumented stage still has its `Timeline.startSync(...)` marker on the **new** code path. The compiler can't catch a missing marker, but DevTools observability silently regresses — the most expensive path becomes invisible.
+
+When the refactor introduces a new heavier sub-stage (e.g. ZIP compose in the Web batch adapter), add a nested marker following the `<feature>.<stage>` convention (e.g. `export.zip` nesting under `export.save`). The dot-grouping keeps related stages adjacent in DevTools.
+
+```dart
+// Example: batch-export-all (05-21) preserved `export.save` parity AND
+// added `export.zip` for the new compose stage.
+Future<SaveResult> persistMany(...) async {
+  Timeline.startSync('export.save');
+  try {
+    final entries = await _pullAll(next, total, ...);
+    Timeline.startSync('export.zip');
+    final zipBytes = _composeZip(entries, rootFolder);
+    Timeline.finishSync();
+    return await _downloader(zipBytes, ...);
+  } finally {
+    Timeline.finishSync();
+  }
+}
+```
+
+**Required check** during code review of a refactor PR: `grep -RIn "Timeline.startSync" lib/features/<feature>/` before and after the refactor — every marker present in the "before" snapshot must still appear in the "after", on the new code path.
+
 ---
 
 ## Code Review Checklist

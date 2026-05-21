@@ -85,6 +85,44 @@ as opaque "type 'X' is not a subtype of 'Y'" at runtime.
 upgrade in isolation. Wait until every transitive consumer aligns; revisit
 quarterly.
 
+### Convention: Verify lock-graph compatibility before declaring a version range
+
+**What**: Before adding a new package OR widening an existing version range,
+run `flutter pub deps | grep <package>` (or read `pubspec.lock`) to check
+whether the package is **already pinned transitively** by another dependency.
+If it is, your declared range MUST overlap with the transitive pin —
+otherwise `pub get` fails with a SAT-solver conflict and the lockfile won't
+budge.
+
+**Why**: PRDs often quote a "latest" version from the package's pub.dev page
+without checking the lock graph. Example: the
+[`05-21-batch-export-all`](../../tasks/archive/) task's PRD specified
+`archive: ^3.6.1`, but `image: ^4.3.0` (already in the graph) pulls
+`archive 4.0.9` transitively. Declaring `^3.6.1` would force a downgrade and
+break image decoding silently. The actual workable range is `^4.0.0`.
+
+**How to apply** (before editing `pubspec.yaml`):
+
+```bash
+# Is this package already in the graph?
+flutter pub deps --no-dev | grep -E "^\s*[│├└]?\s*<package>"
+
+# Or check the lockfile directly:
+grep -A2 "^  <package>:" pubspec.lock
+```
+
+If the package is **not** in the graph: pick the latest stable from pub.dev.
+
+If the package **is** in the graph:
+1. Note the existing version (e.g. `4.0.9`).
+2. Pick the **lowest-acceptable range** that includes it (e.g. `^4.0.0`, not
+   the package's "latest" `^5.0.0` if that would force every other consumer
+   to upgrade).
+3. Update the PRD's "新增依赖" section to match the actual range used.
+
+**Where this lives**: `pubspec.yaml` declared dependencies; verified against
+`pubspec.lock` after every `flutter pub get`.
+
 ---
 
 ## Platform Manifests
@@ -1109,6 +1147,100 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
   `*_web.dart` datasource.
 - The non-web stub throws `UnsupportedError` — never returns a fake
   success.
+
+### Export: Batch persistence is a `BatchPersistAdapter` per platform
+
+> Captured from `05-21-batch-export-all`.
+
+**Required**: When a feature persists **multiple** images in one user
+action (grid export, batch share, multi-file save), route the batch
+through a `BatchPersistAdapter` interface — never embed `kIsWeb` /
+`defaultTargetPlatform` branches in the repository's loop body. The
+interface is pull-based (`Future<Uint8List?> Function(int) next`) so
+the adapter decides the memory shape per target:
+
+| Target | Adapter | UX | Peak memory |
+|---|---|---|---|
+| Desktop (macOS / Windows / Linux) | `DesktopDirectoryPersistAdapter` | One `FilePicker.platform.getDirectoryPath` dialog, then sequential `File.writeAsBytes` per cell | ~ 1 image (pull → write → discard) |
+| Mobile (iOS / Android) | `MobileGalleryPersistAdapter` | First-run permission prompt, then `Gal.putImageBytes` per cell into Photos library | ~ 1 image |
+| Web (`kIsWeb`) | `WebZipPersistAdapter` | Pull all → in-memory `Archive` → one `<a>.click()` of a single `.zip` | ~ Σ bytes (MVP ≤ 9 × ~4K cells, well under browser heap) |
+
+**Why pull-based**: a `Future<Uint8List?> Function(int) next` callback
+lets the adapter decide *when* to pull each cell. Desktop / mobile
+loop one-at-a-time so the bytes are discarded after each write; Web
+buffers them all upfront so the ZIP can be composed. The repository
+layer hands the same closure to every adapter — no platform
+knowledge leaks out.
+
+**File naming convention** (PRD §文件命名规约, 1-based indices):
+
+| Location | Pattern | Example |
+|---|---|---|
+| Desktop folder | `flpicraft_<yyyyMMdd_HHmmss>_<index>.<ext>` | `flpicraft_20260521_120607_3.jpg` |
+| Web ZIP outer | `flpicraft_<yyyyMMdd_HHmmss>.zip` | `flpicraft_20260521_120607.zip` |
+| Web ZIP folder | `flpicraft_<yyyyMMdd_HHmmss>/` (top-level subdir inside the archive) | `flpicraft_20260521_120607/` |
+| Web ZIP inner | `flpicraft_<ts>/flpicraft_<ts>_<index>.<ext>` | `flpicraft_20260521_120607/flpicraft_20260521_120607_3.jpg` |
+| Mobile album | `flpicraft_<ts>_<index>` (no extension — `gal` appends one) | `flpicraft_20260521_120607_3` |
+
+All file names share the same timestamp baked at the start of the
+batch — the adapter receives the timestamp via `at: DateTime` so it
+can NOT call `DateTime.now()` per cell and let the timestamp drift.
+
+**Partial-save accounting**: When the user dismisses the directory
+dialog (desktop) → return `SaveCancelled` and write zero bytes. When
+the Kth cell fails mid-batch (desktop file IO, mobile permission
+denied) → return `SaveFailure(partialSaveFailureMessage(saved: K-1,
+total, cause))`. Already-written desktop files are **retained** on
+disk — the snackbar copy honestly tells the user how many landed.
+Web has no partial state by design (one download or none).
+
+**Required `archive` dependency** (declared in `pubspec.yaml`):
+```yaml
+dependencies:
+  archive: ^4.0.0  # Pure-Dart ZIP packaging; imported ONLY by
+                   # web_zip_composer_web.dart via conditional import.
+```
+
+**Conditional import topology** — `archive` must be excluded from
+non-web compile graphs to keep desktop / mobile bundles lean. The
+ZIP composer lives across three files:
+
+```dart
+// data/datasources/web_zip_composer.dart        ← public entry
+import 'web_zip_composer_stub.dart'
+    if (dart.library.js_interop) 'web_zip_composer_web.dart';
+Uint8List composeZip({...}) => composeZipImpl(...);
+
+// data/datasources/web_zip_composer_stub.dart   ← non-web build
+// (throws UnsupportedError — only reached if a routing bug
+//  instantiates WebZipPersistAdapter outside kIsWeb)
+Uint8List composeZipImpl({...}) {
+  throw UnsupportedError('composeZip is only available on the web build.');
+}
+
+// data/datasources/web_zip_composer_web.dart    ← web build only
+import 'package:archive/archive.dart';           // ← only place that imports archive
+Uint8List composeZipImpl({required Iterable<ZipEntry> entries,
+                          required String rootFolder}) {
+  final archive = Archive();
+  for (final entry in entries) {
+    archive.addFile(ArchiveFile.bytes('$rootFolder/${entry.name}', entry.bytes));
+  }
+  return ZipEncoder().encodeBytes(archive);
+}
+```
+
+**Validation**:
+- `grep -RIn "package:archive" lib/` returns hits ONLY inside
+  `web_zip_composer_web.dart`. Non-web build sees the stub via
+  conditional import and never pulls `archive` into the bundle.
+- `grep -RIn "kIsWeb\|defaultTargetPlatform" lib/features/export/data/repositories/`
+  returns no hits inside the grid pipeline — all platform dispatch
+  lives in `defaultBatchPersistAdapter()` / the adapter files
+  themselves.
+- ZIP structure can be verified by reverse-decoding via
+  `ZipDecoder().decodeBytes(...)` in unit tests (see
+  `test/features/export/data/datasources/web_zip_persist_adapter_test.dart`).
 
 ---
 

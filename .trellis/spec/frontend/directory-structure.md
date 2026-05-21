@@ -303,6 +303,93 @@ mitigations, in order of cost:
    not just `await fn(input)`. Many `dart:ui` failures only surface on
    the isolate path.
 
+### Pattern: Batch persistence adapter per platform (3-file conditional import for web composer)
+
+> Captured from `05-21-batch-export-all`.
+
+**Problem**: Features that persist **multiple** outputs in one user
+action (grid export, batch share, multi-file save) need different UX
+shapes per platform — desktop wants one directory pick + many writes,
+mobile wants the gallery loop, web wants a single ZIP download.
+Embedding the dispatch in a repository loop (`if (kIsWeb) { ... } else
+if (mobile) { ... } else { ... }`) is the same anti-pattern as a
+presentation-layer `if (kIsWeb)` — it duplicates platform knowledge
+across consumers and ties memory shape to platform branching.
+
+**Solution**: define an **interface** in the feature's `data/datasources/`
+with a pull-based contract (the adapter calls `next(i)` to request
+each cell), then one **implementation per platform**. The repository
+calls a single `defaultBatchPersistAdapter()` factory and hands every
+adapter the same closure — the closure stays platform-agnostic.
+
+**File layout** (concrete: `lib/features/export/data/datasources/`):
+
+```
+batch_persist_adapter.dart            # interface + dispatch factory
+desktop_directory_persist_adapter.dart  # macOS / Windows / Linux impl
+mobile_gallery_persist_adapter.dart   # iOS / Android impl
+web_zip_persist_adapter.dart          # Web impl (wraps composer + downloader)
+web_zip_composer.dart                 # public entry; conditional import
+web_zip_composer_stub.dart            # non-web build (throws)
+web_zip_composer_web.dart             # web build; imports package:archive
+```
+
+**Why split the composer into 3 files**: `package:archive` is a pure-
+Dart ZIP packager, but we only need it on web. Bringing it into the
+desktop / mobile bundles is wasted bytes. The conditional import
+topology in `web_zip_composer.dart` (`import 'web_zip_composer_stub.dart'
+if (dart.library.js_interop) 'web_zip_composer_web.dart';`) keeps
+`archive` confined to the web compile graph. Mirrors the existing
+`web_blob_download_*.dart` topology — see
+`dependencies-and-platforms.md` → "Export: Batch persistence is a
+`BatchPersistAdapter` per platform".
+
+**Interface contract** (pull-based, so each adapter decides memory shape):
+
+```dart
+abstract class BatchPersistAdapter {
+  Future<SaveResult> persistMany({
+    required int total,                                // upper bound
+    required Future<Uint8List?> Function(int index) next,  // pull callback
+    required ExportFormat format,                      // suggestedName extension
+    required DateTime at,                              // batch-wide timestamp
+  });
+}
+```
+
+The repository builds the `next` closure once and hands it to whichever
+adapter the factory returns — no platform conditionals leak into the
+repo. Each adapter's per-cell partial-save accounting (cancel / mid-
+loop failure) lives **inside** the adapter, so the repo's loop body
+disappears entirely.
+
+**Where this lives** (current implementation):
+
+- Interface + factory: `lib/features/export/data/datasources/batch_persist_adapter.dart`
+- Per-platform impls: `desktop_directory_persist_adapter.dart`,
+  `mobile_gallery_persist_adapter.dart`, `web_zip_persist_adapter.dart`
+- Web composer (conditional import): `web_zip_composer.dart` +
+  `_stub.dart` + `_web.dart` (only `_web.dart` imports
+  `package:archive/archive.dart`)
+- Repository delegation: `data/repositories/export_repository_impl.dart`
+  → `_exportGrid` and `persistOnly(processed.length >= 2)`
+
+**Required tests** (one file per adapter + one for the interface):
+
+```
+test/features/export/data/datasources/
+  batch_persist_adapter_test.dart            # pull-based contract
+  desktop_directory_persist_adapter_test.dart
+  mobile_gallery_persist_adapter_test.dart
+  web_zip_persist_adapter_test.dart          # reverse-decode the ZIP
+  fake_batch_persist_adapter.dart            # shared test fixture
+```
+
+Repository delegation tests (in
+`test/features/export/data/export_repository_impl_test.dart`) inject
+`FakeBatchPersistAdapter` so the repo's hand-off is verifiable
+without real plugin channels.
+
 ---
 
 ## Domain-Layer Patterns
