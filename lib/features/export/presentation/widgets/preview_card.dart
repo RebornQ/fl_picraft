@@ -164,6 +164,8 @@ class _ReadyView extends StatelessWidget {
             aspectRatio: 1,
             child: PreviewThumbnail(
               bytes: bytes[index],
+              allBytes: bytes,
+              initialIndex: index,
               semanticLabel: '预览图片 ${index + 1} / ${bytes.length}',
             ),
           ),

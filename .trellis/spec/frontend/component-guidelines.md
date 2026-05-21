@@ -1021,6 +1021,297 @@ FloatingActionButton.extended(
 + `lib/features/grid/presentation/screens/grid_editor_screen.dart` 同时存在
 "导出"FAB，分别用 `heroTag: 'stitch-export-fab'` / `'grid-export-fab'` 避免冲突。
 
+
+### Gotcha: `Scaffold.appBar` 槽位的 `Material` 即使透明也会吃掉下层 hit-test
+
+**Symptom**: 一个全屏 / 沉浸式 dialog 在 `Scaffold.appBar` 上放了个透明 `AppBar`
+（`backgroundColor: Colors.transparent, elevation: 0`），同时想在 `body` 的同一区域
+（典型场景：左上角浮动关闭按钮）放一个**常驻**的悬浮按钮，让它即使在 AppBar
+显示时也能被点。**结果**：浮动按钮在 AppBar 显示态下完全不响应 tap；只要把 AppBar
+隐藏（或临时把 `appBar` 设成 `null`）按钮就重新可点。改 AppBar 的 `backgroundColor`
+/ `elevation` / `surfaceTintColor` 都没用。
+
+**Cause**: `Scaffold` 把 `appBar` 槽位的 widget 包进自己的 `Material` 层，并把它布局到
+**body 之上的独立子树**（`Scaffold.of(context).appBarMaxHeight` 区域）。Material 默认
+`type: MaterialType.canvas`、`color` 透明也照样是个完整的 `_RenderInkFeatures` 区域
+—— hit-test 阶段它**作为一个 opaque box 接收命中**，根本不会把命中下穿给 body。
+"`color: transparent` 等于透传"这个直觉只对**绘制**成立，对**命中测试**不成立。
+（与 `withValues(alpha:)` 不影响命中的现象同源——alpha 是 paint-time，hit-test 走的
+是 `RenderBox.hitTest` 的几何判定。）
+
+**Fix**: 任何"全屏 viewer / 沉浸式编辑器 / photo gallery"类页面，**别用
+`Scaffold.appBar` 槽位**。把 AppBar 作为 `body: Stack` 的一员：
+
+```dart
+// ❌ Wrong —— 透明 AppBar 仍然挡住下层浮动按钮的 hit-test
+Scaffold(
+  appBar: AppBar(backgroundColor: Colors.transparent, ...),
+  body: Stack(
+    children: [
+      PageView(...),
+      Positioned(top: 8, left: 8, child: _FloatingCloseButton(...)),
+    ],
+  ),
+)
+
+// ✅ Correct —— AppBar 进 body Stack；浮动 X 与 AppBar 同级、永远位于 Stack 顶层
+Scaffold(
+  extendBody: true,
+  extendBodyBehindAppBar: true,
+  body: Stack(
+    children: [
+      Positioned.fill(child: PageView(...)),
+      // AppBar 作为 Positioned 子层，自带 IgnorePointer 控制可点状态
+      Positioned(
+        top: 0, left: 0, right: 0,
+        child: IgnorePointer(
+          ignoring: !_chromeVisible, // 隐藏期间不拦截下层
+          child: AnimatedSlide(
+            duration: const Duration(milliseconds: 200),
+            offset: _chromeVisible ? Offset.zero : const Offset(0, -1),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _chromeVisible ? 1.0 : 0.0,
+              child: AppBar(
+                backgroundColor: Colors.transparent,
+                automaticallyImplyLeading: false,
+                title: Text(title),
+              ),
+            ),
+          ),
+        ),
+      ),
+      // 常驻浮动按钮：与 AppBar 同级、位于 Stack 顶层，永远可点
+      Positioned(
+        top: MediaQuery.of(context).padding.top + 8,
+        left: 8,
+        child: _FloatingCloseButton(onPressed: ...),
+      ),
+    ],
+  ),
+)
+```
+
+**Why the `IgnorePointer` wrap matters**: AppBar 隐藏期间（`_chromeVisible == false`）
+即便已经 `Opacity = 0`，它的 hit-test box 仍然存在；用户点击图片区会被 AppBar 拦住、
+触发不了底层的"单击切显隐"。`IgnorePointer(ignoring: !_chromeVisible)` 在隐藏期间
+把整条 AppBar 子树从 hit-test 中拿掉，单击直接落到 PageView 上。
+
+**Rule of thumb**: 只要满足以下任一条件，就**不要**用 `Scaffold.appBar`：
+1. AppBar 是透明 / 半透明，且 body 内容在视觉上延伸到 AppBar 区域（`extendBodyBehindAppBar: true`）
+2. AppBar 需要"显隐切换"且切换期间下层必须可点（沉浸式 photo viewer、视频播放器、地图全屏模式）
+3. AppBar 同区域还需要一个**常驻**浮动按钮（关闭 / 设置 / 收藏），不能跟随 chrome 隐藏
+
+退路：标准 `Scaffold(appBar: AppBar(...))` 仍然是非沉浸式页面的首选——AppBar 不透明、
+不需要"穿透"时，本 Pitfall 不适用。
+
+**Anti-pattern checklist**：写完代码后自查"AppBar 显示时下层是否还能点击"——如果
+你正在 `_chromeVisible` 这类状态里改 AppBar 的可见性，且 body 同区域有按钮，**先**
+把 AppBar 挪进 body Stack 再继续，别等"全部看上去对了但点不到"才回头排查。
+
+**Reference**:
+`lib/features/export/presentation/widgets/preview_full_screen_dialog.dart`
+（`05-22-export-preview-fullscreen-immersive` 任务）—— 全屏沉浸式照片查看器的
+AppBar + 常驻浮动 × 按钮分层。
+
+### Gotcha: 图片交互必须用 `BoxFit.contain` 实际渲染矩形计算热区，不能假设图铺满 viewport
+
+**Symptom**: 给一个 `BoxFit.contain` 的图片加双击放大 / 点击热区 / 拖拽手势时，
+* 双击图片**留白区**（letterbox 黑边），放大锚点出现在留白处 → 图片瞬间被弹出 viewport，
+  用户看到的是"放大到一半空白"；
+* 或者基于 `tap.localPosition` 直接换算图片像素坐标，得到的点是错的——尤其图片宽高比
+  与 viewport 不同时，偏移量恒定错位；
+* 又或者横向 pan "触底"判定永远不准——以 viewport 宽算极限，但实际图片可能只占
+  viewport 的 60% 宽，剩下的 40% 全是黑边。
+
+**Cause**: `BoxFit.contain` 把图片**等比例缩放进** viewport，结果尺寸 = `min(viewport.w/img.w,
+viewport.h/img.h) * img`；图片实际占据的 rect 居中且小于 viewport，**留白区在两侧（横图）
+或上下（竖图）**。任何用 `Offset.zero ~ viewport` 区间假设图片均匀分布的换算都是错的。
+"图片应该铺满 viewport" 是只有 `BoxFit.cover` / `BoxFit.fill` 才成立的前提，对 `contain`
+就是 bug。
+
+**Fix**: 在 `LayoutBuilder` 里拿到 `viewport`，结合 `Image` 流上来的 intrinsic
+`_imageSize`，**先算出真实渲染矩形**，再做任何坐标判定：
+
+```dart
+/// Returns the rect occupied by the image inside the viewport under
+/// `BoxFit.contain`. Returns `null` until the image stream has reported
+/// the intrinsic size.
+Rect? _imageDisplayRect(Size viewport, Size imgSize) {
+  if (imgSize.isEmpty || viewport.isEmpty) return null;
+  final imageAspect = imgSize.width / imgSize.height;
+  final viewportAspect = viewport.width / viewport.height;
+  double displayWidth;
+  double displayHeight;
+  if (imageAspect > viewportAspect) {
+    // 横向受限：图片宽 = viewport 宽，上下有黑边
+    displayWidth = viewport.width;
+    displayHeight = viewport.width / imageAspect;
+  } else {
+    // 纵向受限：图片高 = viewport 高，左右有黑边
+    displayHeight = viewport.height;
+    displayWidth = viewport.height * imageAspect;
+  }
+  final left = (viewport.width - displayWidth) / 2;
+  final top = (viewport.height - displayHeight) / 2;
+  return Rect.fromLTWH(left, top, displayWidth, displayHeight);
+}
+
+// 拿到 intrinsic size：监听 Image 的 ImageStream
+Image.memory(bytes).image
+    .resolve(ImageConfiguration.empty)
+    .addListener(ImageStreamListener((info, _) {
+      setState(() => _imageSize = Size(
+        info.image.width.toDouble(),
+        info.image.height.toDouble(),
+      ));
+    }));
+```
+
+**Double-tap focal point fallback**：双击点 `localTap` 落在留白区时，回退到图片中心，
+**避免锚点被弹出图片范围**：
+
+```dart
+Offset _resolveFocalPoint(Offset localTap, Rect? imageRect) {
+  if (imageRect == null || imageRect.contains(localTap)) return localTap;
+  return imageRect.center;
+}
+```
+
+**Companion: scale-around-focal Matrix4 formula**
+
+围绕"图中某一点"放大的标准仿射变换是 `T(focal) ⋅ S(s) ⋅ T(-focal)`——即先把 focal
+平移到原点、缩放、再平移回去。展开 `Matrix4` 后的等价写法只用一次 translate + 一次
+scale：
+
+```dart
+Matrix4 _zoomMatrix(double scale, Offset focal) {
+  // 等价于 T(focal) ⋅ S(scale) ⋅ T(-focal)：focal 像素是变换的不动点
+  return Matrix4.identity()
+    ..translateByDouble(focal.dx * (1 - scale), focal.dy * (1 - scale), 0, 1)
+    ..scaleByDouble(scale, scale, 1, 1);
+}
+```
+
+**反例**：直接 `Matrix4.identity()..scale(s)..translate(focal)`——这是"先缩放再平移
+focal 个单位"，焦点会跟着缩放系数漂移，双击点根本不会保持在原位。验证方法：双击
+屏幕角落，看图片是不是真的"以双击点为不动点"放大；若用错误公式，双击屏幕右下角
+会把图片中心都拽到屏幕外。
+
+**Anti-pattern**:
+```dart
+// ❌ 假设图片铺满 viewport
+final imageX = localTap.dx / viewport.width * imageBytes.width;
+// 图片是 contain，viewport.width 包含两侧黑边 → 横图时坐标恒偏
+
+// ❌ 直接拿 viewport 当 "触底" 判定的极限宽
+final maxTx = (viewport.width * scale - viewport.width) / 2;
+// 应是 imageDisplayRect.width * scale，否则缩放系数 ≤ viewport/img 比时永远算不到极限
+```
+
+**Rule of thumb**: 只要项目里出现 `BoxFit.contain` + 任意一个动词（tap / drag / zoom /
+crop / annotate），**第一步**就是写 `_imageDisplayRect()`；之后所有坐标判定都基于
+这个 rect，不基于 viewport。这条规则同样适用于网格编辑器 / 长图拼接器里把"图层坐标"
+换算成"像素坐标"的 use case。
+
+**Reference**:
+`lib/features/export/presentation/widgets/preview_full_screen_dialog.dart`
+的 `_imageDisplayRect` / `_resolveFocalPoint` / `_zoomMatrix`
+（`05-22-export-preview-fullscreen-immersive` 任务）。
+
+### Gotcha: Flutter 桌面端 PageView / ListView 默认不响应鼠标拖动
+
+**Symptom**: 在 macOS / Windows / Linux / Web 上，一个 `PageView` / `ListView` /
+任何 `Scrollable` 在手机端测试一切正常，但桌面 / Web 浏览器里用鼠标按住拖动
+**没有任何反应** —— 既不滚动也不切页。换成 trackpad two-finger 滑就立刻能动。
+真机触摸屏（如带触摸的 Surface / Chromebook）也能动。换言之：**只有鼠标拖动失效**。
+
+**Cause**: Flutter 默认的 `ScrollBehavior` 通过 `dragDevices` getter 声明
+**哪些 pointer 类型可以触发滚动手势**。该 getter 默认返回：
+
+```dart
+static const Set<PointerDeviceKind> _kTouchLikeDeviceTypes = <PointerDeviceKind>{
+  PointerDeviceKind.touch,
+  PointerDeviceKind.stylus,
+  PointerDeviceKind.invertedStylus,
+  PointerDeviceKind.trackpad,
+  PointerDeviceKind.unknown,
+};
+```
+
+注意 **`PointerDeviceKind.mouse` 不在集合里**。`MaterialScrollBehavior` 继承自
+`ScrollBehavior`，没有覆写 `dragDevices`，所以同样不包含鼠标。当鼠标 pointer
+down + drag 事件到达 `Scrollable` 时，`HorizontalDragGestureRecognizer` /
+`VerticalDragGestureRecognizer` 通过 `acceptKind` 判定后**拒绝**该事件 ——
+recognizer 不进入 gesture arena，PageView 完全收不到鼠标拖动。
+
+这是 Flutter 的历史决策：早期桌面 / Web 期望用滚轮滚动而非鼠标拖动，避免与
+"鼠标点击选择 / 框选" 等手势冲突。但对于 PageView 风格的交互（一次只显示一张
+图，要求鼠标拖动切换），这个默认就不合适。
+
+**Fix**: 自定义 `ScrollBehavior`（继承自 `MaterialScrollBehavior` 复用其他默认）
+覆写 `dragDevices`，把所有 6 种 pointer kind 都加进去，然后用 `ScrollConfiguration`
+包裹目标 `Scrollable`：
+
+```dart
+class _ImmersiveScrollBehavior extends MaterialScrollBehavior {
+  const _ImmersiveScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const <PointerDeviceKind>{
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,        // ← 关键：补齐鼠标
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.invertedStylus,
+    PointerDeviceKind.unknown,
+  };
+}
+
+// 在 PageView / ListView 外层
+ScrollConfiguration(
+  behavior: const _ImmersiveScrollBehavior(),
+  child: PageView.builder(...),  // 现在鼠标 + trackpad + 触摸全都能拖
+)
+```
+
+`ScrollConfiguration.of(context)` 走的是 "最近祖先优先" 语义，所以即便外层
+`MaterialApp` 也有一个默认 `ScrollConfiguration`，更靠近 `Scrollable` 的自定义
+版本会胜出。
+
+**Anti-pattern**:
+
+```dart
+// ❌ 期望 MaterialApp 全局生效 —— 这只会改"应用根"的 ScrollBehavior
+//    并波及到所有 Scrollable，包括 Drawer / Dialog 里的滚动表单
+//    （而那些可能"鼠标可拖"反而是异常体验，不希望统一开）
+MaterialApp(
+  scrollBehavior: _ImmersiveScrollBehavior(),
+  ...
+)
+```
+
+应该按需在目标 `Scrollable` 外层包装，**而非全局覆写**。
+
+```dart
+// ❌ 试图在 onPanStart 里手动 detect 鼠标 + 转发到 PageController
+//    —— pointer 事件根本进不来这一层（被 dragDevices 过滤掉了），
+//    onPanStart 不会触发
+GestureDetector(
+  onPanStart: (d) { /* detect mouse here ... */ },
+  child: PageView(...),
+)
+```
+
+`dragDevices` 的过滤是在 recognizer 层做的，比 `GestureDetector` 还要靠下。
+要解决问题必须从 `ScrollBehavior` 入手。
+
+**Reference**: `lib/features/export/presentation/widgets/preview_full_screen_dialog.dart`
+里的 `_ImmersiveScrollBehavior` + `ScrollConfiguration` 包装
+（`05-22-export-preview-fullscreen-immersive` 任务的桌面端回归修复）。
+验证方式：单测查 `find.ancestor(of: find.byType(PageView), matching: find.byType(ScrollConfiguration))`
+的 `behavior.dragDevices` 是否包含 `PointerDeviceKind.mouse`。
+
 ---
 
 ## Best Practices
