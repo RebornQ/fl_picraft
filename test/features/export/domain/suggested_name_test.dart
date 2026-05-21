@@ -68,4 +68,46 @@ void main() {
       expect(parsed.isBefore(after.add(const Duration(seconds: 1))), isTrue);
     });
   });
+
+  group('suggestedZipName', () {
+    test('builds `flpicraft_<timestamp>.zip` outer download name', () {
+      final name = suggestedZipName(at: DateTime(2026, 5, 21, 12, 6, 7));
+      expect(name, 'flpicraft_20260521_120607.zip');
+    });
+
+    test('zero-pads single-digit fields and ends with `.zip`', () {
+      final name = suggestedZipName(at: DateTime(2026, 1, 2, 3, 4, 5));
+      expect(name, 'flpicraft_20260102_030405.zip');
+    });
+
+    test('default `at` falls back to DateTime.now()', () {
+      final name = suggestedZipName();
+      expect(
+        RegExp(r'^flpicraft_\d{8}_\d{6}\.zip$').hasMatch(name),
+        isTrue,
+        reason: 'Expected timestamped zip name, got "$name"',
+      );
+    });
+  });
+
+  group('suggestedZipFolderName', () {
+    test(
+      'builds `flpicraft_<timestamp>` inner folder name (no trailing slash)',
+      () {
+        final folder = suggestedZipFolderName(
+          at: DateTime(2026, 5, 21, 12, 6, 7),
+        );
+        expect(folder, 'flpicraft_20260521_120607');
+        expect(folder.endsWith('/'), isFalse);
+      },
+    );
+
+    test('shares the same timestamp formatting as suggestedZipName', () {
+      final at = DateTime(2026, 5, 21, 12, 6, 7);
+      final outer = suggestedZipName(at: at);
+      final folder = suggestedZipFolderName(at: at);
+      // outer is `<folder>.zip` — same stem.
+      expect(outer, '$folder.zip');
+    });
+  });
 }
