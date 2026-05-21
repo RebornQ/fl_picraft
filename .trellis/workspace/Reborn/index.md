@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 53
-- **Last Active**: 2026-05-21
+- **Total Sessions**: 54
+- **Last Active**: 2026-05-22
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1792 | Active |
+| `journal-1.md` | ~1828 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 54 | 2026-05-22 | 多图批量一键导出：BatchPersistAdapter 三端 pull-based 流式落地 | `169703a`, `a16284d`, `97e4128`, `84e2deb` | `main` |
 | 53 | 2026-05-21 | 新增关于页面（独立 feature + url_launcher manifest spec） | `513d677` | `main` |
 | 52 | 2026-05-21 | 导出页面微调：FormatQualityCard fg 修正 + SaveActionButton 改 FAB.extended | `036b9b9` | `main` |
 | 51 | 2026-05-21 | 导出页面预览 UI 集成（Subtask B）+ 实测反馈四轮修复 + cache 生命期 audit | `ac33a90`, `fe9f9ad`, `b88997c`, `e52555f`, `8041335`, `1790412`, `675a48a` | `main` |

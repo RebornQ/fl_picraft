@@ -1790,3 +1790,39 @@ Subtask B of 05-20-export-page-preview 完成，父任务 2/2 done 一并 archiv
 ### Next Steps
 
 - None - task complete
+
+
+## Session 54: 多图批量一键导出：BatchPersistAdapter 三端 pull-based 流式落地
+
+**Date**: 2026-05-22
+**Task**: 多图批量一键导出：BatchPersistAdapter 三端 pull-based 流式落地
+**Branch**: `main`
+
+### Summary
+
+把 Grid 多图导出从「一张一确认」改成「一次操作搞定全部」。抽象 BatchPersistAdapter pull-based 流式接口，三端各自决定内存形状：桌面 getDirectoryPath + 批量写入 / Web archive 打包 zip 单次下载 / 移动 gal 循环写相册保持现状。新增 7 个 datasource 文件 + 5 个测试文件，526 测试全过；spec 同步落地 4 处：dependencies-and-platforms（Export 段 + 依赖锁兼容性 convention）、directory-structure（batch adapter 3 文件 conditional import pattern）、error-handling（双前缀反模式）、quality-guidelines（Timeline refactor guardrail）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `169703a` | (see git log) |
+| `a16284d` | (see git log) |
+| `97e4128` | (see git log) |
+| `84e2deb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
