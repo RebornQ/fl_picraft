@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:fl_picraft/features/export/data/datasources/batch_persist_adapter.dart';
 import 'package:fl_picraft/features/export/data/repositories/export_repository_impl.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_format.dart';
 import 'package:fl_picraft/features/export/domain/entities/export_request.dart';
@@ -10,14 +11,20 @@ import 'package:fl_picraft/features/export/domain/entities/watermark_config.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
+import 'datasources/fake_batch_persist_adapter.dart';
+
 /// End-to-end tests for the repository's compose/encode/persist
 /// pipeline.
 ///
 /// Platform save adapters (`gal`, `file_picker`, `package:web`)
-/// aren't reachable from the host test runner, so the persist step
-/// is replaced via [PersistAdapter] injection. Real-device
-/// integration happens on the manual CI matrix per PRD §Definition
-/// of Done.
+/// aren't reachable from the host test runner, so:
+///   * Single-file (stitch) tests inject via [PersistAdapter].
+///   * Grid / multi-image tests inject a [BatchPersistAdapter] via
+///     [FakeBatchPersistAdapter] — partial-save accounting itself
+///     is verified in the dedicated platform-adapter test files.
+///
+/// Real-device integration happens on the manual CI matrix per PRD
+/// §Definition of Done.
 void main() {
   Uint8List solidPng({int w = 40, int h = 30, int r = 220}) {
     final canvas = img.Image(width: w, height: h);
@@ -53,7 +60,9 @@ void main() {
     test(
       'grid source with empty cells short-circuits to SaveFailure',
       () async {
-        final repo = ExportRepositoryImpl();
+        final repo = ExportRepositoryImpl(
+          batchAdapter: FakeBatchPersistAdapter(),
+        );
         final req = ExportRequest(
           source: GridExportSource(const []),
           format: ExportFormat.png,
@@ -84,131 +93,163 @@ void main() {
     });
   });
 
-  group('ExportRepositoryImpl — grid pipeline', () {
-    test('all-success grid returns SaveSuccess with cells count', () async {
-      final cells = [solidPng(r: 10), solidPng(r: 100), solidPng(r: 200)];
-      final repo = ExportRepositoryImpl(
-        persistOverride: (bytes, fmt, name) async {
-          return SaveSuccess(location: '/tmp/$name');
+  group(
+    'ExportRepositoryImpl — grid pipeline (BatchPersistAdapter delegation)',
+    () {
+      test('delegates the batch to the injected adapter (3 cells)', () async {
+        final adapter = FakeBatchPersistAdapter();
+        final repo = ExportRepositoryImpl(batchAdapter: adapter);
+        final cells = [solidPng(r: 10), solidPng(r: 100), solidPng(r: 200)];
+
+        final res = await repo.exportAndSave(gridRequest(cells));
+
+        expect(res, isA<SaveSuccess>());
+        final success = res as SaveSuccess;
+        expect(success.count, 3);
+        expect(
+          adapter.callCount,
+          1,
+          reason: 'Repo must call persistMany once.',
+        );
+        expect(adapter.lastTotal, 3);
+        expect(adapter.lastFormat, ExportFormat.png);
+        // Adapter pulled every cell in order via `next`.
+        expect(adapter.nextCallIndices, equals([0, 1, 2]));
+      });
+
+      test('passes the requested format through to the adapter', () async {
+        final adapter = FakeBatchPersistAdapter();
+        final repo = ExportRepositoryImpl(batchAdapter: adapter);
+        final cells = [solidPng(), solidPng()];
+
+        await repo.exportAndSave(gridRequest(cells, format: ExportFormat.jpg));
+        expect(adapter.lastFormat, ExportFormat.jpg);
+      });
+
+      test(
+        'the same `at` timestamp is shared across one batch (no per-cell drift)',
+        () async {
+          // The `at` parameter is set inside the repo via `DateTime.now()`
+          // at the start of `_exportGrid`. We only check it was passed
+          // through to the adapter (the actual stability check lives in
+          // per-platform adapter tests).
+          final adapter = FakeBatchPersistAdapter();
+          final repo = ExportRepositoryImpl(batchAdapter: adapter);
+          await repo.exportAndSave(gridRequest([solidPng(), solidPng()]));
+          expect(adapter.lastAt, isNotNull);
         },
       );
 
-      final res = await repo.exportAndSave(gridRequest(cells));
-      expect(res, isA<SaveSuccess>());
-      final success = res as SaveSuccess;
-      expect(success.count, 3);
-      expect(success.location, contains('flpicraft_'));
-    });
+      test(
+        'adapter returning SaveFailure surfaces unchanged from the repo',
+        () async {
+          final adapter = FakeBatchPersistAdapter(
+            overrideResult: const SaveFailure('forced from adapter'),
+          );
+          final repo = ExportRepositoryImpl(batchAdapter: adapter);
 
-    test('grid source preserves cell ordering for `_exportGrid` loop', () {
-      final cells = [solidPng(r: 10), solidPng(r: 100), solidPng(r: 200)];
-      final src = GridExportSource(cells);
-      expect(src.cells.length, 3);
-      expect(src.cells.first[0], cells.first[0]);
-      expect(src.cells.last[0], cells.last[0]);
-    });
+          final res = await repo.exportAndSave(
+            gridRequest([solidPng(), solidPng()]),
+          );
 
-    test(
-      'mid-loop cancel after saves credits the partial count as SaveSuccess',
-      () async {
+          expect(res, isA<SaveFailure>());
+          expect((res as SaveFailure).message, 'forced from adapter');
+        },
+      );
+
+      test(
+        'adapter returning SaveCancelled surfaces unchanged from the repo',
+        () async {
+          final adapter = FakeBatchPersistAdapter(
+            overrideResult: const SaveCancelled(),
+          );
+          final repo = ExportRepositoryImpl(batchAdapter: adapter);
+
+          final res = await repo.exportAndSave(
+            gridRequest([solidPng(), solidPng()]),
+          );
+
+          expect(res, isA<SaveCancelled>());
+        },
+      );
+
+      test('grid source preserves cell ordering for the adapter loop', () {
         final cells = [solidPng(r: 10), solidPng(r: 100), solidPng(r: 200)];
-        var calls = 0;
-        final repo = ExportRepositoryImpl(
-          persistOverride: (bytes, fmt, name) async {
-            calls++;
-            if (calls <= 2) return SaveSuccess(location: '/tmp/$name');
-            return const SaveCancelled();
-          },
-        );
+        final src = GridExportSource(cells);
+        expect(src.cells.length, 3);
+        expect(src.cells.first[0], cells.first[0]);
+        expect(src.cells.last[0], cells.last[0]);
+      });
+    },
+  );
 
-        final res = await repo.exportAndSave(gridRequest(cells));
-        expect(res, isA<SaveSuccess>());
-        final success = res as SaveSuccess;
-        expect(
-          success.count,
-          2,
-          reason: 'Two cells landed before the user cancelled.',
-        );
-        expect(success.location, contains('flpicraft_'));
-      },
-    );
-
+  group('ExportRepositoryImpl.persistOnly — multi-cell shortcut', () {
     test(
-      'cancel on the very first cell bubbles SaveCancelled unchanged',
+      'persistOnly with empty bytes returns SaveFailure without invoking adapter',
       () async {
-        final cells = [solidPng(), solidPng()];
-        final repo = ExportRepositoryImpl(
-          persistOverride: (bytes, fmt, name) async {
-            return const SaveCancelled();
-          },
-        );
-
-        final res = await repo.exportAndSave(gridRequest(cells));
-        expect(
-          res,
-          isA<SaveCancelled>(),
-          reason:
-              'No cells landed, so the cancel must surface as a silent '
-              'SaveCancelled rather than a misleading partial success.',
-        );
-      },
-    );
-
-    test(
-      'mid-loop failure enriches SaveFailure with the partial saved count',
-      () async {
-        final cells = [solidPng(), solidPng(), solidPng()];
-        var calls = 0;
-        final repo = ExportRepositoryImpl(
-          persistOverride: (bytes, fmt, name) async {
-            calls++;
-            if (calls == 1) return SaveSuccess(location: '/tmp/$name');
-            return const SaveFailure('Disk full');
-          },
-        );
-
-        final res = await repo.exportAndSave(gridRequest(cells));
+        final adapter = FakeBatchPersistAdapter();
+        final repo = ExportRepositoryImpl(batchAdapter: adapter);
+        final res = await repo.persistOnly(const [], ExportFormat.png);
         expect(res, isA<SaveFailure>());
-        final failure = res as SaveFailure;
-        expect(failure.message, contains('已保存 1 / 3'));
-        expect(failure.message, contains('Disk full'));
+        expect(adapter.callCount, 0);
       },
     );
 
-    test(
-      'first-cell failure bubbles SaveFailure without partial prefix',
-      () async {
-        final cells = [solidPng(), solidPng()];
-        final repo = ExportRepositoryImpl(
-          persistOverride: (bytes, fmt, name) async {
-            return const SaveFailure('Permission denied');
-          },
-        );
-
-        final res = await repo.exportAndSave(gridRequest(cells));
-        expect(res, isA<SaveFailure>());
-        final failure = res as SaveFailure;
-        expect(failure.message, equals('Permission denied'));
-        expect(failure.message, isNot(contains('已保存')));
-      },
-    );
-
-    test('grid suggestedName indices are 1-based and per-cell', () async {
-      final cells = [solidPng(), solidPng(), solidPng()];
+    test('persistOnly with a single byte payload uses the single-cell shortcut '
+        '(stitch cache hit)', () async {
+      // The stitch cache hit path MUST NOT touch the batch adapter
+      // — PRD §4 mandates the stitch single-cell shortcut stays
+      // identical to its pre-refactor behavior.
+      final adapter = FakeBatchPersistAdapter();
       final names = <String>[];
       final repo = ExportRepositoryImpl(
+        batchAdapter: adapter,
         persistOverride: (bytes, fmt, name) async {
           names.add(name);
           return SaveSuccess(location: '/tmp/$name');
         },
       );
 
-      await repo.exportAndSave(gridRequest(cells, format: ExportFormat.jpg));
-      expect(names.length, 3);
-      expect(names[0], endsWith('_1.jpg'));
-      expect(names[1], endsWith('_2.jpg'));
-      expect(names[2], endsWith('_3.jpg'));
+      final res = await repo.persistOnly([
+        Uint8List.fromList(const [1, 2, 3]),
+      ], ExportFormat.png);
+
+      expect(res, isA<SaveSuccess>());
+      expect(names.length, 1);
+      expect(
+        adapter.callCount,
+        0,
+        reason:
+            'Single-cell shortcut must bypass the batch adapter so '
+            'stitch cache hits stay byte-identical to pre-refactor.',
+      );
     });
+
+    test(
+      'persistOnly with multiple byte payloads routes through the batch adapter',
+      () async {
+        final adapter = FakeBatchPersistAdapter();
+        final repo = ExportRepositoryImpl(batchAdapter: adapter);
+        final bytes = [
+          Uint8List.fromList(const [1]),
+          Uint8List.fromList(const [2]),
+          Uint8List.fromList(const [3]),
+        ];
+
+        final res = await repo.persistOnly(bytes, ExportFormat.jpg);
+
+        expect(res, isA<SaveSuccess>());
+        expect(adapter.callCount, 1);
+        expect(adapter.lastTotal, 3);
+        expect(adapter.lastFormat, ExportFormat.jpg);
+        // Adapter pulled all three cells, and the bytes are the very
+        // same Uint8Lists the caller passed in (no re-encode).
+        expect(adapter.pulledBytes, hasLength(3));
+        expect(adapter.pulledBytes[0], same(bytes[0]));
+        expect(adapter.pulledBytes[1], same(bytes[1]));
+        expect(adapter.pulledBytes[2], same(bytes[2]));
+      },
+    );
   });
 
   group('ExportRepositoryImpl — isolate-hop (`_processOne` via compute)', () {
@@ -222,9 +263,10 @@ void main() {
     // Under `flutter_test`, `compute` either spawns a real isolate (VM
     // platforms) or falls back to synchronous execution (web / no-binding
     // environments). Either way the watermark + encode stages execute and
-    // their output is captured via the `persistOverride` seam — proving the
-    // pipeline returns identical bytes whether the hop runs in a worker or
-    // on the same isolate.
+    // their output is captured via the `persistOverride` (stitch path) or
+    // the FakeBatchPersistAdapter (grid path) seams — proving the pipeline
+    // returns identical bytes whether the hop runs in a worker or on the
+    // same isolate.
 
     ExportRequest watermarkedStitch(
       Uint8List bytes, {
@@ -289,14 +331,12 @@ void main() {
     );
 
     test('grid path also flows through the isolate hop per cell', () async {
+      // Capture the processed bytes via a recording fake adapter so we
+      // can assert that each cell ran through the isolate-callable
+      // `_processOne` and produced a decodable image.
       final cells = [solidPng(r: 10), solidPng(r: 100), solidPng(r: 200)];
-      final captured = <Uint8List>[];
-      final repo = ExportRepositoryImpl(
-        persistOverride: (bytes, fmt, name) async {
-          captured.add(bytes);
-          return SaveSuccess(location: '/tmp/$name');
-        },
-      );
+      final adapter = FakeBatchPersistAdapter();
+      final repo = ExportRepositoryImpl(batchAdapter: adapter);
 
       final req = ExportRequest(
         source: GridExportSource(cells),
@@ -310,11 +350,12 @@ void main() {
 
       final res = await repo.exportAndSave(req);
       expect(res, isA<SaveSuccess>());
-      expect(captured.length, 3);
-      // Each captured cell must round-trip as a decodable image — the
+      expect(adapter.pulledBytes, hasLength(3));
+      // Each pulled cell must round-trip as a decodable image — the
       // isolate hop ran three times without truncating the output.
-      for (final bytes in captured) {
-        final decoded = img.decodeImage(bytes);
+      for (final bytes in adapter.pulledBytes) {
+        expect(bytes, isNotNull);
+        final decoded = img.decodeImage(bytes!);
         expect(decoded, isNotNull);
         expect(decoded!.width, 40);
         expect(decoded.height, 30);
