@@ -51,5 +51,15 @@
 	<string>Fl PiCraft needs access to the camera to capture photos for editing.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Fl PiCraft needs permission to save edited images back to your photo library.</string>
+	<!-- url_launcher (About screen "项目源码" / "问题反馈" entries): iOS 9+ requires
+	     every scheme passed to canLaunchUrl(...) to be declared here, otherwise
+	     UIApplication.canOpenURL returns false. Without this, the About screen's
+	     SnackBar fallback fires on every tap on real devices.
+	     See https://pub.dev/packages/url_launcher#configuration. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+	</array>
 </dict>
 </plist>

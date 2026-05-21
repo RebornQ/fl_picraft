@@ -57,5 +57,21 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- url_launcher (About screen "项目源码" / "问题反馈" entries): Android 11+
+             (API 30+) introduced package-visibility filtering, so canLaunchUrl()
+             returns false for https URLs unless the launching app explicitly
+             declares that it queries VIEW-capable browsers. Without this, the
+             About screen's SnackBar fallback fires on every tap on real devices.
+             See https://pub.dev/packages/url_launcher#configuration. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
     </queries>
 </manifest>

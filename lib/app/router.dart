@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/widgets/app_shell.dart';
+import '../features/about/presentation/screens/about_screen.dart';
 import '../features/export/presentation/screens/export_screen.dart';
 import '../features/grid/presentation/screens/grid_editor_screen.dart';
 import '../features/home/presentation/screens/home_screen.dart';
@@ -88,6 +89,13 @@ final GoRouter appRouter = GoRouter(
               path: '/settings',
               name: 'settings',
               builder: (context, state) => const SettingsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'about',
+                  name: 'about',
+                  builder: (context, state) => const AboutScreen(),
+                ),
+              ],
             ),
           ],
         ),

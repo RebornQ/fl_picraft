@@ -237,6 +237,92 @@ Two conventions when calling `gal.putImageBytes(...)`:
 second produces double-extension filenames that show up in the file picker
 the next time the user imports.
 
+### Android + iOS: `url_launcher` requires platform query declarations for `canLaunchUrl`
+
+**Critical Gotcha**: Modern Android (API 30+) and iOS (9+) both filter the
+set of apps a process is allowed to see. `url_launcher`'s `canLaunchUrl(...)`
+returns **`false`** for any URL whose target app / scheme is **not declared**
+in the platform manifest — even for everyday `https://` links. Worse, the
+failure is silent: `flutter analyze`, widget tests, and unit tests never
+exercise the platform manifest, so it ships green and breaks the first time
+a user taps the link on a real device.
+
+**Symptom**: Every external link tap falls straight through to the failure
+fallback (SnackBar / error dialog) on a release build. Often works on the
+host-side test runner because the platform channel is mocked.
+
+**Required configuration**:
+
+| Platform | File | Required addition |
+|----------|------|-------------------|
+| Android 11+ (API 30+) | `android/app/src/main/AndroidManifest.xml` | `<intent>` entries with `action.VIEW` + `category.BROWSABLE` + the URL scheme(s) you launch, inside the existing `<queries>` block |
+| iOS 9+ | `ios/Runner/Info.plist` | `LSApplicationQueriesSchemes` array containing every URL scheme passed to `canLaunchUrl` (e.g. `https`, `http`, `mailto`, `tel`) |
+
+**Required Android structure** (extend the existing `<queries>` block — do
+not replace the `PROCESS_TEXT` query Flutter ships):
+
+```xml
+<queries>
+    <!-- Flutter default -->
+    <intent>
+        <action android:name="android.intent.action.PROCESS_TEXT"/>
+        <data android:mimeType="text/plain"/>
+    </intent>
+    <!-- url_launcher https/http -->
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https" />
+    </intent>
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="http" />
+    </intent>
+</queries>
+```
+
+**Required iOS structure**:
+
+```xml
+<key>LSApplicationQueriesSchemes</key>
+<array>
+    <string>https</string>
+    <string>http</string>
+</array>
+```
+
+**Why neither tooling check catches it**:
+
+- `flutter analyze` is Dart-only — it never opens the manifest.
+- Widget / unit tests run against the Flutter platform-channel mock, so
+  `canLaunchUrl` returns whatever the test wires up (usually `true`).
+- The bug only surfaces on a release build running on a physical device or
+  a current emulator image.
+
+**Common Mistake**: Declaring only `https`. Some hosts redirect `https://`
+URLs to `http://` (rare for GitHub-class hosts but common for self-hosted
+dashboards / intranet links). The OS walks the redirect on its side, and
+without `http` declared the second hop is silently blocked. Declare both
+schemes unless you are 100% certain you only ever pass one.
+
+**Other plugins with the same trap**: `share_plus` (when sharing to apps
+outside the visible package set), `app_settings` (opening Settings
+deep-links on iOS), any plugin that internally calls `canLaunchUrl` /
+`UIApplication.canOpenURL`.
+
+**Validation**:
+
+- Run the launch flow on a physical Android device on API 30+ AND a
+  physical iOS device on iOS 14+ — release builds, not debug.
+- Tap each entry that opens an external URL; confirm the OS chooser /
+  browser opens.
+- The error fallback should fire **only** when the device truly has no
+  handler installed for the scheme (test by enabling airplane mode or
+  uninstalling all browsers).
+
+**Reference**: <https://pub.dev/packages/url_launcher#configuration>
+
 ### macOS: Edit BOTH entitlements files
 
 **Critical Gotcha**: macOS sandbox entitlements live in two files —
@@ -1048,6 +1134,7 @@ tab is closed. Large exports (e.g. 20-image grid) compound quickly.
 | `URL.createObjectURL` without matching `revokeObjectURL` | Blob bytes leak in browser memory until tab closes; large exports compound | Revoke immediately after `<a>.click()` |
 | `gal.putImageBytes(..., album: '')` | Creates a real album named "" in Photos / Gallery | Normalize empty strings to `null` before the call |
 | `gal.putImageBytes(..., name: 'foo.jpg')` | Saves file as `foo.jpg.jpg` on Android (gal appends extension itself) | Strip the file extension before passing `name` |
+| `url_launcher` used without Android `<queries>` / iOS `LSApplicationQueriesSchemes` | `canLaunchUrl(...)` returns `false` on release builds for every URL whose scheme is undeclared; external links never open, error fallback fires on every tap. **`flutter analyze` and widget tests are silent** — the manifest is not exercised by either, and the platform channel is mocked in tests | Add `<intent>` query (Android) + `LSApplicationQueriesSchemes` array (iOS) per the section "Android + iOS: `url_launcher` requires platform query declarations" |
 
 ---
 

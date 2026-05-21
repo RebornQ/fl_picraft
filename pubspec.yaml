@@ -75,6 +75,26 @@ dependencies:
   # path. Pinned to a version range compatible with Flutter SDK.
   web: ^1.1.0
 
+  # Reads app name / version / build number at runtime (About screen +
+  # showLicensePage header). Picked over hard-coded strings so a build
+  # with `--build-name` / `--build-number` overrides surfaces correctly.
+  package_info_plus: ^8.1.0
+
+  # Opens external URLs (GitHub repo / issues) from the About screen.
+  url_launcher: ^6.3.1
+
+  # Pure-Dart ZIP packaging — used ONLY by the Web batch export adapter
+  # via conditional import topology (`web_zip_composer_web.dart`). Non-web
+  # builds compile the stub (`web_zip_composer_stub.dart`) and never pull
+  # archive code into their final bundle.
+  archive: ^4.0.0
+
+  # Cross-platform path joining for the desktop directory persist adapter
+  # (handles `\` vs `/` separators per platform). Already a transitive
+  # dep via Flutter SDK; declared explicitly so this package self-
+  # documents the direct dependency.
+  path: ^1.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -106,6 +126,13 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Bundled assets shipped inside the application binary. Currently
+  # limited to the About screen's app icon — sourced from
+  # `android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp` so the
+  # in-app branding stays visually aligned with the platform launcher.
+  assets:
+    - assets/icon/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
