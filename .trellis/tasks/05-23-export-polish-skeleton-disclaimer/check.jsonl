@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Lint + test bar for the diff (flutter analyze clean, dart format clean, widget tests pass for the updated copy assertions)"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify the widget changes (PreviewSkeleton copy, _ExportBody re-order) still respect MD3 + widget patterns described here"}

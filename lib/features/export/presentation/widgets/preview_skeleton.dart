@@ -10,8 +10,8 @@ import 'package:flutter/material.dart';
 ///
 /// 文案按 [staleBytes] 是否非空决定：
 ///
-/// * **首次加载** (`staleBytes == null`) — "加载中..."
-/// * **刷新** (`staleBytes != null`) — "刷新中..."
+/// * **首次加载** (`staleBytes == null`) — "生成中..."
+/// * **刷新** (`staleBytes != null`) — "重新生成中..."
 ///
 /// PRD 决策路径（参见父任务 `prd.md` §Decision §D4 (revised twice
 /// 2026-05-21)）：
@@ -27,8 +27,8 @@ import 'package:flutter/material.dart';
 ///   `currentExportSourceKindProvider` 不再被本 widget watch，
 ///   减少了一次 cross-feature provider 依赖
 ///
-/// [staleBytes] 字段仍然保留：它驱动文案差异（"加载中..." vs
-/// "刷新中..."），且 `PreviewLoading.staleBytes` 在 Subtask A 的 controller
+/// [staleBytes] 字段仍然保留：它驱动文案差异（"生成中..." vs
+/// "重新生成中..."），且 `PreviewLoading.staleBytes` 在 Subtask A 的 controller
 /// 中保留不删，给未来 UX 实验（例如 picture-in-picture micro stale
 /// thumbnail）保留扩展空间。
 ///
@@ -43,14 +43,14 @@ class PreviewSkeleton extends StatelessWidget {
 
   /// Previously-rendered bytes, when the loading state was reached from
   /// `PreviewReady`. `null` on first entry. Only used to choose the
-  /// "加载中..." vs "刷新中..." copy — the visual body is identical in
+  /// "生成中..." vs "重新生成中..." copy — the visual body is identical in
   /// both cases (see class-level doc-comment for the rationale).
   final List<Uint8List>? staleBytes;
 
   @override
   Widget build(BuildContext context) {
     final hasStale = staleBytes != null && staleBytes!.isNotEmpty;
-    final label = hasStale ? '刷新中...' : '加载中...';
+    final label = hasStale ? '重新生成中...' : '生成中...';
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 

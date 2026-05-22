@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Touching two existing widgets (PreviewSkeleton, _ExportBody) — Material Design 3 / props / a11y conventions still apply when changing copy and child order"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "_ExportBody hosts the compact-vs-medium+ branching for FormatQuality/Watermark; moving SaveDisclaimer to the top must not break the existing window-size-class layout rules"}

@@ -107,7 +107,7 @@ void main() {
     });
 
     testWidgets(
-      'PreviewLoading(staleBytes: null) shows the spinner + "加载中..." copy '
+      'PreviewLoading(staleBytes: null) shows the spinner + "生成中..." copy '
       '(no editor canvas dispatch, per PRD §D4 revised twice)',
       (tester) async {
         // Per the parent task's PRD §Decision §D4 (revised twice
@@ -126,7 +126,7 @@ void main() {
 
         expect(find.byType(PreviewSkeleton), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
-        expect(find.text('加载中...'), findsOneWidget);
+        expect(find.text('生成中...'), findsOneWidget);
         // Editor canvases MUST NOT mount inside the skeleton anymore.
         expect(find.byType(StitchPreviewCanvas), findsNothing);
         expect(find.byType(GridPreviewCanvas), findsNothing);
@@ -134,7 +134,7 @@ void main() {
     );
 
     testWidgets(
-      'PreviewLoading(staleBytes: [bytes]) shows the spinner + "刷新中..." '
+      'PreviewLoading(staleBytes: [bytes]) shows the spinner + "重新生成中..." '
       'copy (stale bytes never paint, no editor canvas dispatch)',
       (tester) async {
         // Same iteration-2 contract as the staleBytes-null case: the
@@ -151,7 +151,7 @@ void main() {
 
         expect(find.byType(PreviewSkeleton), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
-        expect(find.text('刷新中...'), findsOneWidget);
+        expect(find.text('重新生成中...'), findsOneWidget);
         // Stale bytes must NOT surface as an [Image] widget.
         expect(find.byType(Image), findsNothing);
         // Editor canvases MUST NOT mount inside the skeleton anymore.

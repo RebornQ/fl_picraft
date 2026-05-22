@@ -22,8 +22,8 @@ import '../widgets/watermark_card.dart';
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact    | single column: Preview → FormatQuality → Watermark → Disclaimer; Save CTA floats as a Scaffold FAB |
-/// | medium     | Preview spans the full row; FormatQuality + Watermark share a row; Disclaimer spans the full row; Save CTA floats as a Scaffold FAB |
+/// | compact    | single column: Disclaimer → Preview → FormatQuality → Watermark; Save CTA floats as a Scaffold FAB |
+/// | medium     | Disclaimer spans the full row; Preview spans the full row; FormatQuality + Watermark share a row; Save CTA floats as a Scaffold FAB |
 /// | expanded / large | same as medium — body fills the available width (no outer cap); Save CTA floats as a Scaffold FAB |
 ///
 /// **Why a bare `Scaffold` (no shell-owned bottom nav)**: per
@@ -113,9 +113,15 @@ class _ExportBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Preview card spans the full row on every size class — per
-          // the parent task's decision 4 (顶部跨行), the user sees the
-          // current export's rendered preview before any settings.
+          // Disclaimer sits at the top so the local-only privacy
+          // promise is read before the user sees any preview / picks
+          // any settings. This is a deliberate departure from the
+          // mockup (`_4_导出页面/code.html` lines 210–215 places the
+          // disclaimer at the bottom) — surfacing the privacy promise
+          // first builds trust with new users before they engage with
+          // the export flow.
+          const SaveDisclaimer(),
+          const SizedBox(height: 16),
           const _SectionCard(child: PreviewCard()),
           const SizedBox(height: 16),
           if (isCompact) ...const [
@@ -139,14 +145,11 @@ class _ExportBody extends StatelessWidget {
                 Expanded(child: _SectionCard(child: WatermarkCard())),
               ],
             ),
-          const SizedBox(height: 16),
-          // Disclaimer sits at the very bottom of the body. The Save
-          // CTA lives in the Scaffold's `floatingActionButton` slot
-          // (see [ExportScreen]); the trailing 88dp spacer below
-          // reserves clearance so the FAB doesn't visually cover the
-          // disclaimer when the user scrolls to the bottom
+          // Trailing 88dp spacer reserves clearance so the endFloat
+          // FAB doesn't visually cover the last settings card
           // (~56dp FAB + 16dp endFloat margin + 16dp breathing room).
-          const SaveDisclaimer(),
+          // The Save CTA itself lives in the Scaffold's
+          // `floatingActionButton` slot (see [ExportScreen]).
           const SizedBox(height: 88),
         ],
       ),
