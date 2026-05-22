@@ -1,4 +1,4 @@
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "ST4 check 验证 flutter test 全绿 / 重写后用例数与原 5 group ~20 用例等价 / 注释语言一致"}
 {"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "ST4 check 验证测试断言的 widget tree 路径与新 ExtendedImage / ExtendedImageGesturePageView 结构正确对齐"}
-{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "ST4 check 验证 Superseded by ADR-0002 注脚已写入、且 ADR-0002 文件存在并覆盖 Decision (ADR-lite) 完整三段"}
-{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/prd.md", "reason": "ST4 check 须验证 DoD 中所有项已满足（Tests / Lint / typecheck / CI green / ADR / 注释清理 / Rollout 风险评估）"}
+{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "ST4 check 验证 Superseded by ADR-0002 注脚已写入 (日期为 ST4 实际执行当天)、且 ADR-0002 文件存在并覆盖 Decision (ADR-lite) 完整三段 (Context / Decision / Consequences)，**Consequences 段需含 Post-ST2 Revision 的 sub-bullet** 记录调用方保留 showDialog 的反向决策"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/prd.md", "reason": "ST4 check 须验证 DoD 中所有项已满足（Tests / Lint / typecheck / CI green / ADR / 注释清理 / Rollout 风险评估）；并核对 Post-ST2 Revision 节内容是否完整落入 ADR-0002"}
