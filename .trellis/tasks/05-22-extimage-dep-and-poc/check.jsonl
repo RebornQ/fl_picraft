@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "ST1 check 须验证 extended_image: ^10.0.1 在 pubspec.lock 中真实解算成功；flutter pub deps 无新冲突；非 web/mobile 平台不需要额外 entitlements 修改"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-overview.md", "reason": "ST1 PoC 结果须能 retire 3 个红旗：#736 / #761 / 桌面 mouse drag；若任一红旗复现，PoC 必须明确记录并触发 brainstorm 切回 Approach B"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-gesture-and-slide.md", "reason": "ST1 PoC 验证 drag-to-dismiss 自动 zoomed 屏蔽机制是否在我们用例下生效（gesture.dart L347-389）"}

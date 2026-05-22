@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "ST2 check 验证 flutter analyze 0 issue / dart format 0 file / 重写后 widget 树注释清理干净（无残留 _ImmersivePageScrollPhysics / M-α 等历史误导）"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "ST2 check 验证桌面 mouse drag 仍可切页 + chrome 隐藏后关闭按钮仍可点（IgnorePointer 配合）"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "ST2 check 验证 ExtendedImageState / GestureConfig 等强类型 API 使用，确保无 dynamic / late 误用"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/prd.md", "reason": "ST2 check 须逐条核对 R3 / R3-exception / DoD 全部满足；特别确认 R3-exception (3)(4)(5) 删除清单（M-α SizedBox / _currentZoomed / _PageGestureState / _ImmersivePageScrollPhysics）已真正删除"}

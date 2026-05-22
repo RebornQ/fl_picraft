@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "本任务核心动作是引入 extended_image: ^10.0.1 新依赖；该 spec 含 'Verify lock-graph compatibility' / 'Approved package choices' 等关键约束，所有推翻 ADR-0001 引入第三方包的决策必须先满足"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "已沉淀的 3 个 Flutter Gotcha 与本任务相关：桌面 PageView 鼠标拖动 / BoxFit.contain 渲染矩形 / 手势竞技场协调（迁移到 ExtendedImageGesturePageView 仍需保留 _ImmersiveScrollBehavior dragDevices 注入）"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter_lints / dart format / flutter analyze / test 约束在 Phase 2/3 验收期反复检查"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "drag-to-dismiss / chrome auto-hide 的本地状态选用决策（ValueNotifier vs Riverpod），ADR-0001 已记录 'physics state 用 ValueNotifier'，新方案需重新评估"}
+{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "本任务推翻的 ADR；Decision (ADR-lite) 段已记录推翻理由，ST4 须在该文件加 Superseded by ADR-0002 注脚"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-overview.md", "reason": "extended_image 10.0.1 版本兼容性 + 锁图分析 + 维护信号 + MIT license 的完整背书材料"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-gallery-api.md", "reason": "ExtendedImageGesturePageView 原生缩放↔切页协调 + GestureConfig(inPageView: true) 关键开关 + 桌面 mouse drag 未官方测试警告"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-gesture-and-slide.md", "reason": "SlidePageRoute API 命名纠正 + ExtendedImageSlidePage 实际用法 + spring-back 曲线降级说明 + 双击 zoom 需 caller AnimationController + drag-to-dismiss 自动 zoomed 屏蔽机制"}

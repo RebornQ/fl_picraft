@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/dependencies-and-platforms.md", "reason": "Phase 3 check 须验证 extended_image: ^10.0.1 lock-graph 无冲突、版本约束符合 spec 中 'Verify lock-graph compatibility' 规约"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Phase 3 check 须验证 flutter analyze 0 issue / dart format 0 file / flutter test 全绿"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Phase 3 check 须验证桌面 mouse drag 仍可切页（保留 _ImmersiveScrollBehavior 注入）+ M-α SizedBox 删除后 BoxFit.contain 渲染等效"}
+{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "Phase 3 check 须验证 Superseded by ADR-0002 注脚已写入；同时确认新 ADR-0002 内容覆盖 Decision (ADR-lite) 所有要点（推翻动机 / 代价收益 / 维护风险）"}

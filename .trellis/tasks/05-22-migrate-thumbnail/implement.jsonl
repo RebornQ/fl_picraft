@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "ST3 重写 PreviewThumbnail 时保持 BoxFit.contain + gaplessPlayback 语义（已沉淀 Gotcha）+ Material InkWell + ClipRRect 视觉一致"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "ST3 编码期 const / final / dart format 等约束"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/prd.md", "reason": "R4 / R6 是 ST3 的完整契约：ExtendedImage.memory(mode: none) + 对外 API 不变 + _openFullScreen 从 showDialog 迁到 Navigator.push(PageRouteBuilder(opaque: false, ...))"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-overview.md", "reason": "ExtendedImage 基础 API + .memory 用法 + 与 BoxFit.contain 配合的约束"}

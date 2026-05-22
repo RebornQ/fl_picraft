@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "ST4 重写 783 行测试时必须遵守 flutter_test 约定 + group / testWidgets 结构 + 注释语言一致"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "ST4 重写测试时使用 ExtendedImage / ExtendedImageGesturePageView 的断言模式（find.byType + tester.state<ExtendedImageGestureState>），保留原 5 个 group ~20 个用例的 AC 等价覆盖"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "ST4 边缘 case 测试（drag<100dp snap back / fling>800dp/s dismiss / zoomed 单指 pan 不触发 dismiss）必须断言确认错误状态不传播 / 不抛 unhandled exception"}
+{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "ST4 须在该文件加 'Status: Superseded by ADR-0002 (2026-05-22)' 注脚；不要直接删除文件，保留作为历史"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/prd.md", "reason": "ST4 写新 ADR-0002 的素材完全来自父 PRD 的 Decision (ADR-lite) 段（Context / Decision / Consequences 三段式）+ Risks 段（5 个 R-risk 条目转 mitigation 历史记录）"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-gallery-api.md", "reason": "ST4 重写测试需查询 ExtendedImageGesturePageView 的 widget tree 结构（如何用 find.byType(ExtendedImage) + ExtendedImageGestureState.gestureDetails.totalScale 替代原 find.byType(InteractiveViewer) + iv.transformationController.value.getMaxScaleOnAxis()）"}
+{"file": ".trellis/tasks/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-gesture-and-slide.md", "reason": "ST4 重写 drag-to-dismiss 测试需了解 ExtendedImageSlidePage 在 widget tree 中的位置、如何注入 slideEndHandler 模拟 100dp 阈值与 800dp/s fling"}
