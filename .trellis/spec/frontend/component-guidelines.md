@@ -1314,6 +1314,184 @@ GestureDetector(
 
 ---
 
+### Pattern + Gotcha: `extended_image` 三件套多图沉浸式画廊
+
+> 沉淀自 `05-22-migrate-fullscreen-dialog` (ST2 of brainstorm
+> `05-22-brainstorm-fullscreen-preview-extended-image`)：884 行自实现
+> `InteractiveViewer + PageView + 自定义 ScrollPhysics` 替换为 429 行
+> 第三方包三件套。ADR-0001 因此被 Superseded by ADR-0002。
+
+**Problem**: 多图沉浸式预览（iOS Photos / Google Photos 风格）需要同时满足:
+- 单图: pinch / pan / double-tap zoom
+- 多图: 横向 fling 切页
+- 联动: 缩放到边缘后水平拖动自然 bleed 到下一页
+- drag-to-dismiss: 未缩放时下拉关闭，缩放时该手势被屏蔽（pan 接管）
+
+Flutter 原生 `InteractiveViewer + PageView` 不能开箱完成"缩放↔切页"协调；
+自实现需要 (a) 自定义 `PageScrollPhysics`、(b) 上报当前页 zoom + edge 状态、
+(c) 外层 GestureDetector callback null/non-null 切换以避免手势竞技场冲突。
+~800 行实现成本 + 持续维护负担。
+
+**Solution**: 用 `extended_image: ^10.0.1` 的三件套组合（每层职责正交）:
+
+```dart
+Dialog.fullscreen(
+  backgroundColor: Colors.transparent,
+  child: ExtendedImageSlidePage(            // ① 外层 drag-to-dismiss
+    slideAxis: SlideAxis.vertical,
+    slideType: SlideType.onlyImage,
+    slideEndHandler: (Offset offset, {Size? pageSize, ScaleEndDetails? details}) {
+      final dy = offset.dy.abs();
+      final flingV = details?.velocity.pixelsPerSecond.dy.abs() ?? 0;
+      return dy >= 100 || flingV >= 800;    // 命中阈值 → dismiss
+    },
+    slidePageBackgroundHandler: (Offset offset, Size pageSize) {
+      final frac = (offset.dy.abs() / 100).clamp(0.0, 1.0);
+      return Colors.black.withValues(alpha: (1.0 - frac * 0.6).clamp(0.4, 1.0));
+    },
+    child: ScrollConfiguration(             // 桌面 mouse drag 保险（见上一节）
+      behavior: const _ImmersiveScrollBehavior(),
+      child: ExtendedImageGesturePageView.builder(  // ② 中层多图画廊
+        controller: ExtendedPageController(initialPage: initialIndex),
+        onPageChanged: _onPageChanged,
+        itemCount: bytes.length,
+        itemBuilder: (_, i) => ExtendedImage.memory(
+          bytes[i],
+          fit: BoxFit.contain,
+          mode: ExtendedImageMode.gesture,  // ③ 叶子单页手势
+          enableSlideOutPage: true,         // CRITICAL — 见 Gotcha-1
+          onDoubleTap: _handleDoubleTap,    // 见 Pattern-B
+          initGestureConfigHandler: (state) => GestureConfig(
+            inPageView: true,               // CRITICAL — 见 Gotcha-2
+            minScale: 1.0,
+            maxScale: 4.0,
+            animationMinScale: 0.8,
+            animationMaxScale: 4.4,
+            initialAlignment: InitialAlignment.center,
+          ),
+        ),
+      ),
+    ),
+  ),
+)
+```
+
+**Why**: ext 把所有手势协调藏在包内 (`gesture.dart:347-389` 在 zoomed 时
+自动屏蔽 drag-to-dismiss 路由；`gesture.dart:396-431` + `utils.dart:350-369`
+在 zoomed + 已触边时把剩余 delta 灌回 PageView)。我们不再需要维护
+`{zoomed, atLeftEdge, atRightEdge}` 状态机、外层垂直手势 callback
+null/non-null 切换、`TransformationController` 监听 / 边界计算等约 ~500 行。
+
+#### Gotcha-1: `enableSlideOutPage: true` 必须在 `ExtendedImage` 上设置
+
+**Symptom**: drag-to-dismiss 触发了 (route pop)，但下拉过程中 `slidePageBackgroundHandler`
+返回的 alpha 没有联动到背景；或者图片在 drag 过程中不下移。
+
+**Cause**: `ExtendedImageSlidePage` 与内层 `ExtendedImage` 通过 InheritedWidget
+通信，`enableSlideOutPage: true` 是叶子 widget 的订阅开关。漏写则 SlidePage
+更新 state 时叶子收不到通知 → 背景 / 位移不更新。
+
+**Fix**: 三件套用法时 `ExtendedImage.memory(..., enableSlideOutPage: true)` 必填。
+
+#### Gotcha-2: `GestureConfig(inPageView: true)` 必须设置
+
+**Symptom**: 多图模式下，缩放到边缘后水平拖动**不会**切到下一页；要么图片
+继续 pan 出边界、要么手势被 ExtendedImageGesturePageView 抢走但页面不动。
+
+**Cause**: ExtendedImage 通过 `findAncestorStateOfType<ExtendedImageGesturePageViewState>`
+注册到外层 PageView (`gesture.dart:140`)，仅在 `inPageView == true` 时才执行
+注册。漏写则图片与 PageView 间没有协调通道，"缩放到边切页"行为消失。
+
+**Fix**: 用 `ExtendedImageGesturePageView` 时，叶子的 `GestureConfig` 必须
+`inPageView: true`。**单图场景**（非 PageView 包裹）下保持 `false`（默认）即可。
+
+#### Pattern-A: `Dialog.fullscreen + ExtendedImageSlidePage` 双层 wrapper 兼容 `showDialog`
+
+`ExtendedImageSlidePage` 设计上配合透明 PageRoute（如
+`Navigator.push(PageRouteBuilder(opaque: false, barrierColor: transparent, ...))`），
+但项目里可能仍有 `showDialog<void>(builder: ...)` 调用方未迁移。**保留外层
+`Dialog.fullscreen(backgroundColor: Colors.transparent)` 兼容两种调用**：
+
+- `showDialog` 调用方：Dialog.fullscreen 提供 fullscreen layout；
+  ExtendedImageSlidePage 提供背景 alpha ramp + drag-to-dismiss。
+- `Navigator.push(PageRouteBuilder(opaque: false))` 调用方：透明 PageRoute
+  让 SlidePage backdrop 直接可见；Dialog.fullscreen 仅做 sizing 容器，无视觉
+  副作用（其 backgroundColor 已设为 transparent）。
+
+迁移调用方时可以平滑过渡（先迁 widget 内部 → 再迁调用方），不必一步到位。
+
+#### Pattern-B: 双击 zoom 到 2× 需 caller-owned `AnimationController`
+
+**Problem**: `ExtendedImage` 内置 `state.handleDoubleTap()` 默认行为是
+**reset 到 `initialScale`**（即缩到 1.0），不是切换到 2.0×。要实现"双击放大到
+2× / 再双击复位"必须 caller 自己驱动 scale 动画。
+
+**Solution**: 每个 `_PreviewPage` 持自己的 `AnimationController` + `Animation<double>`，
+在 `onDoubleTap` 回调里反复调 `state.handleDoubleTap(scale, doubleTapPosition)`:
+
+```dart
+class _PreviewPage extends StatefulWidget { ... }
+
+class _PreviewPageState extends State<_PreviewPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _doubleTapAc;
+  Animation<double>? _scaleAnim;
+  ExtendedImageGestureState? _gestureState;
+  TapDownDetails? _lastDownDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _doubleTapAc = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    )..addListener(() {
+      final s = _gestureState;
+      final a = _scaleAnim;
+      if (s == null || a == null || _lastDownDetails == null) return;
+      s.handleDoubleTap(scale: a.value, doubleTapPosition: _lastDownDetails!.globalPosition);
+    });
+  }
+
+  void _handleDoubleTap(ExtendedImageGestureState state) {
+    _gestureState = state;
+    final current = state.gestureDetails?.totalScale ?? 1.0;
+    final begin = current;
+    final end = current > 1.01 ? 1.0 : 2.0; // toggle
+    _scaleAnim = Tween<double>(begin: begin, end: end)
+        .animate(CurvedAnimation(parent: _doubleTapAc, curve: Curves.easeOutCubic));
+    _doubleTapAc..reset()..forward();
+  }
+  // ...
+}
+```
+
+**Why**: ext 把双击的语义留给调用方决定（reset / toggle / continuous zoom 等
+都合理）；提供 `handleDoubleTap(scale, doubleTapPosition)` 这样一个底层 API
+让调用方按需驱动。**焦点 clamping 是免费的** —— 当 `doubleTapPosition` 落在
+缩放后图片可见区之外，ext 内部自动 fallback 到图像中心（不再需要自实现
+`_resolveFocalPoint` letterbox 降级）。
+
+#### When NOT to use this pattern
+
+- 单图、无需 drag-to-dismiss、只需 zoom/pan：直接 `InteractiveViewer` 仍然
+  是更轻量的选择。
+- 需要旋转 / 裁剪 / 滤镜等 `ExtendedImageMode.editor` 能力：本 pattern 不覆盖
+  editor mode 的 widget tree。
+- 网络图加载 + 缓存：`ExtendedImage.network` 加载 + `loadStateChanged` 自定义
+  占位是另一个独立用法，不在本 pattern 范围内。
+
+#### References
+
+- ADR-0001 (Superseded by ADR-0002): `docs/adr/0001-immersive-page-scroll-physics.md`
+- ADR-0002 (Current): `docs/adr/0002-extended-image-fullscreen-preview.md` (ST4)
+- 参考实现: `lib/features/export/presentation/widgets/preview_full_screen_dialog.dart`
+- 历史 PoC（最终 ST4 cleanup）: `lib/_poc/extended_image_poc.dart`
+- 研究档案: `.trellis/tasks/archive/2026-05/05-22-brainstorm-fullscreen-preview-extended-image/research/extended_image-{overview,gallery-api,gesture-and-slide}.md`
+  （任务 archive 后路径会变 — 用 `git log` 或 `find .trellis/tasks/archive -name "extended_image-*.md"` 定位）
+
+---
+
 ## Best Practices
 
 1. **Always use `const`** when possible for performance
