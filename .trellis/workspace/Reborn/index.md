@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 55
+- **Total Sessions**: 56
 - **Last Active**: 2026-05-22
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1861 | Active |
+| `journal-1.md` | ~1894 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 56 | 2026-05-22 | 全屏预览 pan 边界限制 + 居中 | `e0c1f1d` | `main` |
 | 55 | 2026-05-22 | 全屏预览升级为沉浸式照片查看器 | `a81d9bc` | `main` |
 | 54 | 2026-05-22 | 多图批量一键导出：BatchPersistAdapter 三端 pull-based 流式落地 | `169703a`, `a16284d`, `97e4128`, `84e2deb` | `main` |
 | 53 | 2026-05-21 | 新增关于页面（独立 feature + url_launcher manifest spec） | `513d677` | `main` |

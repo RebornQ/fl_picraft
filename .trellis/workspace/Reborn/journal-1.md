@@ -1859,3 +1859,36 @@ Subtask B of 05-20-export-page-preview 完成，父任务 2/2 done 一并 archiv
 ### Next Steps
 
 - None - task complete
+
+
+## Session 56: 全屏预览 pan 边界限制 + 居中
+
+**Date**: 2026-05-22
+**Task**: 全屏预览 pan 边界限制 + 居中
+**Branch**: `main`
+
+### Summary
+
+PreviewFullScreenDialog 的 InteractiveViewer 配置改为 boundaryMargin: EdgeInsets.zero 配合 Center(SizedBox(renderedSize, Image(fit: fill))) 的 child 结构，让用户无法把图片完全 pan 出 viewport。最终采用 M-α 方案（constrained: true 默认 + Center 居中 + boundaryMargin: zero），视觉等价主流相册的图片像素边缘语义（dialog 黑底 + letterbox 黑色 → 用户感知不到差异）。中途曾尝试 L-β 严格方案（constrained: false + SizedBox(renderedSize) + alignment: center + boundaryMargin: zero）但 Flutter 源码 interactive_viewer.dart:1130-1138 硬编码 OverflowBox(alignment: Alignment.topLeft) 导致居中丢失，被回退。ADR-0001 Compatibility Note 重写为 M-α 三件套 + Why M-α not L-β 子段引用 Flutter 源码行号。quality-guidelines.md 新增 testing pattern：widget test 中用 tester.runAsync + precacheImage 触发 Image decode（FakeAsync zone 不驱动 ui.instantiateImageCodec 回调，pumpAndSettle 永远等不到），避免测试静默走 fallback 分支。测试 27/27，全项目 548/548。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e0c1f1d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
