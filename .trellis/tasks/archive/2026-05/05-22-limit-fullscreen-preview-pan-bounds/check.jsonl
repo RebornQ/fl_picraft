@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查 lint / test / const 等编码约束"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "检查是否与已沉淀的 3 个 Gotcha 一致（特别是 BoxFit.contain 渲染矩形那一段）"}
+{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "检查 maxTx 公式与新 child 结构的兼容性是否被验证"}

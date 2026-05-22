@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "上一任务沉淀的 3 个 Flutter Gotcha 与本任务相关（尤其是 'BoxFit.contain 渲染矩形' 那一段），实施期 sub-agent 需要参考已有约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "flutter_lints / const / dart format 等编码约束保持一致"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "applyBoxFit / Size / Matrix4 等强类型 API 使用，避免 dynamic 与 null 误用"}
+{"file": "docs/adr/0001-immersive-page-scroll-physics.md", "reason": "边缘弹切的 maxTx 公式使用 renderedSize；本次改动需保证此公式与新 child 结构兼容"}
