@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../_poc/extended_image_poc.dart';
 import '../../../../core/constants/breakpoints.dart';
 import '../widgets/feature_card.dart';
 import '../widgets/tips_banner.dart';
@@ -57,20 +55,6 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         actions: [
-          // TODO(ST4): remove after migration completes. Debug-only
-          // entry for the `extended_image` risk-gate PoC (task
-          // `05-22-extimage-dep-and-poc`). The icon is invisible to
-          // release builds (`kDebugMode` is `const false` after tree
-          // shake) so production users never see this affordance.
-          if (kDebugMode)
-            Padding(
-              padding: const EdgeInsets.all(4),
-              child: IconButton(
-                icon: const Icon(Icons.science_outlined),
-                tooltip: 'extended_image PoC（仅调试）',
-                onPressed: () => ExtendedImagePoc.open(context),
-              ),
-            ),
           Padding(
             padding: EdgeInsets.all(4),
             child: IconButton(

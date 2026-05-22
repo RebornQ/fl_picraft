@@ -1,7 +1,7 @@
 # ADR-0001: Immersive page scroll physics for the fullscreen preview gallery
 
 **Date**: 2026-05-22
-**Status**: Accepted
+**Status**: Superseded by [ADR-0002](./0002-extended-image-fullscreen-preview.md) (2026-05-23)
 **Context task**: `.trellis/tasks/05-22-export-preview-fullscreen-immersive/`
 
 ---
@@ -147,3 +147,28 @@ Therefore there is no `constrained: false` configuration that keeps the image ce
 * Pan-limit follow-up: `.trellis/tasks/05-22-limit-fullscreen-preview-pan-bounds/prd.md`
 * Inspiration: `photo_view_gallery` package internals (https://pub.dev/packages/photo_view)
 * Flutter ScrollPhysics docs: https://api.flutter.dev/flutter/widgets/ScrollPhysics-class.html
+
+## Superseded by ADR-0002 (2026-05-23)
+
+Real-world maintenance of the self-rolled `_ImmersivePageScrollPhysics` exposed two issues that
+the original ADR-0001 "for one screen" estimate did not anticipate:
+
+1. The `{atLeftEdge, atRightEdge}` edge-detection plus floating-point tolerance left a
+   reproducible "drag continues mid-flight but page does not commit" gap under specific
+   gesture sequences (real users noticed; a fully-loaded reviewer could reproduce it on iOS).
+2. The implementation accumulated to ~884 lines of widget code + ~783 lines of widget tests,
+   plus a per-page `TransformationController` listener that fed a `ValueNotifier<PageState>`
+   that the custom `ScrollPhysics` then read from. The plumbing was a maintenance tax on
+   every subsequent task that touched the fullscreen preview (drag-to-dismiss + AppBar
+   chrome + limit-pan-bounds all had to thread state through the same notifier).
+
+The brainstorm task `05-22-brainstorm-fullscreen-preview-extended-image` re-evaluated the
+"no third-party gallery package" stance under the maintenance-cost lens and adopted
+`extended_image: ^10.0.1`'s three-piece kit
+(`ExtendedImageSlidePage` + `ExtendedImageGesturePageView.builder` + `ExtendedImage.memory(mode:
+gesture)`) instead. The decision is recorded in
+[ADR-0002](./0002-extended-image-fullscreen-preview.md).
+
+This ADR-0001 is retained as historical record of the constraints that drove the
+self-rolled approach. Future work that touches the fullscreen preview should consult
+ADR-0002 first.

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:extended_image/extended_image.dart';
 import 'package:fl_picraft/features/export/presentation/widgets/preview_full_screen_dialog.dart';
 import 'package:fl_picraft/features/export/presentation/widgets/preview_thumbnail.dart';
 import 'package:flutter/gestures.dart';
@@ -38,6 +39,68 @@ Widget _multiDialogHarness(List<Uint8List> bytes, {int initialIndex = 0}) {
   );
 }
 
+/// Returns the live [ExtendedImageGestureState] for the leaf gesture
+/// widget rendered inside the dialog. Used to read the gesture config /
+/// gesture details / pointer-down position from outside the package's
+/// private internals.
+///
+/// Pin lookup via [ExtendedImageGesture] (not [ExtendedImage]) because
+/// the gesture state lives on the inner [ExtendedImageGesture] widget
+/// — `ExtendedImage(mode: ExtendedImageMode.gesture)` wraps an
+/// `ExtendedImageGesture` whose `State` is `ExtendedImageGestureState`.
+ExtendedImageGestureState _gestureState(WidgetTester tester) {
+  final finder = find.byType(ExtendedImageGesture);
+  return tester.state<ExtendedImageGestureState>(finder.first);
+}
+
+/// Force the [MemoryImage] decode to complete inside the real event
+/// loop. `pumpAndSettle` runs inside `FakeAsync` and cannot drain the
+/// `dart:ui` codec callback that `MemoryImage.resolve` schedules — so
+/// without this primer the `ImageStreamListener` never fires and any
+/// assertion that depends on a resolved intrinsic size silently runs
+/// against the pre-decode fallback path.
+///
+/// See the project spec
+/// `.trellis/spec/frontend/quality-guidelines.md` →
+/// "Pattern: Force image decode in widget tests via
+/// `tester.runAsync` + `precacheImage`".
+Future<void> _primeImageDecode(WidgetTester tester, Uint8List bytes) async {
+  await tester.runAsync(() async {
+    final element = tester.element(find.byType(ExtendedImage).first);
+    await precacheImage(MemoryImage(bytes), element);
+  });
+  await tester.pumpAndSettle();
+}
+
+/// Drive a controlled drag inside the test's gesture arena. Builds the
+/// drag out of small `moveBy` increments with a [tester.pump] between
+/// each so the package's gesture recognizers can process the events as
+/// they arrive (which mirrors a real user dragging at ~60 fps).
+///
+/// `tester.drag` synthesises a sequence of pointer move events too, but
+/// in some `extended_image` configurations (a translucent outer
+/// GestureDetector wraps the inner ExtendedImageGesture's
+/// ScaleGestureRecognizer) the arena resolution times out before the
+/// inner recognizer claims the drag, leaving the gesture state's offset
+/// unchanged. Using a manual TestGesture with explicit pumps gives the
+/// arena enough time to resolve.
+Future<void> _dragFromBy(
+  WidgetTester tester,
+  Offset from,
+  Offset totalDelta, {
+  int steps = 16,
+}) async {
+  final stepDelta = totalDelta / steps.toDouble();
+  final gesture = await tester.startGesture(from);
+  await tester.pump();
+  for (var i = 0; i < steps; i++) {
+    await gesture.moveBy(stepDelta);
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await gesture.up();
+  await tester.pump();
+}
+
 void main() {
   group('PreviewFullScreenDialog', () {
     testWidgets('tap on PreviewThumbnail opens the dialog', (tester) async {
@@ -53,235 +116,169 @@ void main() {
       expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
     });
 
-    testWidgets('dialog contains an InteractiveViewer', (tester) async {
-      await tester.pumpWidget(_dialogHarness(_smallPng()));
-      await tester.pumpAndSettle();
+    testWidgets('dialog gesture config exposes minScale=1.0 and maxScale=4.0', (
+      tester,
+    ) async {
+      // Rewritten from the legacy "dialog contains an InteractiveViewer"
+      // assertion. The new tree uses extended_image's gesture stack:
+      // the bounds (min/max scale) are configured via the
+      // `initGestureConfigHandler` that runs once the image stream
+      // resolves. We read them off the live `ExtendedImageGestureState`
+      // exposed by the inner `ExtendedImageGesture` widget.
+      final bytes = _smallPng();
+      await tester.pumpWidget(_dialogHarness(bytes));
+      await _primeImageDecode(tester, bytes);
 
-      expect(find.byType(InteractiveViewer), findsOneWidget);
-      final iv = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      expect(iv.minScale, 1.0);
-      expect(iv.maxScale, 4.0);
+      expect(find.byType(ExtendedImage), findsOneWidget);
+      final config = _gestureState(tester).imageGestureConfig;
+      expect(config, isNotNull);
+      expect(config!.minScale, 1.0);
+      expect(config.maxScale, kMaxScale);
     });
 
     testWidgets(
-      'InteractiveViewer.boundaryMargin is EdgeInsets.zero so pan is '
-      'clamped to image-pixel bounds (see 05-22-limit-fullscreen-preview-pan-bounds)',
+      'after a double-tap zoom + reset, the gesture state returns to identity '
+      '(extended_image clamps the destination rect to a centred BoxFit.contain '
+      'rectangle inside the viewport; at identity offset is zero and totalScale '
+      'is 1.0 so the painted image is necessarily centred)',
       (tester) async {
-        await tester.pumpWidget(_dialogHarness(_smallPng()));
-        await tester.pumpAndSettle();
+        // Use a deliberately non-square image so the BoxFit.contain
+        // destination differs from the viewport: a 320×8 PNG in the
+        // default 800×600 testWidgets viewport renders as a 800×20
+        // letterboxed rect, NOT the full viewport. This makes the
+        // post-reset "image is centred" claim non-trivial — under any
+        // L-β-style top-left anchoring it would land at (0, 0, 800,
+        // 20) instead.
+        final bytes = _smallPng(width: 320, height: 8);
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
 
-        final iv = tester.widget<InteractiveViewer>(
-          find.byType(InteractiveViewer),
+        // Drive a double-tap (zoom in to 2×) then a second double-tap
+        // (zoom back out to 1.0×) and advance the controller through
+        // both animations.
+        final state = _gestureState(tester);
+        final viewerCenter = tester.getCenter(find.byType(ExtendedImage));
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(kZoomAnimationDuration);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // Second double-tap → animate back to identity.
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(kZoomAnimationDuration);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final details = state.gestureDetails;
+        expect(details, isNotNull);
+        expect(
+          details!.totalScale,
+          closeTo(1.0, 0.001),
+          reason:
+              'After zoom + reset, totalScale must be back at identity. '
+              'Got ${details.totalScale}.',
         );
-        expect(iv.boundaryMargin, EdgeInsets.zero);
+        expect(
+          details.offset,
+          Offset.zero,
+          reason:
+              'After zoom + reset, the gesture offset must be Offset.zero. '
+              'A non-zero offset at identity scale would mean the image '
+              'is no longer centred inside the destination rect. Got '
+              '${details.offset}.',
+        );
+
+        // Sanity guard: the destination rect produced by BoxFit.contain
+        // must differ from the viewport — i.e. the image stream resolved
+        // and the layout truly went through the letterboxed branch.
+        // Without this guard the assertions above could pass against the
+        // pre-decode fallback path.
+        final destRect = details.destinationRect;
+        final viewerRect = tester.getRect(find.byType(ExtendedImage));
+        expect(
+          destRect,
+          isNotNull,
+          reason: 'destinationRect must be populated after image decode.',
+        );
+        expect(
+          destRect!.size,
+          isNot(viewerRect.size),
+          reason:
+              'destinationRect ($destRect) must be letterboxed inside the '
+              'viewport ($viewerRect), not equal to it. If the image stream '
+              'did not resolve, destinationRect would degenerate.',
+        );
+        expect(
+          (destRect.center - viewerRect.center).distance,
+          lessThan(2.0),
+          reason:
+              'destinationRect centre must coincide with viewport centre '
+              '(BoxFit.contain centres the image). viewer $viewerRect '
+              'dest $destRect.',
+        );
       },
     );
 
-    testWidgets('InteractiveViewer uses constrained:true (default) + Center + '
-        'SizedBox(renderedSize) + Image(fit: fill) so the image is centred '
-        'inside the viewport-sized child (M-α layout from '
-        '05-22-limit-fullscreen-preview-pan-bounds, after the L-β '
-        "constrained:false attempt regressed centring due to Flutter's "
-        'OverflowBox(topLeft) hard-coding)', (tester) async {
-      await tester.pumpWidget(_dialogHarness(_smallPng()));
-      await tester.pumpAndSettle();
-
-      final iv = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      // Default value, but assert explicitly so a future tweak that
-      // re-introduces `constrained: false` regresses this test.
-      expect(iv.constrained, isTrue);
-
-      // The child must be `Center > SizedBox > Image(fill)` so that
-      // (a) the image is centred inside the viewport-sized child,
-      // and (b) the SizedBox matches the BoxFit.contain destination
-      // rect so the inner Image(fit: fill) renders with no internal
-      // letterbox.
-      final centerInsideIv = find.descendant(
-        of: find.byType(InteractiveViewer),
-        matching: find.byType(Center),
-      );
-      expect(centerInsideIv, findsWidgets);
-
-      final sizedBoxInsideCenter = find.descendant(
-        of: centerInsideIv.first,
-        matching: find.byType(SizedBox),
-      );
-      expect(sizedBoxInsideCenter, findsWidgets);
-
-      // The Image inside InteractiveViewer must use BoxFit.fill
-      // (SizedBox already matches the image aspect ratio, so .fill
-      // is the visual equivalent of .contain with no letterbox).
-      final image = tester.widget<Image>(
-        find.descendant(
-          of: find.byType(InteractiveViewer),
-          matching: find.byType(Image),
-        ),
-      );
-      expect(image.fit, BoxFit.fill);
-    });
-
-    testWidgets('after a double-tap zoom + reset, the image remains centred — '
-        'regression for the L-β attempt where constrained:false anchored '
-        'the image at the viewport top-left corner', (tester) async {
-      // Use a deliberately non-square image so the BoxFit.contain
-      // destination differs from the viewport: a 320×8 PNG in the
-      // default 800×600 testWidgets viewport renders as a 800×20
-      // letterboxed rect, NOT the full viewport. The width is
-      // viewport-limited (input wider than viewport ratio) so the
-      // SizedBox is 800×20 (top/bottom letterbox), and a centred vs
-      // topLeft layout differs by ~290 px on the y-axis.
-      final bytes = _smallPng(width: 320, height: 8);
-      await tester.pumpWidget(_dialogHarness(bytes));
-      // Force the MemoryImage decode to complete. `pumpAndSettle` runs
-      // inside `FakeAsync`, but `ui.instantiateImageCodec` (used by
-      // `MemoryImage.resolve` → `ImageStreamListener`) is dispatched
-      // through dart:ui's real platform channel — its microtask never
-      // fires under FakeAsync, so `_imageSize` would stay null and the
-      // fallback (`renderedSize = viewport`) would render the image at
-      // viewport size, silently bypassing the centring assertion below.
-      // `precacheImage` (run inside `runAsync`) primes the image cache
-      // on the real event loop so the subsequent rebuild reads the
-      // decoded intrinsic size synchronously.
-      await tester.runAsync(() async {
-        final element = tester.element(find.byType(InteractiveViewer));
-        await precacheImage(MemoryImage(bytes), element);
-      });
-      await tester.pumpAndSettle();
-
-      final iv = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      // Reset the matrix to identity (mimics a "double-tap to reset"
-      // result without depending on animation timing).
-      iv.transformationController!.value = Matrix4.identity();
-      await tester.pump();
-
-      // At identity, translation must be zero (image centred). If
-      // `constrained: false + alignment: topLeft` slipped back in,
-      // the image would be at the top-left corner and the matrix
-      // would either be non-identity (because we'd need a translate
-      // to recover centring) or the image rect would be anchored at
-      // the viewport top-left in widget coordinates.
-      final m = iv.transformationController!.value;
-      expect(m.row0[3], 0.0); // tx == 0
-      expect(m.row1[3], 0.0); // ty == 0
-      expect(m.getMaxScaleOnAxis(), closeTo(1.0, 0.001));
-
-      // The image's painted rect must be CENTRED inside the viewport.
-      //
-      // Note: a weaker assertion like `imageRect.contains(viewerRect.center)`
-      // does NOT catch L-β topLeft anchoring. With a 320×8 PNG in the
-      // default 800×600 testWidgets viewport, BoxFit.contain produces a
-      // 800×20 image rect; the L-β bug would anchor it at (0,0,800,20)
-      // whose `contains((400, 300))` is FALSE (good — that would catch
-      // it), BUT with a square image the equivalent rect would still
-      // contain the centre. The center-distance assertion below
-      // disambiguates regardless of aspect: M-α rect center coincides
-      // with viewer centre; L-β topLeft rect center is offset by
-      // (viewport - rect) / 2 on whichever axis the letterbox runs.
-      final viewerRect = tester.getRect(find.byType(InteractiveViewer));
-      final imageRect = tester.getRect(
-        find.descendant(
-          of: find.byType(InteractiveViewer),
-          matching: find.byType(Image),
-        ),
-      );
-      // Sanity: the image is letterboxed, NOT viewport-filled — i.e.
-      // _imageSize was resolved and the BoxFit.contain destination
-      // truly differs from the viewport. Without this guard, the
-      // assertion below could pass against the fallback path (image
-      // fills viewport, so Center vs Align(topLeft) are equivalent).
-      expect(
-        imageRect.size,
-        isNot(viewerRect.size),
-        reason:
-            'Image stream must have resolved by now so the image rect '
-            'is the BoxFit.contain destination (letterboxed), NOT the '
-            'fallback viewport size; viewer $viewerRect image $imageRect.',
-      );
-      expect(
-        (imageRect.center - viewerRect.center).distance,
-        lessThan(2.0),
-        reason:
-            'Image rect centre must coincide with viewport centre '
-            '(M-α layout). L-β topLeft anchoring would place the rect '
-            'centre off-axis by (viewport - rect) / 2 logical px; viewer '
-            'rect $viewerRect, image rect $imageRect.',
-      );
-      // Belt-and-suspenders: the image must also still cover the
-      // viewport centre — this is the literal PRD AC wording and
-      // guards against degenerate cases where the centre-distance
-      // check would pass but the image is too small to actually
-      // overlap the viewport centre.
-      expect(
-        imageRect.contains(viewerRect.center),
-        isTrue,
-        reason:
-            'Image must cover the viewport centre after identity '
-            'reset; viewer rect $viewerRect, image rect $imageRect.',
-      );
-    });
-
     testWidgets(
-      'pan beyond image-pixel edge is clamped: dragging twice in the same '
-      "direction does not push translation past the boundary",
+      'pan while zoomed is clamped at the viewport edge: dragging twice in '
+      'the same direction does not push offset past the package boundary '
+      "(extended_image clamps to viewport-edge — note the semantics shift "
+      'from the legacy InteractiveViewer image-pixel-edge clamp; see '
+      'ADR-0002 for the design contract)',
       (tester) async {
-        await tester.pumpWidget(_dialogHarness(_smallPng()));
-        await tester.pumpAndSettle();
+        final bytes = _smallPng();
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
 
-        final iv = tester.widget<InteractiveViewer>(
-          find.byType(InteractiveViewer),
+        final state = _gestureState(tester);
+        // Pre-zoom to 2× by driving the package's own `handleDoubleTap`
+        // entry — same effect as a manual pinch zoom without relying
+        // on animation timing.
+        final viewerCenter = tester.getCenter(find.byType(ExtendedImage));
+        state.handleDoubleTap(
+          scale: kDoubleTapZoomScale,
+          doubleTapPosition: viewerCenter,
         );
-        // Pre-zoom to 2× via the controller (avoids relying on the
-        // double-tap animation timing).
-        iv.transformationController!.value = Matrix4.identity()
-          ..scaleByDouble(2.0, 2.0, 1, 1);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        // First drag: large leftward pan. With boundaryMargin: zero,
-        // InteractiveViewer will clamp the matrix translation against
-        // the image's right edge once the user has reached it.
-        final center = tester.getCenter(find.byType(InteractiveViewer));
-        await tester.dragFrom(center, const Offset(-1200, 0));
+        // First drag: large leftward pan. The package will clamp the
+        // gesture offset against the boundary once the user reaches it.
+        await tester.dragFrom(viewerCenter, const Offset(-1200, 0));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        final txAfterFirst = iv.transformationController!.value.row0[3];
-        final tyAfterFirst = iv.transformationController!.value.row1[3];
+        final offsetAfterFirst = state.gestureDetails?.offset;
+        expect(offsetAfterFirst, isNotNull);
 
         // Second drag in the same direction: any further movement must
-        // be clamped to zero (or near-zero floating-point drift). If
-        // boundaryMargin were still infinity, the translation would
-        // continue to grow with each drag.
-        await tester.dragFrom(center, const Offset(-1200, 0));
+        // be clamped to zero (or near-zero floating-point drift). A
+        // non-clamping behavior would continue to grow with each drag.
+        await tester.dragFrom(viewerCenter, const Offset(-1200, 0));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        final txAfterSecond = iv.transformationController!.value.row0[3];
-        final tyAfterSecond = iv.transformationController!.value.row1[3];
+        final offsetAfterSecond = state.gestureDetails?.offset;
+        expect(offsetAfterSecond, isNotNull);
 
-        // The translation must NOT have continued to grow (within a
-        // tiny floating-point tolerance). A non-clamped behavior would
-        // have moved by an additional ~1200 px on the second drag.
         expect(
-          (txAfterSecond - txAfterFirst).abs(),
+          (offsetAfterSecond!.dx - offsetAfterFirst!.dx).abs(),
           lessThan(1.0),
           reason:
-              'tx must be clamped at the right-edge boundary; was '
-              '$txAfterFirst, became $txAfterSecond after another '
-              '-1200 px drag.',
+              'dx must be clamped at the right-edge boundary; was '
+              '${offsetAfterFirst.dx}, became ${offsetAfterSecond.dx} '
+              'after another -1200 px drag.',
         );
         expect(
-          (tyAfterSecond - tyAfterFirst).abs(),
+          (offsetAfterSecond.dy - offsetAfterFirst.dy).abs(),
           lessThan(1.0),
           reason:
-              'ty must remain stable on a horizontal second drag; '
-              'was $tyAfterFirst, became $tyAfterSecond.',
+              'dy must remain stable on a horizontal second drag; '
+              'was ${offsetAfterFirst.dy}, became ${offsetAfterSecond.dy}.',
         );
       },
     );
@@ -366,8 +363,11 @@ void main() {
         0.0,
       );
 
-      // Single tap on the image area → chrome shows again.
-      await tester.tap(find.byType(InteractiveViewer));
+      // Single tap on the image area → chrome shows again. The outer
+      // `_PreviewPage` GestureDetector with `HitTestBehavior.translucent`
+      // routes the tap to `_toggleChrome`; the inner ExtendedImage's
+      // DoubleTap recognizer loses the arena after its timeout.
+      await tester.tap(find.byType(ExtendedImage));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(
@@ -444,115 +444,154 @@ void main() {
   });
 
   group('PreviewFullScreenDialog — gestures (Step 3)', () {
-    testWidgets('InteractiveViewer.minScale == 1.0 and panEnabled == false '
-        'at identity', (tester) async {
-      await tester.pumpWidget(_dialogHarness(_smallPng()));
-      // Two pumps so the image stream listener can fire (intrinsic
-      // size resolution) but not enough to trigger the auto-hide.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
-
-      final iv = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      expect(iv.minScale, 1.0);
-      expect(iv.maxScale, 4.0);
-      // panEnabled defaults to `false` while un-zoomed so the outer
-      // PageView (Step 4) is free to claim horizontal drag.
-      expect(iv.panEnabled, isFalse);
-    });
-
     testWidgets(
-      'double-tap on the image animates the controller up to ~2.0× scale',
+      'gesture config minScale == 1.0 and maxScale == kMaxScale (extended_image '
+      'config bounds replace the legacy InteractiveViewer.minScale/maxScale '
+      'assertion; panEnabled has no equivalent — see the drag-to-dismiss tests '
+      'below for the un-zoomed-vertical-drag-pops contract)',
       (tester) async {
-        await tester.pumpWidget(_dialogHarness(_smallPng(width: 8, height: 8)));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
+        final bytes = _smallPng();
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
 
-        // Locate the gesture detector that wraps the image and emit a
-        // double-tap right at the centre.
-        final viewerCenter = tester.getCenter(find.byType(InteractiveViewer));
-        await tester.tapAt(viewerCenter);
-        await tester.pump(const Duration(milliseconds: 50));
-        await tester.tapAt(viewerCenter);
-        // Drive the zoom animation forward.
-        await tester.pump(const Duration(milliseconds: 50));
-        await tester.pump(const Duration(milliseconds: 300));
-
-        final iv = tester.widget<InteractiveViewer>(
-          find.byType(InteractiveViewer),
-        );
-        final scale = iv.transformationController!.value.getMaxScaleOnAxis();
-        expect(scale, closeTo(2.0, 0.01));
-        // After zoom, panEnabled should have flipped to true.
-        expect(iv.panEnabled, isTrue);
+        final config = _gestureState(tester).imageGestureConfig;
+        expect(config, isNotNull);
+        expect(config!.minScale, 1.0);
+        expect(config.maxScale, kMaxScale);
       },
     );
 
-    testWidgets('double-tap while zoomed resets the matrix to identity', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_dialogHarness(_smallPng()));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+    testWidgets(
+      'while un-zoomed, a vertical drag exceeding kDragToDismissDistance pops '
+      'the dialog (extended_image automatically routes single-finger pan to '
+      'ExtendedImageSlidePage when totalScale <= 1.0; replaces the legacy '
+      "panEnabled == false at identity contract)",
+      (tester) async {
+        final bytes = _smallPng();
+        await tester.pumpWidget(_thumbnailHarness(bytes));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(PreviewThumbnail));
+        await tester.pumpAndSettle();
+        expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
+        // Prime the dialog's MemoryImage decode so `ExtendedImage(mode:
+        // gesture)` swaps in `ExtendedImageGesture` (the only widget
+        // that actually subscribes to the outer `ExtendedImageSlidePage`).
+        // Until decode completes the dialog renders a plain
+        // ExtendedRawImage fallback that does not route drags into
+        // SlidePage at all.
+        await _primeImageDecode(tester, bytes);
 
-      final iv = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      // Pre-zoom by writing the matrix directly — same effect as
-      // a manual pinch zoom for this assertion.
-      iv.transformationController!.value = Matrix4.identity()
-        ..scaleByDouble(2.0, 2.0, 1, 1);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+        // Drag down by 200 px while un-zoomed — drag-to-dismiss fires.
+        // Scope the finder to the dialog's ExtendedImage (the thumbnail
+        // also renders an `ExtendedImage(mode: none)` sibling so an
+        // un-scoped `byType` finder would be ambiguous).
+        final dialogImage = find.descendant(
+          of: find.byType(PreviewFullScreenDialog),
+          matching: find.byType(ExtendedImage),
+        );
+        await _dragFromBy(
+          tester,
+          tester.getCenter(dialogImage),
+          const Offset(0, 200),
+        );
+        await tester.pumpAndSettle();
 
-      final viewerCenter = tester.getCenter(find.byType(InteractiveViewer));
-      await tester.tapAt(viewerCenter);
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.tapAt(viewerCenter);
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.pump(const Duration(milliseconds: 300));
+        expect(find.byType(PreviewFullScreenDialog), findsNothing);
+      },
+    );
 
-      final matrix = iv.transformationController!.value;
-      expect(matrix.getMaxScaleOnAxis(), closeTo(1.0, 0.001));
-    });
+    testWidgets(
+      'while zoomed, a vertical drag pans the image instead of dismissing '
+      '(extended_image gates drag-to-dismiss on totalScale <= 1.0 — at zoomed '
+      'scale, single-finger vertical drag belongs to the image, not SlidePage)',
+      (tester) async {
+        final bytes = _smallPng();
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
 
-    testWidgets('double-tap focal falls back to image centre when tap lands in '
-        'letterbox', (tester) async {
-      // A very wide image inside a normal viewport → tall letterbox
-      // bands on the top and bottom.
-      await tester.pumpWidget(_dialogHarness(_smallPng(width: 320, height: 8)));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+        final state = _gestureState(tester);
+        final viewerCenter = tester.getCenter(find.byType(ExtendedImage));
+        // Pre-zoom to 2× so the SlidePage gate closes.
+        state.handleDoubleTap(
+          scale: kDoubleTapZoomScale,
+          doubleTapPosition: viewerCenter,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      // Tap in the lower letterbox so the AppBar (top of screen)
-      // does not intercept the gesture. Default test viewport is
-      // 800×600, image is rendered ~20 dp tall centred vertically,
-      // so y ≈ 560 is solidly inside the bottom letterbox.
-      final viewerRect = tester.getRect(find.byType(InteractiveViewer));
-      final letterboxTap = Offset(
-        viewerRect.left + viewerRect.width / 2,
-        viewerRect.bottom - 40,
-      );
-      await tester.tapAt(letterboxTap);
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.tapAt(letterboxTap);
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester.pump(const Duration(milliseconds: 300));
+        // Vertical drag while zoomed must NOT dismiss the dialog —
+        // the package routes the pan into the gesture state instead.
+        await tester.drag(find.byType(ExtendedImage), const Offset(0, 200));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
 
-      final iv = tester.widget<InteractiveViewer>(
-        find.byType(InteractiveViewer),
-      );
-      final scale = iv.transformationController!.value.getMaxScaleOnAxis();
-      expect(scale, closeTo(2.0, 0.01));
+        expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
+      },
+    );
 
-      // Anchor was clamped to the image centre, so the translation
-      // expresses (cx * (1 - scale)) where cx is the viewer's
-      // horizontal centre.
-      final translationX = iv.transformationController!.value.row0[3];
-      final expectedTx = viewerRect.width / 2 * (1 - 2.0);
-      expect(translationX, closeTo(expectedTx, 1.0));
-    });
+    testWidgets(
+      'double-tap on the image animates the gesture state up to ~2.0× scale',
+      (tester) async {
+        final bytes = _smallPng();
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
+
+        // Emit a double-tap at the centre of the image area.
+        final viewerCenter = tester.getCenter(find.byType(ExtendedImage));
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(viewerCenter);
+        // Drive the caller-owned zoom animation forward.
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(kZoomAnimationDuration);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final details = _gestureState(tester).gestureDetails;
+        expect(details, isNotNull);
+        expect(details!.totalScale, closeTo(kDoubleTapZoomScale, 0.01));
+      },
+    );
+
+    testWidgets(
+      'double-tap while zoomed resets the gesture state to identity',
+      (tester) async {
+        final bytes = _smallPng();
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
+
+        // Pre-zoom programmatically — same effect as a real pinch for
+        // this assertion.
+        final state = _gestureState(tester);
+        final viewerCenter = tester.getCenter(find.byType(ExtendedImage));
+        state.handleDoubleTap(
+          scale: kDoubleTapZoomScale,
+          doubleTapPosition: viewerCenter,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(
+          state.gestureDetails?.totalScale,
+          closeTo(kDoubleTapZoomScale, 0.001),
+        );
+
+        // Now drive a double-tap to reset.
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tapAt(viewerCenter);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(kZoomAnimationDuration);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(
+          state.gestureDetails?.totalScale,
+          closeTo(1.0, 0.001),
+          reason:
+              'After the second double-tap from a zoomed state, the gesture '
+              'should animate back to identity scale. Got '
+              '${state.gestureDetails?.totalScale}.',
+        );
+      },
+    );
   });
 
   group('PreviewFullScreenDialog — multi-image & drag-to-dismiss (Step 4)', () {
@@ -574,24 +613,14 @@ void main() {
       expect(find.text('2 / 3'), findsOneWidget);
     });
 
-    testWidgets('multi-image dialog renders a PageView', (tester) async {
-      await tester.pumpWidget(
-        _multiDialogHarness([_smallPng(), _smallPng(), _smallPng()]),
-      );
-      await tester.pump();
-      expect(find.byType(PageView), findsOneWidget);
-    });
-
-    testWidgets('PageView uses immersive physics that is a PageScrollPhysics', (
+    testWidgets('multi-image dialog renders an ExtendedImageGesturePageView', (
       tester,
     ) async {
       await tester.pumpWidget(
         _multiDialogHarness([_smallPng(), _smallPng(), _smallPng()]),
       );
       await tester.pump();
-      final pv = tester.widget<PageView>(find.byType(PageView));
-      // Custom physics extends PageScrollPhysics.
-      expect(pv.physics, isA<PageScrollPhysics>());
+      expect(find.byType(ExtendedImageGesturePageView), findsOneWidget);
     });
 
     testWidgets(
@@ -605,9 +634,13 @@ void main() {
 
         expect(find.text('1 / 3'), findsOneWidget);
 
-        // Fling left at >= PageView snap velocity so it commits to
-        // the next page.
-        await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+        // Fling left at >= page snap velocity so the gallery commits
+        // to the next page.
+        await tester.fling(
+          find.byType(ExtendedImageGesturePageView),
+          const Offset(-400, 0),
+          1200,
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('2 / 3'), findsOneWidget);
@@ -617,14 +650,30 @@ void main() {
     testWidgets('vertical drag exceeding threshold pops the dialog', (
       tester,
     ) async {
-      await tester.pumpWidget(_thumbnailHarness(_smallPng()));
+      final bytes = _smallPng();
+      await tester.pumpWidget(_thumbnailHarness(bytes));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(PreviewThumbnail));
       await tester.pumpAndSettle();
       expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
+      // Prime decode so the dialog's `ExtendedImage(mode: gesture)`
+      // swaps in `ExtendedImageGesture` (required for drag routing
+      // into `ExtendedImageSlidePage`).
+      await _primeImageDecode(tester, bytes);
 
-      // Drag down by 200 px — well over the 100 px dismiss threshold.
-      await tester.drag(find.byType(InteractiveViewer), const Offset(0, 200));
+      // Drag down by 200 px — well over the 100 px dismiss threshold
+      // enforced by `_slideEndHandler`. Scope to the dialog's
+      // ExtendedImage (the thumbnail also renders an
+      // `ExtendedImage(mode: none)` sibling).
+      final dialogImage = find.descendant(
+        of: find.byType(PreviewFullScreenDialog),
+        matching: find.byType(ExtendedImage),
+      );
+      await _dragFromBy(
+        tester,
+        tester.getCenter(dialogImage),
+        const Offset(0, 200),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(PreviewFullScreenDialog), findsNothing);
@@ -633,143 +682,162 @@ void main() {
     testWidgets(
       'vertical drag below threshold snaps back and keeps the dialog open',
       (tester) async {
-        await tester.pumpWidget(_thumbnailHarness(_smallPng()));
+        final bytes = _smallPng();
+        await tester.pumpWidget(_thumbnailHarness(bytes));
         await tester.pumpAndSettle();
         await tester.tap(find.byType(PreviewThumbnail));
         await tester.pumpAndSettle();
         expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
+        // Prime decode so the dialog's gesture stack is active.
+        await _primeImageDecode(tester, bytes);
 
-        // Drag down by 60 px — below the 100 px threshold.
-        await tester.drag(find.byType(InteractiveViewer), const Offset(0, 60));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400));
+        // Drag down by 60 px — below the 100 px threshold. The package's
+        // ExtendedImageSlidePage springs back via a linear AnimationController
+        // with `resetPageDuration: 500 ms` (default) instead of the legacy
+        // `easeOutCubic 250 ms` — pump beyond 500 ms to be safe.
+        final dialogImage = find.descendant(
+          of: find.byType(PreviewFullScreenDialog),
+          matching: find.byType(ExtendedImage),
+        );
+        await _dragFromBy(
+          tester,
+          tester.getCenter(dialogImage),
+          const Offset(0, 60),
+        );
+        await tester.pump(const Duration(milliseconds: 600));
 
         expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
       },
     );
   });
 
-  group(
-    'PreviewFullScreenDialog — regressions (desktop mouse + zoomed pan)',
-    () {
-      testWidgets(
-        'PageView is wrapped in a ScrollConfiguration whose dragDevices include '
-        'mouse / trackpad (desktop / web mouse-drag support)',
-        (tester) async {
-          await tester.pumpWidget(
-            _multiDialogHarness([_smallPng(), _smallPng(), _smallPng()]),
-          );
-          await tester.pump();
-
-          // Locate the ScrollConfiguration that immediately wraps the
-          // PageView. There may be other ScrollConfiguration ancestors
-          // contributed by MaterialApp; the one we install is the
-          // closest enclosing ancestor of PageView.
-          final scrollConfig = tester.widget<ScrollConfiguration>(
-            find
-                .ancestor(
-                  of: find.byType(PageView),
-                  matching: find.byType(ScrollConfiguration),
-                )
-                .first,
-          );
-          final devices = scrollConfig.behavior.dragDevices;
-          // Mouse + trackpad explicitly — the regression we are guarding.
-          expect(
-            devices.contains(PointerDeviceKind.mouse),
-            isTrue,
-            reason:
-                'PointerDeviceKind.mouse must be in dragDevices so that '
-                'desktop / web mouse drags can switch PageView pages '
-                '(see Bug 1 in 05-22-export-preview-fullscreen-immersive).',
-          );
-          expect(devices.contains(PointerDeviceKind.trackpad), isTrue);
-          // Touch / stylus retained (mobile parity).
-          expect(devices.contains(PointerDeviceKind.touch), isTrue);
-          expect(devices.contains(PointerDeviceKind.stylus), isTrue);
-        },
-      );
-
-      testWidgets(
-        'touch fling on PageView still advances pages (regression check that '
-        'the custom ScrollConfiguration did not break the default touch path)',
-        (tester) async {
-          await tester.pumpWidget(
-            _multiDialogHarness([_smallPng(), _smallPng(), _smallPng()]),
-          );
-          await tester.pump();
-          await tester.pump(const Duration(milliseconds: 50));
-          expect(find.text('1 / 3'), findsOneWidget);
-
-          // Default tester.fling kind is touch — must still work.
-          await tester.fling(
-            find.byType(PageView),
-            const Offset(-400, 0),
-            1200,
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('2 / 3'), findsOneWidget);
-        },
-      );
-
-      testWidgets('single-finger pan after double-tap zoom moves the matrix '
-          '(outer vertical-drag recognizer is not in the arena while zoomed)', (
-        tester,
-      ) async {
-        await tester.pumpWidget(_dialogHarness(_smallPng()));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-
-        final iv = tester.widget<InteractiveViewer>(
-          find.byType(InteractiveViewer),
+  group('PreviewFullScreenDialog — regressions (desktop mouse + zoomed pan)', () {
+    testWidgets(
+      'ExtendedImageGesturePageView is wrapped in a ScrollConfiguration whose '
+      'dragDevices include mouse / trackpad (desktop / web mouse-drag support)',
+      (tester) async {
+        await tester.pumpWidget(
+          _multiDialogHarness([_smallPng(), _smallPng(), _smallPng()]),
         );
-        // Pre-zoom the matrix via the controller (avoids relying on
-        // the double-tap animation timing for this regression).
-        iv.transformationController!.value = Matrix4.identity()
-          ..scaleByDouble(2.0, 2.0, 1, 1);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 50));
-        // Sanity: scale really is 2.0×.
+
+        // Locate the ScrollConfiguration that immediately wraps the
+        // gallery widget. There may be other ScrollConfiguration
+        // ancestors contributed by MaterialApp; the one we install
+        // is the closest enclosing ancestor of
+        // ExtendedImageGesturePageView.
+        final scrollConfig = tester.widget<ScrollConfiguration>(
+          find
+              .ancestor(
+                of: find.byType(ExtendedImageGesturePageView),
+                matching: find.byType(ScrollConfiguration),
+              )
+              .first,
+        );
+        final devices = scrollConfig.behavior.dragDevices;
+        // Mouse + trackpad explicitly — the regression we are guarding.
         expect(
-          iv.transformationController!.value.getMaxScaleOnAxis(),
-          closeTo(2.0, 0.001),
+          devices.contains(PointerDeviceKind.mouse),
+          isTrue,
+          reason:
+              'PointerDeviceKind.mouse must be in dragDevices so that '
+              'desktop / web mouse drags can switch pages '
+              '(see Bug 1 in 05-22-export-preview-fullscreen-immersive).',
+        );
+        expect(devices.contains(PointerDeviceKind.trackpad), isTrue);
+        // Touch / stylus retained (mobile parity).
+        expect(devices.contains(PointerDeviceKind.touch), isTrue);
+        expect(devices.contains(PointerDeviceKind.stylus), isTrue);
+      },
+    );
+
+    testWidgets(
+      'touch fling on the gallery still advances pages (regression check that '
+      'the custom ScrollConfiguration did not break the default touch path)',
+      (tester) async {
+        await tester.pumpWidget(
+          _multiDialogHarness([_smallPng(), _smallPng(), _smallPng()]),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(find.text('1 / 3'), findsOneWidget);
+
+        // Default tester.fling kind is touch — must still work.
+        await tester.fling(
+          find.byType(ExtendedImageGesturePageView),
+          const Offset(-400, 0),
+          1200,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('2 / 3'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'single-finger pan while zoomed moves the gesture offset (extended_image '
+      'gates drag-to-dismiss on totalScale <= 1.0 so a zoomed vertical drag '
+      'belongs to the image, replacing the legacy outer-vertical-drag-recognizer '
+      'mechanism)',
+      (tester) async {
+        final bytes = _smallPng();
+        await tester.pumpWidget(_dialogHarness(bytes));
+        await _primeImageDecode(tester, bytes);
+
+        final state = _gestureState(tester);
+        final viewerCenter = tester.getCenter(find.byType(ExtendedImage));
+        // Pre-zoom programmatically to 2× — no animation timing needed.
+        state.handleDoubleTap(
+          scale: kDoubleTapZoomScale,
+          doubleTapPosition: viewerCenter,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        expect(
+          state.gestureDetails?.totalScale,
+          closeTo(kDoubleTapZoomScale, 0.001),
         );
 
-        // Capture translation prior to drag.
-        final beforeTx = iv.transformationController!.value.row0[3];
-        final beforeTy = iv.transformationController!.value.row1[3];
+        final beforeOffset = state.gestureDetails?.offset ?? Offset.zero;
 
-        // Vertical drag while zoomed must reach InteractiveViewer's
-        // ScaleGestureRecognizer (single-finger pan), NOT the outer
-        // VerticalDragGestureRecognizer. If the outer recognizer were
-        // still in the arena, the dialog would either pop or snap
-        // back the body translation instead — and the IV translation
-        // would not change.
-        final center = tester.getCenter(find.byType(InteractiveViewer));
-        await tester.dragFrom(center, const Offset(0, -80));
+        // Drive a pan programmatically through the gesture state's
+        // public API. The drag-to-dismiss gating in the package's
+        // `handleScaleUpdate` (gesture.dart:347-389) is exercised here
+        // directly — we don't rely on the test gesture arena, which
+        // makes the assertion robust against widget-tree changes that
+        // would otherwise re-route the synthesised drag events.
+        //
+        // Vertical -80 dy delta with details.scale = 1.0 → the package
+        // falls through to the pan branch (lines 432-471) and updates
+        // the gesture offset.
+        state.handleScaleStart(ScaleStartDetails(focalPoint: viewerCenter));
+        const dragDelta = Offset(0, -80);
+        state.handleScaleUpdate(
+          ScaleUpdateDetails(
+            focalPoint: viewerCenter + dragDelta,
+            scale: 1.0,
+            focalPointDelta: dragDelta,
+          ),
+        );
+        state.handleScaleEnd(ScaleEndDetails());
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        // Dialog must still be present (drag-to-dismiss did NOT fire).
+        // Dialog must still be present — the drag-to-dismiss path
+        // (gesture.dart:347-389) is gated on totalScale <= 1 and we
+        // pre-zoomed to 2× exactly to verify this gate.
         expect(find.byType(PreviewFullScreenDialog), findsOneWidget);
 
-        final afterTx = iv.transformationController!.value.row0[3];
-        final afterTy = iv.transformationController!.value.row1[3];
-        // The translation must have moved on at least one axis — IV
-        // pan is active. We don't care about the exact direction
-        // (boundary clamps can swallow part of the delta) — just that
-        // something moved.
-        final movedX = (afterTx - beforeTx).abs() > 0.01;
-        final movedY = (afterTy - beforeTy).abs() > 0.01;
+        final afterOffset = state.gestureDetails?.offset ?? Offset.zero;
+        final movedX = (afterOffset.dx - beforeOffset.dx).abs() > 0.01;
+        final movedY = (afterOffset.dy - beforeOffset.dy).abs() > 0.01;
         expect(
           movedX || movedY,
           isTrue,
           reason:
-              'InteractiveViewer matrix translation should have changed '
-              'after a single-finger pan while zoomed (tx '
-              '$beforeTx → $afterTx, ty $beforeTy → $afterTy).',
+              'gestureDetails.offset should have changed after a pan '
+              'while zoomed (before $beforeOffset, after $afterOffset).',
         );
-      });
-    },
-  );
+      },
+    );
+  });
 }
