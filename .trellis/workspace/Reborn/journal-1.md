@@ -1927,3 +1927,37 @@ Open brainstorm for migrating fullscreen preview to extended_image (PRD with Dec
 ### Next Steps
 
 - None - task complete
+
+
+## Session 58: ST2: migrate PreviewFullScreenDialog to extended_image
+
+**Date**: 2026-05-23
+**Task**: ST2: migrate PreviewFullScreenDialog to extended_image
+**Branch**: `main`
+
+### Summary
+
+Rewrite preview_full_screen_dialog.dart from 884 lines (self-rolled InteractiveViewer + PageView + _ImmersivePageScrollPhysics + manual drag-to-dismiss) to 429 lines using the extended_image three-piece kit (ExtendedImageSlidePage + ExtendedImageGesturePageView.builder + ExtendedImage.memory(mode: gesture, inPageView: true, enableSlideOutPage: true)). Deletes 24 self-rolled symbols (R3); preserves _ImmersiveScrollBehavior / _FloatingCloseButton / chrome auto-hide / constants byte-for-byte (R4). Spring-back curve degrades from easeOutCubic to ext's linear (accepted in brainstorm R3-exception). Dialog.fullscreen(transparent) wrapper kept so existing showDialog caller still works pre-ST3. flutter analyze 0 issues; dart format 0 changed; non-dialog tests 470/470 PASS; preview_full_screen_dialog_test.dart 9 PASS / 18 FAIL (expected — ST4 will rewrite per failing-tests.md A-E categorization). Codified the three-piece gallery pattern + 2 critical Gotcha (enableSlideOutPage / inPageView: true) + 2 sub-Pattern (Dialog.fullscreen dual-wrapper for showDialog compat / caller-owned AnimationController for double-tap zoom) in component-guidelines.md. ST3 (thumbnail) unblocked.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c132988` | (see git log) |
+| `5b73b89` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 57
-- **Last Active**: 2026-05-22
+- **Total Sessions**: 58
+- **Last Active**: 2026-05-23
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1929 | Active |
+| `journal-1.md` | ~1963 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 58 | 2026-05-23 | ST2: migrate PreviewFullScreenDialog to extended_image | `c132988`, `5b73b89` | `main` |
 | 57 | 2026-05-22 | Brainstorm + ST1: extended_image migration risk gate | `9374687`, `93798d8`, `7a644a8` | `main` |
 | 56 | 2026-05-22 | 全屏预览 pan 边界限制 + 居中 | `e0c1f1d` | `main` |
 | 55 | 2026-05-22 | 全屏预览升级为沉浸式照片查看器 | `a81d9bc` | `main` |
