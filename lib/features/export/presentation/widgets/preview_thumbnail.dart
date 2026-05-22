@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 
 import 'preview_full_screen_dialog.dart';
@@ -12,7 +13,9 @@ import 'preview_full_screen_dialog.dart';
 /// be embedded in either path without coupling to the source kind.
 ///
 /// Sizing contract: the caller decides the outer width / height (via
-/// [SizedBox] or [Expanded]). The image is rendered with
+/// [SizedBox] or [Expanded]). The image is rendered via
+/// [ExtendedImage.memory] (with [ExtendedImageMode.none], i.e. no
+/// gesture stack — gestures live in the full-screen dialog) and
 /// [BoxFit.contain] so a tall stitch composite or a square grid cell
 /// both fit cleanly inside the preview card's fixed-height row.
 ///
@@ -59,9 +62,10 @@ class PreviewThumbnail extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: ColoredBox(
             color: colorScheme.surfaceContainerHighest,
-            child: Image.memory(
+            child: ExtendedImage.memory(
               bytes,
               fit: BoxFit.contain,
+              mode: ExtendedImageMode.none,
               gaplessPlayback: true,
             ),
           ),

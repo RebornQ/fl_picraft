@@ -3,7 +3,7 @@
   "name": "migrate-thumbnail",
   "title": "迁移 PreviewThumbnail 到 ExtendedImage.memory",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
