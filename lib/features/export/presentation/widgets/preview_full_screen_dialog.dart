@@ -505,7 +505,10 @@ class _PreviewFullScreenDialogState extends State<PreviewFullScreenDialog>
 /// * intrinsic image-size resolution so the double-tap focal point can
 ///   be clamped to the visible `BoxFit.contain` rect (taps in the
 ///   letterbox fall back to the image centre — the image never jumps
-///   out of view)
+///   out of view), AND so the InteractiveViewer can use a child that
+///   is sized to exactly the rendered image rect (instead of the
+///   surrounding viewport — see the build method's "triple-spec
+///   layout" comment for why this matters)
 ///
 /// Gesture contract:
 /// * single tap on the page area → [onTap] (chrome toggle)
@@ -515,6 +518,26 @@ class _PreviewFullScreenDialogState extends State<PreviewFullScreenDialog>
 ///   matrix is at identity (so single-finger horizontal drag is left
 ///   to the outer [PageView]); flips to `true` the moment pinch zoom
 ///   or the double-tap animation lifts the scale above 1
+///
+/// Pan-limit contract (from `05-22-limit-fullscreen-preview-pan-bounds`,
+/// revised to **M-α** after an L-β regression — see the build method
+/// comment for the full rationale):
+/// The InteractiveViewer uses default `constrained: true` + a
+/// `Center(SizedBox(renderedSize, Image(fill)))` child +
+/// `boundaryMargin: EdgeInsets.zero`. With `constrained: true` the
+/// InteractiveViewer's child is forced to viewport size; the inner
+/// `Center + SizedBox` then renders the image-rect centred inside
+/// that viewport-sized box. `boundaryMargin: zero` clamps the pan to
+/// the child's (viewport-sized) edges. In a `BoxFit.contain` layout
+/// the letterbox black bands sit between the image and the child edge,
+/// so the user can pan slightly past the image-pixel rect into the
+/// letterbox before hitting the clamp — but because the dialog
+/// background is `Colors.black`, the letterbox is **visually
+/// indistinguishable** from the surrounding viewport background. The
+/// user therefore perceives the clamp at the image-pixel edge — the
+/// same UX as a strict image-edge clamp, without fighting Flutter's
+/// `constrained: false + OverflowBox(topLeft)` hard-coded centring
+/// path. See ADR-0001 "Compatibility Note" for the formal note.
 ///
 /// Reports its zoom + horizontal-edge state up to the dialog via
 /// [onGestureStateChanged] every time the [TransformationController]
@@ -737,11 +760,74 @@ class _PreviewPageState extends State<_PreviewPage>
       builder: (context, constraints) {
         final viewport = Size(constraints.maxWidth, constraints.maxHeight);
         _lastViewport = viewport;
+        final imgSize = _imageSize;
+
+        // `renderedSize` is the rect `BoxFit.contain` would produce
+        // for the image inside the viewport. We fall back to the
+        // viewport itself for the brief window between the first
+        // build and the `ImageStreamListener` reporting the intrinsic
+        // image size (typically a single frame for a `MemoryImage`).
+        // Using a viewport-sized SizedBox in the fallback keeps the
+        // InteractiveViewer + TransformationController identity
+        // stable across the two builds (no widget re-creation that
+        // would drop matrix state).
+        final renderedSize = imgSize == null
+            ? viewport
+            : applyBoxFit(BoxFit.contain, imgSize, viewport).destination;
+
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           onDoubleTapDown: _handleDoubleTapDown,
           onDoubleTap: () => _handleDoubleTap(viewport),
+          // **M-α layout** (locked in by task
+          // `05-22-limit-fullscreen-preview-pan-bounds` after the
+          // initial L-β attempt regressed centring):
+          //
+          //   1. `constrained: true` (default, hence omitted) →
+          //      InteractiveViewer's child is forced to viewport size.
+          //      We tried `constrained: false` first to clamp the
+          //      pan strictly at the image-pixel edges (L-β), but
+          //      Flutter's `constrained: false` path hard-codes
+          //      `OverflowBox(alignment: Alignment.topLeft)`
+          //      internally (see `interactive_viewer.dart:1123-1141`)
+          //      with no API to recover viewport-centred layout —
+          //      the image was being anchored at the viewport's
+          //      top-left corner. M-α reverts to the default
+          //      `constrained: true` and uses an inner `Center` to
+          //      render the image at viewport centre.
+          //   2. `Center` → centres the inner `SizedBox` inside the
+          //      viewport-sized child. Required because
+          //      `constrained: true` makes the InteractiveViewer's
+          //      direct child fill the viewport, but we want the
+          //      image-rect (the SizedBox) centred inside it.
+          //   3. `SizedBox.fromSize(size: renderedSize)` → constrains
+          //      the Image to exactly the `BoxFit.contain` destination
+          //      rect, so the inner `Image(fit: fill)` renders without
+          //      any letterbox *inside* the SizedBox.
+          //   4. `boundaryMargin: EdgeInsets.zero` → forbids the child
+          //      from being panned past its own edges. Because the
+          //      child IS the viewport (under `constrained: true`),
+          //      the clamp is at viewport-pixel edges — the letterbox
+          //      black bands sit between the image rect and the
+          //      viewport edge *inside* the InteractiveViewer's
+          //      clampable area. The user can technically pan a
+          //      sliver of letterbox before hitting the clamp.
+          //
+          // **Visual equivalence with strict image-edge clamping**:
+          // the dialog's outer `ColoredBox` background is
+          // `Colors.black` (see `_PreviewFullScreenDialogState.build`),
+          // so the letterbox bands are visually indistinguishable
+          // from the surrounding background. The user perceives the
+          // pan limit at the image-pixel edge — the same UX as iOS
+          // Photos / Google Photos — without fighting Flutter's
+          // `constrained: false + topLeft` hard-coded centring path.
+          //
+          // The companion edge formula in `_reportGestureState` keeps
+          // working because `displayW` is derived from
+          // `_imageDisplayRect`, which uses the same `BoxFit.contain`
+          // geometry as `renderedSize` above. See ADR-0001
+          // "Compatibility Note" for the formal note.
           child: InteractiveViewer(
             transformationController: _tc,
             // Pan is only available once the user has zoomed in. With
@@ -751,12 +837,19 @@ class _PreviewPageState extends State<_PreviewPage>
             scaleEnabled: true,
             minScale: 1.0,
             maxScale: kMaxScale,
-            boundaryMargin: const EdgeInsets.all(double.infinity),
+            boundaryMargin: EdgeInsets.zero,
             child: Center(
-              child: Image.memory(
-                widget.bytes,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
+              child: SizedBox.fromSize(
+                size: renderedSize,
+                child: Image.memory(
+                  widget.bytes,
+                  // SizedBox already matches the image's aspect ratio
+                  // exactly (it IS the BoxFit.contain destination),
+                  // so BoxFit.fill here visually equals BoxFit.contain
+                  // with no letterbox inside the SizedBox.
+                  fit: BoxFit.fill,
+                  gaplessPlayback: true,
+                ),
               ),
             ),
           ),

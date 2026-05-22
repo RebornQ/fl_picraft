@@ -114,8 +114,36 @@ Wrap `InteractiveViewer` in an outer `GestureDetector(onHorizontalDrag*)`; when 
 * At `scale > 1.0` + clamped + drag back toward image: physics rejects user offset, image stays clamped (no PageView jitter)
 * After page change settles, new page's transformation is identity (re-created `_PreviewPage` per PageView.builder default)
 
+## Compatibility Note (2026-05-22, task `05-22-limit-fullscreen-preview-pan-bounds`)
+
+From `05-22-limit-fullscreen-preview-pan-bounds` onwards, the `InteractiveViewer` inside `_PreviewPage` uses default `constrained: true` + a `Center(SizedBox.fromSize(size: renderedSize, child: Image(fit: BoxFit.fill)))` child + `boundaryMargin: EdgeInsets.zero`, where `renderedSize = applyBoxFit(BoxFit.contain, imageSize, viewport).destination`. Under `constrained: true`, the InteractiveViewer's direct child is forced to viewport size; the inner `Center + SizedBox` then renders the image rect at viewport centre. `boundaryMargin: zero` clamps the pan to the child's (viewport-sized) edges — the user cannot pan the child past the viewport border (was: unbounded `EdgeInsets.all(double.infinity)`, which let the image be dragged completely out of the viewport).
+
+**Visual equivalence with strict image-edge clamping**: the dialog's outer `ColoredBox` background is `Colors.black`, so the letterbox black bands sit between the image rect and the viewport edge but are visually indistinguishable from the surrounding background. The user perceives the pan limit at the image-pixel edge — the same UX as iOS Photos / Google Photos.
+
+The edge-detection formula consumed by `_ImmersivePageScrollPhysics` is unchanged:
+
+```
+maxTx = (renderedW * scale - renderedW) / 2
+atLeftEdge  = tx >= maxTx - 0.5
+atRightEdge = tx <= -maxTx + 0.5
+```
+
+`renderedW` is still derived from `_imageDisplayRect` (the `BoxFit.contain` rect inside the viewport), which is the same geometry that drives the new `SizedBox.fromSize(size: renderedSize)` child. The formula is based on image-pixel geometry, not on the InteractiveViewer's child structure, so it remains correct under either of the two layouts considered for this task. **Note**: under the M-α layout the InteractiveViewer's physical max translation is `(viewport.w * scale - viewport.w) / 2` (based on viewport-sized child) which is greater than the `maxTx` derived from image-pixel rect — meaning `atLeftEdge / atRightEdge` triggers **as soon as the image-pixel rect reaches the viewport edge**, exactly when the user perceives "the image hit the edge".
+
+Before-image-resolve fallback: `renderedSize` falls back to `viewport` until `_imageSize` arrives from the `ImageStreamListener`. The `Center > SizedBox > Image(fit: fill)` structure is identical across the pre-resolve and post-resolve builds, so the `InteractiveViewer` widget identity and the `TransformationController` state are never dropped mid-build. The fallback window is the duration of the first `MemoryImage` decode (~1 frame in practice).
+
+### Why M-α and not L-β (constrained: false + alignment: center)
+
+An initial implementation of this task tried `constrained: false + alignment: Alignment.center + SizedBox(renderedSize) + boundaryMargin: zero` (the L-β path) to clamp the pan strictly at the image-pixel edges (no letterbox panning at all). The result regressed centring — the image was being anchored at the viewport's top-left corner. Root cause confirmed against Flutter's source `interactive_viewer.dart:1123-1141`:
+
+* `InteractiveViewer.alignment` is passed to the **internal `Transform.alignment`** (the matrix's transform anchor), NOT the child's alignment inside the viewport.
+* When `constrained: false`, Flutter hard-codes the child wrapper as `OverflowBox(alignment: Alignment.topLeft)` with **no API** to override that alignment to centre.
+
+Therefore there is no `constrained: false` configuration that keeps the image centred inside the viewport under the current Flutter SDK. The M-α layout side-steps the hard-coded `topLeft` path entirely by staying on `constrained: true` and providing centring via a plain `Center` widget inside the child subtree — the same way every other Flutter centring is achieved.
+
 ## References
 
 * PRD: `.trellis/tasks/05-22-export-preview-fullscreen-immersive/prd.md` (Requirements R4)
+* Pan-limit follow-up: `.trellis/tasks/05-22-limit-fullscreen-preview-pan-bounds/prd.md`
 * Inspiration: `photo_view_gallery` package internals (https://pub.dev/packages/photo_view)
 * Flutter ScrollPhysics docs: https://api.flutter.dev/flutter/widgets/ScrollPhysics-class.html

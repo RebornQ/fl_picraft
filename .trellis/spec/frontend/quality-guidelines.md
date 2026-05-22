@@ -347,6 +347,107 @@ to the longest finite transition you actually need to advance past.
 the `_settleAnimatedSwitcher` helper drains the 200 ms cross-fade without waiting on the
 loading spinner that lives inside `PreviewSkeleton`.
 
+### Pattern: Force image decode in widget tests via `tester.runAsync` + `precacheImage`
+
+**Symptom**: A widget test renders a tree containing `Image.memory(bytes)`
+(or `Image.network` / `Image.asset` / `Image.file`), and the widget's
+`ImageStreamListener` callback that captures the intrinsic image size never
+fires. `pumpAndSettle()` returns without resolving the image, so any layout
+that depends on the resolved intrinsic size (e.g. a `_imageSize` field set
+from `info.image.width / .height`) silently falls through to its fallback
+branch:
+
+```dart
+await tester.pumpWidget(MyWidget(bytes: pngBytes));
+await tester.pumpAndSettle();
+// _imageSize is still null here — image stream never fired.
+// Layout uses the imgSize == null fallback (e.g. renderedSize = viewport),
+// and any assertion targeting the image-aware branch silently passes
+// against the WRONG layout path.
+```
+
+**Cause**: `testWidgets` runs the test body inside a `FakeAsync` zone, where
+`pumpAndSettle` only drains fake timers and microtasks. But
+`MemoryImage.resolve` → `ImageProvider.loadBuffer` →
+`ui.instantiateImageCodec` completes its decode callback through
+**`dart:ui`'s real platform channel**, which **bypasses the FakeAsync zone
+entirely**. The fake clock never sees the codec's completion microtask, so
+the `ImageStreamListener` registered by the widget never fires — no matter
+how long you `pumpAndSettle`. The same applies to `NetworkImage`,
+`FileImage`, and `AssetImage` once they reach the decode stage.
+
+**Fix**: Force the decode to run on the real event loop using
+`tester.runAsync` (which escapes the FakeAsync zone), then `pumpAndSettle`
+so the widget rebuilds with the resolved intrinsic size:
+
+```dart
+// ❌ Wrong — pumpAndSettle alone won't wait for image decode
+await tester.pumpWidget(MyWidget(bytes: bytes));
+await tester.pumpAndSettle(const Duration(seconds: 10));
+// _imageSize is STILL null — the fake clock can't drain the dart:ui callback.
+
+// ❌ Also wrong — Future.delayed doesn't enter the real timer either
+await tester.pumpWidget(MyWidget(bytes: bytes));
+await Future.delayed(const Duration(milliseconds: 100));
+await tester.pumpAndSettle();
+// Same outcome: the decode callback never reaches FakeAsync.
+
+// ✅ Correct — runAsync escapes FakeAsync; precacheImage primes the image
+//    cache on the real event loop so the subsequent rebuild reads the
+//    decoded intrinsic size synchronously.
+await tester.pumpWidget(MyWidget(bytes: bytes));
+await tester.runAsync(() async {
+  final element = tester.element(find.byType(MyWidget));
+  await precacheImage(MemoryImage(bytes), element);
+});
+await tester.pumpAndSettle();
+// Now _imageSize has a value, layout uses the image-aware branch.
+```
+
+**Rule of thumb**: Any widget test whose assertion depends on an intrinsic
+image size resolved through an `ImageStream` (i.e. the widget reacts to
+`ImageStreamListener.onImage` to drive layout) MUST call
+`tester.runAsync(() => precacheImage(...))` between `pumpWidget` and
+`pumpAndSettle`. Recommended sanity guard: assert that the rendered image
+rect is **NOT** equal to the viewport rect — if that guard ever fails, the
+test is silently running against the pre-decode fallback path and any
+image-aware assertion below it is meaningless.
+
+**Anti-pattern**:
+
+```dart
+// ❌ Pumping harder — pumpAndSettle drains fake timers, not dart:ui callbacks
+await tester.pumpAndSettle(const Duration(seconds: 10));
+
+// ❌ Future.delayed — still runs inside FakeAsync, decode callback skips it
+await Future.delayed(const Duration(milliseconds: 100));
+
+// ❌ Loop of pump() calls — each one drains one frame, but the decode
+//    completion never schedules a frame in the fake clock to begin with
+for (var i = 0; i < 100; i++) {
+  await tester.pump();
+}
+```
+
+If `pumpAndSettle` is not draining the image decode, the answer is **never**
+"pump more" — the fix is `runAsync` (or `precacheImage` inside `runAsync`).
+
+**Reference**:
+`test/features/export/presentation/widgets/preview_full_screen_dialog_test.dart`
+— the `'after a double-tap zoom + reset, the image remains centred'` test in
+`05-22-limit-fullscreen-preview-pan-bounds` was silently passing against
+the `renderedSize = viewport` fallback path until the centring sanity guard
+(`expect(imageRect.size, isNot(viewerRect.size))`) caught the regression;
+the test now calls `tester.runAsync(() => precacheImage(MemoryImage(bytes),
+element))` to prime the `MemoryImage` decode before asserting the
+post-`BoxFit.contain` centred layout.
+
+**See also**: "Pattern: Avoid `pumpAndSettle()` when the widget tree has an
+indefinite animation" above — both Gotchas are about cases where
+`pumpAndSettle` silently fails to do what you expect, and the fix is
+**not** to pump harder. The indefinite-animation case calls for `pump(fixedDuration)`;
+the image-decode case calls for `runAsync`.
+
 ### Pattern: Performance benchmarks via `@Tags(['benchmark'])`
 
 **What**: Place all performance benchmarks in `test/benchmarks/` and tag them with `@Tags(['benchmark'])`. Configure `dart_test.yaml` to skip the tag by default:

@@ -66,8 +66,8 @@ void main() {
     });
 
     testWidgets(
-      'InteractiveViewer.boundaryMargin is infinite so pan is unlimited '
-      'after zoom-in',
+      'InteractiveViewer.boundaryMargin is EdgeInsets.zero so pan is '
+      'clamped to image-pixel bounds (see 05-22-limit-fullscreen-preview-pan-bounds)',
       (tester) async {
         await tester.pumpWidget(_dialogHarness(_smallPng()));
         await tester.pumpAndSettle();
@@ -75,7 +75,214 @@ void main() {
         final iv = tester.widget<InteractiveViewer>(
           find.byType(InteractiveViewer),
         );
-        expect(iv.boundaryMargin, const EdgeInsets.all(double.infinity));
+        expect(iv.boundaryMargin, EdgeInsets.zero);
+      },
+    );
+
+    testWidgets('InteractiveViewer uses constrained:true (default) + Center + '
+        'SizedBox(renderedSize) + Image(fit: fill) so the image is centred '
+        'inside the viewport-sized child (M-α layout from '
+        '05-22-limit-fullscreen-preview-pan-bounds, after the L-β '
+        "constrained:false attempt regressed centring due to Flutter's "
+        'OverflowBox(topLeft) hard-coding)', (tester) async {
+      await tester.pumpWidget(_dialogHarness(_smallPng()));
+      await tester.pumpAndSettle();
+
+      final iv = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+      // Default value, but assert explicitly so a future tweak that
+      // re-introduces `constrained: false` regresses this test.
+      expect(iv.constrained, isTrue);
+
+      // The child must be `Center > SizedBox > Image(fill)` so that
+      // (a) the image is centred inside the viewport-sized child,
+      // and (b) the SizedBox matches the BoxFit.contain destination
+      // rect so the inner Image(fit: fill) renders with no internal
+      // letterbox.
+      final centerInsideIv = find.descendant(
+        of: find.byType(InteractiveViewer),
+        matching: find.byType(Center),
+      );
+      expect(centerInsideIv, findsWidgets);
+
+      final sizedBoxInsideCenter = find.descendant(
+        of: centerInsideIv.first,
+        matching: find.byType(SizedBox),
+      );
+      expect(sizedBoxInsideCenter, findsWidgets);
+
+      // The Image inside InteractiveViewer must use BoxFit.fill
+      // (SizedBox already matches the image aspect ratio, so .fill
+      // is the visual equivalent of .contain with no letterbox).
+      final image = tester.widget<Image>(
+        find.descendant(
+          of: find.byType(InteractiveViewer),
+          matching: find.byType(Image),
+        ),
+      );
+      expect(image.fit, BoxFit.fill);
+    });
+
+    testWidgets('after a double-tap zoom + reset, the image remains centred — '
+        'regression for the L-β attempt where constrained:false anchored '
+        'the image at the viewport top-left corner', (tester) async {
+      // Use a deliberately non-square image so the BoxFit.contain
+      // destination differs from the viewport: a 320×8 PNG in the
+      // default 800×600 testWidgets viewport renders as a 800×20
+      // letterboxed rect, NOT the full viewport. The width is
+      // viewport-limited (input wider than viewport ratio) so the
+      // SizedBox is 800×20 (top/bottom letterbox), and a centred vs
+      // topLeft layout differs by ~290 px on the y-axis.
+      final bytes = _smallPng(width: 320, height: 8);
+      await tester.pumpWidget(_dialogHarness(bytes));
+      // Force the MemoryImage decode to complete. `pumpAndSettle` runs
+      // inside `FakeAsync`, but `ui.instantiateImageCodec` (used by
+      // `MemoryImage.resolve` → `ImageStreamListener`) is dispatched
+      // through dart:ui's real platform channel — its microtask never
+      // fires under FakeAsync, so `_imageSize` would stay null and the
+      // fallback (`renderedSize = viewport`) would render the image at
+      // viewport size, silently bypassing the centring assertion below.
+      // `precacheImage` (run inside `runAsync`) primes the image cache
+      // on the real event loop so the subsequent rebuild reads the
+      // decoded intrinsic size synchronously.
+      await tester.runAsync(() async {
+        final element = tester.element(find.byType(InteractiveViewer));
+        await precacheImage(MemoryImage(bytes), element);
+      });
+      await tester.pumpAndSettle();
+
+      final iv = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+      // Reset the matrix to identity (mimics a "double-tap to reset"
+      // result without depending on animation timing).
+      iv.transformationController!.value = Matrix4.identity();
+      await tester.pump();
+
+      // At identity, translation must be zero (image centred). If
+      // `constrained: false + alignment: topLeft` slipped back in,
+      // the image would be at the top-left corner and the matrix
+      // would either be non-identity (because we'd need a translate
+      // to recover centring) or the image rect would be anchored at
+      // the viewport top-left in widget coordinates.
+      final m = iv.transformationController!.value;
+      expect(m.row0[3], 0.0); // tx == 0
+      expect(m.row1[3], 0.0); // ty == 0
+      expect(m.getMaxScaleOnAxis(), closeTo(1.0, 0.001));
+
+      // The image's painted rect must be CENTRED inside the viewport.
+      //
+      // Note: a weaker assertion like `imageRect.contains(viewerRect.center)`
+      // does NOT catch L-β topLeft anchoring. With a 320×8 PNG in the
+      // default 800×600 testWidgets viewport, BoxFit.contain produces a
+      // 800×20 image rect; the L-β bug would anchor it at (0,0,800,20)
+      // whose `contains((400, 300))` is FALSE (good — that would catch
+      // it), BUT with a square image the equivalent rect would still
+      // contain the centre. The center-distance assertion below
+      // disambiguates regardless of aspect: M-α rect center coincides
+      // with viewer centre; L-β topLeft rect center is offset by
+      // (viewport - rect) / 2 on whichever axis the letterbox runs.
+      final viewerRect = tester.getRect(find.byType(InteractiveViewer));
+      final imageRect = tester.getRect(
+        find.descendant(
+          of: find.byType(InteractiveViewer),
+          matching: find.byType(Image),
+        ),
+      );
+      // Sanity: the image is letterboxed, NOT viewport-filled — i.e.
+      // _imageSize was resolved and the BoxFit.contain destination
+      // truly differs from the viewport. Without this guard, the
+      // assertion below could pass against the fallback path (image
+      // fills viewport, so Center vs Align(topLeft) are equivalent).
+      expect(
+        imageRect.size,
+        isNot(viewerRect.size),
+        reason:
+            'Image stream must have resolved by now so the image rect '
+            'is the BoxFit.contain destination (letterboxed), NOT the '
+            'fallback viewport size; viewer $viewerRect image $imageRect.',
+      );
+      expect(
+        (imageRect.center - viewerRect.center).distance,
+        lessThan(2.0),
+        reason:
+            'Image rect centre must coincide with viewport centre '
+            '(M-α layout). L-β topLeft anchoring would place the rect '
+            'centre off-axis by (viewport - rect) / 2 logical px; viewer '
+            'rect $viewerRect, image rect $imageRect.',
+      );
+      // Belt-and-suspenders: the image must also still cover the
+      // viewport centre — this is the literal PRD AC wording and
+      // guards against degenerate cases where the centre-distance
+      // check would pass but the image is too small to actually
+      // overlap the viewport centre.
+      expect(
+        imageRect.contains(viewerRect.center),
+        isTrue,
+        reason:
+            'Image must cover the viewport centre after identity '
+            'reset; viewer rect $viewerRect, image rect $imageRect.',
+      );
+    });
+
+    testWidgets(
+      'pan beyond image-pixel edge is clamped: dragging twice in the same '
+      "direction does not push translation past the boundary",
+      (tester) async {
+        await tester.pumpWidget(_dialogHarness(_smallPng()));
+        await tester.pumpAndSettle();
+
+        final iv = tester.widget<InteractiveViewer>(
+          find.byType(InteractiveViewer),
+        );
+        // Pre-zoom to 2× via the controller (avoids relying on the
+        // double-tap animation timing).
+        iv.transformationController!.value = Matrix4.identity()
+          ..scaleByDouble(2.0, 2.0, 1, 1);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        // First drag: large leftward pan. With boundaryMargin: zero,
+        // InteractiveViewer will clamp the matrix translation against
+        // the image's right edge once the user has reached it.
+        final center = tester.getCenter(find.byType(InteractiveViewer));
+        await tester.dragFrom(center, const Offset(-1200, 0));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        final txAfterFirst = iv.transformationController!.value.row0[3];
+        final tyAfterFirst = iv.transformationController!.value.row1[3];
+
+        // Second drag in the same direction: any further movement must
+        // be clamped to zero (or near-zero floating-point drift). If
+        // boundaryMargin were still infinity, the translation would
+        // continue to grow with each drag.
+        await tester.dragFrom(center, const Offset(-1200, 0));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        final txAfterSecond = iv.transformationController!.value.row0[3];
+        final tyAfterSecond = iv.transformationController!.value.row1[3];
+
+        // The translation must NOT have continued to grow (within a
+        // tiny floating-point tolerance). A non-clamped behavior would
+        // have moved by an additional ~1200 px on the second drag.
+        expect(
+          (txAfterSecond - txAfterFirst).abs(),
+          lessThan(1.0),
+          reason:
+              'tx must be clamped at the right-edge boundary; was '
+              '$txAfterFirst, became $txAfterSecond after another '
+              '-1200 px drag.',
+        );
+        expect(
+          (tyAfterSecond - tyAfterFirst).abs(),
+          lessThan(1.0),
+          reason:
+              'ty must remain stable on a horizontal second drag; '
+              'was $tyAfterFirst, became $tyAfterSecond.',
+        );
       },
     );
 
