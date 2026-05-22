@@ -48,6 +48,14 @@ dependencies:
   # Image input on mobile / web (gallery + camera).
   image_picker: ^1.1.2
 
+  # Fullscreen preview gallery + drag-to-dismiss — replaces self-rolled
+  # InteractiveViewer + PageView + custom ScrollPhysics under task
+  # `05-22-brainstorm-fullscreen-preview-extended-image` (ST1 introduces
+  # the dep + a `lib/_poc/` proof; ST2/ST3/ST4 do the migration). Lock-
+  # graph verified compatible per
+  # `.trellis/spec/frontend/dependencies-and-platforms.md`.
+  extended_image: ^10.0.1
+
   # Cross-platform file selection (desktop / web fallback + save dialog).
   file_picker: ^8.1.4
 
