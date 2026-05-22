@@ -1961,3 +1961,37 @@ Rewrite preview_full_screen_dialog.dart from 884 lines (self-rolled InteractiveV
 ### Next Steps
 
 - None - task complete
+
+
+## Session 59: Post-ST2 reverse decision + ST3 (PreviewThumbnail migration)
+
+**Date**: 2026-05-23
+**Task**: Post-ST2 reverse decision + ST3 (PreviewThumbnail migration)
+**Branch**: `main`
+
+### Summary
+
+Two parts: (1) Record post-ST2 reverse decision in parent brainstorm PRD — keep PreviewThumbnail._openFullScreen on showDialog<void>(Dialog.fullscreen(transparent)) instead of migrating to Navigator.push(PageRouteBuilder(opaque: false)) because manual smoke after ST2 found showDialog's open/close transition smoother. Added 'Post-ST2 Revision (2026-05-23)' H2 to parent PRD with reverse decision + 'Why showDialog won' table + lessons; rewrote R6; struck through original ST2/ST3 plan lines; synced 4 jsonl files (ST3/ST4 implement+check) so ST4 ADR-0002 lands the reverse decision as a Consequences sub-bullet. (2) ST3 surgical migration of preview_thumbnail.dart leaf widget: Image.memory → ExtendedImage.memory(mode: ExtendedImageMode.none, fit: BoxFit.contain, gaplessPlayback: true). 86 → 90 lines (+4 net). Outer Semantics > InkWell > ClipRRect > ColoredBox chain byte-identical; _openFullScreen body byte-identical (still showDialog per the revision). flutter analyze 0 / dart format 0 / non-dialog tests 479/479 PASS / preview_full_screen_dialog_test.dart 9 PASS / 18 FAIL (same ST2 baseline). PoC + Home debug entry preserved for ST4 cleanup. Parent brainstorm now 3/4 done; ST4 (rewrite-tests-and-adrs) unblocked.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fce2038` | (see git log) |
+| `5eb9523` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
