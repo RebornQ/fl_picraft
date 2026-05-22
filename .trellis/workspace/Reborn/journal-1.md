@@ -1892,3 +1892,38 @@ PreviewFullScreenDialog 的 InteractiveViewer 配置改为 boundaryMargin: EdgeI
 ### Next Steps
 
 - None - task complete
+
+
+## Session 57: Brainstorm + ST1: extended_image migration risk gate
+
+**Date**: 2026-05-22
+**Task**: Brainstorm + ST1: extended_image migration risk gate
+**Branch**: `main`
+
+### Summary
+
+Open brainstorm for migrating fullscreen preview to extended_image (PRD with Decision ADR-lite reversing ADR-0001 + 3 research files + 4 child subtasks scaffolding + 10 curated jsonl). Land ST1 risk gate: introduce extended_image ^10.0.1 dep (lock graph clean), build hermetic PoC widget at lib/_poc/extended_image_poc.dart wiring the production three-piece kit (ExtendedImageSlidePage + ExtendedImageGesturePageView.builder + ExtendedImage.memory(mode: gesture, inPageView: true)), kDebugMode-guarded entry in Home AppBar with TODO(ST4) markers. 3/3 red flags (#736 / #761 / desktop mouse drag) PASS on manual smoke. Codify new convention 'PoC gate for risky third-party packages' in dependencies-and-platforms.md. ST2/ST3/ST4 unblocked for Approach A.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9374687` | (see git log) |
+| `93798d8` | (see git log) |
+| `7a644a8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
