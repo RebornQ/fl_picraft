@@ -38,3 +38,36 @@ Final subtask of 05-22-brainstorm-fullscreen-preview-extended-image. Three inter
 ### Next Steps
 
 - None - task complete
+
+
+## Session 61: Export page polish — skeleton copy & disclaimer position
+
+**Date**: 2026-05-23
+**Task**: Export page polish — skeleton copy & disclaimer position
+**Branch**: `main`
+
+### Summary
+
+Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新中...' → '生成中.../重新生成中...'，与后端'合成新图'的实际语义对齐；(2) SaveDisclaimer 从 _ExportBody 末尾移到首位 (PreviewCard 之上)，让本地隐私承诺先于预览图被读到。保留底部 88dp FAB clearance、未动 PreviewLoading.staleBytes 字段 / SaveDisclaimer / PreviewCard 自身视觉。trellis-implement → trellis-check 全绿 (546 tests pass, analyze clean)。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b846c3f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
