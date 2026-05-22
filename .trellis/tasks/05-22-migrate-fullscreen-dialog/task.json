@@ -3,7 +3,7 @@
   "name": "migrate-fullscreen-dialog",
   "title": "迁移 PreviewFullScreenDialog 到 extended_image",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
