@@ -123,6 +123,77 @@ If the package **is** in the graph:
 **Where this lives**: `pubspec.yaml` declared dependencies; verified against
 `pubspec.lock` after every `flutter pub get`.
 
+### Convention: PoC gate for risky third-party packages
+
+**What**: Before integrating a new third-party package showing any **risk
+signal** below into production code, build a hermetic PoC widget in
+`lib/_poc/<pkg>_poc.dart` that exercises the **exact widget tree** intended
+for production. A human smoke-tests each risk signal; verdicts go into
+`{TASK_DIR}/poc-report.md`. Only after N/N PASS does the integration land.
+
+**Risk signals** (any one triggers the gate):
+
+- ≥ 1 open GitHub issue whose title / labels overlap the feature you're using
+  (search `is:open <feature-keyword>` on the package repo)
+- Most recent commit to the package's main repo is > 6 months ago (slow
+  triage = uncertain bug-fix turnaround)
+- The dep solves a problem we previously rejected adding a dep for —
+  i.e. this is a **reverse-decision** scenario against an existing ADR
+
+**Why**: pub.dev score / star count / lock-graph compatibility all pass
+cheaply but **none of them** catch "this open issue is exactly the bug
+we'd hit." Discovering a deal-breaker after a ~500-line migration means
+either rolling back the PR (~1 week of revert + redo) or shipping a
+known-broken release. Catching it at the PoC stage costs ~1 day; the
+amplification grows linearly with migration scope.
+
+**How to apply**:
+
+1. **Survey** the package's GitHub issue tracker for risk signals matching
+   your use case. Document each as `{URL, one-line hypothesis}` in the
+   task's PRD `Risks` section.
+2. **Build the PoC**: `lib/_poc/<pkg>_poc.dart` — a `StatefulWidget` wiring
+   the *exact* widget tree the production code will use, not a simplified
+   version. Synthesize hermetic in-memory test data (e.g. `package:image`
+   for PNGs).
+3. **Add a debug-only entry point**, guarded by `if (kDebugMode)`. Mark
+   every PoC site (PoC file + debug entry) with
+   `// TODO(<cleanup-task-id>): remove after migration` so the cleanup
+   subtask has a `grep` anchor.
+4. **Human-smoke** each risk signal on ≥ 1 mobile + ≥ 1 desktop platform
+   (web optional). Document verdicts in `{TASK_DIR}/poc-report.md` with
+   sections: `Environment`, one `## Red flag (X)` per signal,
+   `Lock graph`, `Recommendation`. Be honest about caveats (e.g. "iOS
+   verdict is indirectly inferred — only Android tested").
+5. **Any FAIL** → switch to a fallback approach (e.g. hybrid: keep
+   self-rolled outer, use the dep only for the layer it clearly wins) and
+   record the decision in a new ADR; do NOT proceed with the full
+   integration as planned.
+6. **All PASS** → unblock the full migration. Keep `poc-report.md` in the
+   task dir as historical evidence; the cleanup subtask removes
+   `lib/_poc/` files and the debug entry but **leaves `poc-report.md`
+   intact**.
+
+**Example** (this project, `05-22-extimage-dep-and-poc`): three risk
+signals identified upfront for `extended_image 10.0.1` — open issue #736
+(drag-to-dismiss + PageView fragility, 16 comments), #761 (v10.0.1 iOS
+`.memory + BoxFit.contain`, 0 comments since 2026-02-22), and "desktop
+mouse drag officially untested by upstream" (research-derived). PoC at
+`lib/_poc/extended_image_poc.dart` instantiated the production three-piece
+kit verbatim (`ExtendedImageSlidePage` + `ExtendedImageGesturePageView.builder`
++ `ExtendedImage.memory(mode: gesture, inPageView: true)`). 3/3 PASS → ST2
+/ ST3 / ST4 unblocked without reverse-decision.
+
+**When NOT to apply**: low-risk deps with active maintenance + zero open
+issues touching the use case + no history as a reverse-decision (e.g.
+`cupertino_icons`, `google_fonts`, `package_info_plus`). The previous
+Convention ("Verify lock-graph compatibility") still applies; PoC is
+overkill for these.
+
+**Where this lives**: `lib/_poc/<pkg>_poc.dart` (PoC code; deleted by
+cleanup subtask post-migration) + `{TASK_DIR}/poc-report.md` (verdict
+log; **kept** as institutional record).
+
 ---
 
 ## Platform Manifests
