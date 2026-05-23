@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "项目 frontend 总览：技术栈（Flutter + Riverpod + MD3）、设计 tokens、目录约定。新建 widget 前必须对照"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "本任务的核心 spec：WindowSizeClass 枚举派发、'sheet→panel 双形态'约定、size-class 测试 helper（_setViewportSize）。新增 compact 专属底栏 + sheet 必须走 enum 单分支，不能硬比较像素阈值"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget 设计规范：props 设计、MD3 配色（Material/elevation/colorScheme）、a11y（48dp tap target 例外、Semantics）。新建 StitchEditorBottomBar / sheet helpers / GripHandle 全部依赖此规范"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod 范式：ConsumerWidget vs ConsumerStatefulWidget、ref.watch / ref.read 区别、family provider 派发（imageImportControllerProvider 是 family）。新底栏要 watch stitchEditorControllerProvider 与图片数同步，新 sheet helpers 要 ref.read notifier 触发动作"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试规范、lint、format、Timeline markers。本任务需补 widget tests 覆盖 compact 分支底栏 chip 渲染 + sheet 打开 + disabled 状态，遵循 quality bar"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "Feature-first 模块组织约定。新建 4 个 widget 文件需放在 lib/features/long_stitch/presentation/widgets/ 下，遵循 snake_case.dart + UpperCamelCase class 命名"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Dart null safety、sealed 分发。新组件如需 enum / sealed 类型派发需遵循；现有 WindowSizeClass / StitchMode 都是 sealed-style enum"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "ScaffoldMessenger SnackBar 用法、user-facing message 翻译。当前 stitch 编辑器在 ref.listen 中 surface 导入失败的 SnackBar；新底栏触发的 sheet helpers 在调用 addFromGallery / pasteFromClipboard / addFromCamera 时，错误流仍走现有 listener，本任务不能破坏该路径"}

@@ -306,7 +306,87 @@ class StitchControlsSheet extends StatelessWidget {
 
 **Where this is used**: `stitch_editor_screen.dart` (via `StitchControlsSheet`) — `floor=200, ratio=0.22, ceiling=320` (per `05-20 mobile-control-bar-compact` ADR-lite). On common phone viewports (h < 909 dp) the floor wins; the ratio branch governs tablets / desktops / foldables ≥ 909 dp; the ceiling caps at h ≥ 1455 dp. Add a row here when a new editor adopts the pattern.
 
-**Don't**: Reach for `DraggableScrollableSheet` for this case. It's intended for user-pullable modals (think Google Maps' place card). Editor controls are persistent, not dismissible; a `ConstrainedBox + SingleChildScrollView` keeps the contract explicit and avoids accidentally introducing a drag gesture that fights with the slider drags inside.
+**Don't**: Reach for `DraggableScrollableSheet` for this **persistent sheet** case. It's intended for user-pullable modals (think Google Maps' place card). Editor controls in this layout are persistent (always docked to the bottom of the column), not dismissible; a `ConstrainedBox + SingleChildScrollView` keeps the contract explicit and avoids accidentally introducing a drag gesture that fights with the slider drags inside.
+
+> **Note**: `DraggableScrollableSheet` **is** the right tool when the controls live inside a **trigger-fired modal** (e.g. tap a chip → `showModalBottomSheet` → user can pull the sheet up to a larger snap, then dismiss). The "don't" above only applies to the **persistent** sheet docked into the screen layout. See the "Mobile-first canvas-dominant editor" pattern below for the modal-trigger variant.
+
+---
+
+## Pattern: Mobile-first canvas-dominant editor (persistent bottom bar + trigger sheets)
+
+**Problem**: On compact phones, an editor needs to maximize the preview canvas (e.g. long-image stitching, photo edit) while still surfacing input management (image list, parameters, export CTA). The classic single-column `Column { strip, Expanded(canvas), bottom-sheet }` shape (see the height-first skeleton pattern and `stitch_editor`'s legacy `medium` branch) eats ~50% of the column on a 360×800 dp phone (a ~208 dp strip + a ~200 dp bottom sheet), leaving the canvas with only ~232 dp / ~29% of the viewport. Users complain the canvas is unusable.
+
+**Solution**: collapse the input-management surfaces (image strip + parameter sheet) into **trigger-fired modal sheets** behind a thin **persistent editor bottom bar**. The bottom bar carries state-aware chips (`[+ 添加]` / `[🖼 N/20]` / `[⚙ 参数]`) — taps open ephemeral `showModalBottomSheet` overlays that reuse the **same** widgets the side-panel branch uses (`StitchVerticalImageList`, `StitchControlsPanel`) — no duplicate code, no drift across size classes. The bar itself docks via the inner `Scaffold.bottomNavigationBar` slot, which naturally stacks above the outer `AppShell` nav bar without any router / shell changes. The export CTA is intentionally **kept out of the bar** — it stays in the AppBar's action slot on compact + medium (and becomes a FAB on expanded / large), so users keep one consistent export position regardless of size class.
+
+Canvas size budget (assuming 800 dp viewport): 800 − 56 (AppBar) − 64 (editor bar) − 80 (AppShell nav bar) = **600 dp / 75%**. On test harnesses without `AppShell`, the canvas is 680 dp / 85%.
+
+### When to apply this pattern
+
+| Trigger | Apply this pattern? |
+|---|---|
+| Editor on compact phone where canvas is the primary work surface | ✅ Yes |
+| Editor on tablet / desktop where vertical space is plentiful | ❌ Use the height-first single-column or side-panel pattern instead |
+| Tool surface that should always be visible (e.g. a brush palette in a paint app) | ❌ Use the persistent bottom sheet (cap convention above) — modal sheets are dismissible by definition |
+| Sheets that need to coexist with persistent canvas hints / overlays | Mixed — modal sheets dim/disable the canvas while open, so prefer this pattern only if "edit then preview" is the natural flow |
+
+### Composition
+
+```
+StitchEditorScreen (compact branch)
+└─ Scaffold
+   ├─ appBar:                  // keeps the existing export IconButton (same as medium)
+   ├─ body: SafeArea > ImageDropZone > Column {
+   │    Expanded(StitchPreviewCanvas)   // canvas-only, ~75% of viewport
+   │  }
+   └─ bottomNavigationBar: StitchEditorBottomBar (64 dp, 3 chip)
+```
+
+Each chip is a `FilledButton.tonalIcon`. The state-aware chip (`[🖼 N/20]`) flips to `onPressed: null` when `state.hasImages` is false; `[+ 添加]` and `[⚙ 参数]` stay enabled. Every chip has a `Tooltip` whose message changes between enabled / disabled. The export CTA is **not** in the bar — it lives in the AppBar action slot (`Icons.save_outlined`, tooltip "导出每张子图") and follows its own `hasImages` disable rule there.
+
+### Sheet helpers
+
+Each trigger is a top-level `Future<void> showXxxSheet(BuildContext context, [WidgetRef ref])` function in its own file, returning the `showModalBottomSheet` future. Three flavors:
+
+| Sheet kind | Top-level helper | Sheet config | Inner content |
+|---|---|---|---|
+| **ActionSheet** (3-tile picker) | `showStitchAddActionSheet(context, ref)` | `showModalBottomSheet` (default height) | `SafeArea > Column { GripHandle, ListTile×3 }` — each `onTap` pops first, then calls the controller method |
+| **Content sheet** (re-mounted widget) | `showStitchImageSheet(context)` | `showModalBottomSheet(isScrollControlled: true, useSafeArea: true)` | `ConstrainedBox(maxHeight: screenH * 0.7) > Column { GripHandle, Expanded(StitchVerticalImageList) }` |
+| **Pull-up sheet** (params w/ snap sizes) | `showStitchParamsSheet(context)` | `showModalBottomSheet(isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent)` | `DraggableScrollableSheet(initial: 0.55, snapSizes: [0.3, 0.55, 0.9])` builder returns `Material(top-rounded 16) > SingleChildScrollView(controller: scrollController) > Column { GripHandle, StitchControlsPanel, SizedBox(80) }` |
+
+### Why `DraggableScrollableSheet` is the right tool **here** (vs the persistent-sheet "Don't" above)
+
+The persistent `StitchControlsSheet` (legacy `medium` branch) docks into the screen's main layout and must NOT be draggable — it would fight with the sliders inside. The new `showStitchParamsSheet` is a **trigger-fired modal** invoked by a chip tap; the user opens it intentionally and dismisses it intentionally. Inside a modal, `DraggableScrollableSheet` adds the right affordance: pull up to ~0.9 to see the full panel, pull down to ~0.3 to peek the canvas while adjusting. The two cases are different surfaces with different contracts; the snap-sizes UX only makes sense in the modal one.
+
+### Code reuse contract
+
+Both sheet helpers **must reuse** the existing widgets that the side-panel branch uses (`StitchVerticalImageList`, `StitchControlsPanel`). Do **not** copy or fork those widgets for the sheet path:
+
+* `StitchVerticalImageList` already supports its own scroll + reorder; the sheet just hosts it inside an `Expanded`.
+* `StitchControlsPanel` is bare (no chrome — see "panel has no outer padding" convention). The pull-up sheet supplies the chrome via the `Material(borderRadius: vertical(top: Radius.circular(16)), color: surface)` wrapper.
+
+If a future tweak needs sheet-specific behavior (e.g. a "close after action" button), add it as an optional widget parameter rather than duplicating the panel.
+
+### Visual differentiation from the outer `AppShell` nav bar
+
+Two `Scaffold.bottomNavigationBar` slots in the same widget tree create a stacked-bottom-bar visual. The MVP differentiation rule is **at least one** of these axes:
+
+* `Material(elevation: 3, color: colorScheme.surface)` + top `outlineVariant` 1 dp border on the editor bar — distinguishes from the outer `NavigationBar`'s `surfaceContainer` default.
+* Editor bar height 64 dp vs `NavigationBar`'s default 80 dp.
+* Editor bar uses pill-shaped chips (FilledButton, tonal); `NavigationBar` uses icon + label destinations.
+
+These three combined are enough for the MVP. If a future polish pass wants a sharper visual break, drop a `Divider(height: 1)` above the editor bar or bump its elevation to 6.
+
+### Where this is used
+
+* `stitch_editor_screen.dart` — compact branch only. medium / expanded / large branches stay on the legacy three-section Column / side-panel patterns. The bar widget is `StitchEditorBottomBar`; the three sheet helpers are `showStitchAddActionSheet`, `showStitchImageSheet`, `showStitchParamsSheet` (per the `05-23 mobile-canvas-redesign-for-long-image-stitching` ADR-lite).
+
+When adding a new editor that hits the same canvas-cramped problem on compact, follow this pattern and add a row here.
+
+### Don't
+
+* **Don't** apply this pattern on tablet / desktop — the height-first single-column or side-panel patterns already give the canvas enough room without dismissing the controls behind a modal.
+* **Don't** delete the legacy persistent-sheet widgets (`StitchControlsSheet`, `StitchImageStrip`) when migrating a single size class — the **other** size class branches still depend on them.
+* **Don't** fork the panel widgets just because they live behind a modal — that's the "Sheet → Panel dual-form" anti-pattern again, just translated to mobile.
 
 ---
 
@@ -538,7 +618,7 @@ For simple list-column-count tests where `MediaQuery` is enough (no `Column + Ex
 |---|---|---|---|---|
 | home_screen | 3-col feature grid | 3-col | 4-col | 4-col, fluid (fills container) |
 | export_screen | single-column | single-column | two-column (preview / config) | same, fluid (fills container) |
-| stitch_editor | scrollable canvas + bottom `StitchControlsSheet` capped at `max(200, min(screenHeight * 0.22, 320))` dp with internal `SingleChildScrollView` (see "Cap bottom-sheet height" convention) | same as compact | two-column `Row(stretch)`: canvas on the left fills the `Expanded` slot; right column is `SizedBox(width ∈ [380, 480])` wrapping a `Column` that gives `Expanded(flex:1)` to `StitchVerticalImageList` (top half — header + reorderable selected-images list with its own `SingleChildScrollView`) and `Expanded(flex:1)` to `SingleChildScrollView(StitchControlsPanel)` (bottom half). Top image strip is **not** rendered on this size class. | same, fluid (fills container); side column stays in `[380, 480]` dp with the same 50/50 split |
+| stitch_editor | **canvas-first**: body = `Column { Expanded(StitchPreviewCanvas) }` (no top strip, no bottom sheet). Inner `Scaffold.bottomNavigationBar` = `StitchEditorBottomBar` (64 dp, 3 chip: `[+ 添加]` / `[🖼 N/20]` / `[⚙ 参数]`), which naturally stacks above the outer `AppShell.bottomNavigationBar`. AppBar 保留现有的「导出每张子图」`IconButton`（与 medium 行为对齐）—— compact 与 medium 共用同一个导出入口位置，便于 muscle-memory 复用。Chips trigger ephemeral `showModalBottomSheet` overlays: add → `showStitchAddActionSheet` (3 ListTiles); image management → `showStitchImageSheet` (wraps reused `StitchVerticalImageList`); params → `showStitchParamsSheet` (wraps reused `StitchControlsPanel` in a `DraggableScrollableSheet` with `snapSizes: [0.3, 0.55, 0.9]`). See "Mobile-first persistent-bottom-bar + trigger sheets" pattern below. | scrollable canvas + bottom `StitchControlsSheet` capped at `max(200, min(screenHeight * 0.22, 320))` dp with internal `SingleChildScrollView` (see "Cap bottom-sheet height" convention) — **legacy three-section Column kept on medium pending future migration** | two-column `Row(stretch)`: canvas on the left fills the `Expanded` slot; right column is `SizedBox(width ∈ [380, 480])` wrapping a `Column` that gives `Expanded(flex:1)` to `StitchVerticalImageList` (top half — header + reorderable selected-images list with its own `SingleChildScrollView`) and `Expanded(flex:1)` to `SingleChildScrollView(StitchControlsPanel)` (bottom half). Top image strip is **not** rendered on this size class. | same, fluid (fills container); side column stays in `[380, 480]` dp with the same 50/50 split |
 | grid_editor | height-first `Column`: `Expanded(flex: 3, Center(AspectRatio(1, canvas)))` + `Expanded(flex: 2, chrome[GridControlsPanel])` — chrome (`surfaceContainerLow` + `outlineVariant` + 16 dp rounded; matches the side-panel chrome at expanded / large) fills its `Expanded` slot edge-to-edge while the 3:2 flex split returns ≈ 60 % of the column's remaining height to the canvas. Per the 05-20 grid-controls-chrome-cap ADR-lite (revised), the chrome slot stays `Expanded` (an earlier `Flexible(loose) + ConstrainedBox` attempt was reverted — the chrome collapsed to its intrinsic height and a strip of bare page background bled through below it). The outer `Padding` uses 16 dp on every side; FAB clearance lives **inside** the chrome's `SingleChildScrollView` (`hasSource ? 80 : 16` dp) so the chrome's visible bottom rests on body bottom − 16 dp (no page bleed under the bottom nav). See "Editor body — height-first Column skeleton" pattern + "FAB clearance for chrome-wrapped controls slots lives in the scrollview" convention + the "Lesson: tune flex weight, not `ConstrainedBox`-on-chrome" callout below. | same as compact | height-first `Row(stretch)`: left column = `Expanded(Column(stretch) > Expanded(Center(AspectRatio(1, canvas))))` (square = `min(leftColW, rowHeight)`) + right panel ∈ [380, 480] dp wrapped in the **same** surface chrome that fills the row height, scrolls internally (default 16 dp scrollview bottom padding — FAB floats over the canvas column, not the docked panel). | same, fluid (fills container); left canvas stays height-first, side panel ∈ [380, 480] dp with the surface chrome scrolls internally |
 
 When adding a new top-level screen, fill in this table for it.

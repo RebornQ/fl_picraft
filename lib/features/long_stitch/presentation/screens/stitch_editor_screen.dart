@@ -12,6 +12,7 @@ import '../../../image_import/presentation/widgets/image_drop_zone.dart';
 import '../providers/stitch_editor_provider.dart';
 import '../widgets/stitch_controls_panel.dart';
 import '../widgets/stitch_controls_sheet.dart';
+import '../widgets/stitch_editor_bottom_bar.dart';
 import '../widgets/stitch_image_strip.dart';
 import '../widgets/stitch_preview_canvas.dart';
 import '../widgets/stitch_vertical_image_list.dart';
@@ -29,32 +30,38 @@ const double _kStitchControlsPanelMaxWidth = 480;
 
 /// Long-stitch editor screen.
 ///
-/// Layout (top → bottom on compact / medium widths):
-/// 1. AppBar with back + title + export action
-/// 2. Image strip (horizontal, drag-reorder)
+/// Layout (top → bottom on medium widths; compact + expanded / large
+/// each use their own shape — see the responsive table below):
+/// 1. AppBar with back + title + (compact / medium) export action
+/// 2. Image strip (horizontal, drag-reorder) — medium only
 /// 3. Preview canvas (fills remaining space — owns its own scroll;
 ///    the grey surface ALWAYS fills the Expanded height regardless of
 ///    canvas aspect ratio, so short canvases no longer leave dead
 ///    space below them)
-/// 4. Sticky controls sheet (mode segmented + parameter sliders)
+/// 4. Sticky controls sheet (mode segmented + parameter sliders) —
+///    medium only
 ///
 /// The whole body is wrapped in [ImageDropZone] so desktop / web
-/// drag-drop also funnels images into the editor. The "导出" CTA in
-/// the app bar marks the session as stitch-sourced (via
+/// drag-drop also funnels images into the editor. The "导出" CTA
+/// (AppBar IconButton on compact / medium, floating action button
+/// on expanded / large) marks the session as stitch-sourced (via
 /// [currentExportSourceKindProvider]) and routes to the unified
 /// `/export` screen.
 ///
 /// The bottom nav and surrounding `Scaffold` chrome are owned by the
-/// surrounding `AppShell`; this screen returns only its own `Scaffold`
-/// (for `AppBar` + body) without a `bottomNavigationBar`.
+/// surrounding `AppShell`; this screen returns its own `Scaffold`
+/// (with its own `AppBar` and — on compact — a
+/// [StitchEditorBottomBar] in the inner Scaffold's
+/// `bottomNavigationBar` slot stacked above the outer
+/// `AppShell.bottomNavigationBar`).
 ///
 /// Responsive behavior (driven by [windowSizeClassOf]):
 ///
 /// | size class | layout |
 /// |------------|--------|
-/// | compact (<600 dp) | image strip on top, canvas in the middle (fills the Expanded slot, surface scrolls internally for tall canvases), controls docked as a bottom [StitchControlsSheet] |
-/// | medium (600–840 dp) | same as compact — phone-landscape stays single-column to keep the touch sheet reachable |
-/// | expanded (840–1200 dp) | two-column [Row]: canvas on the left (fills the Expanded slot) and a fluid right column docked at `clamp(380, container * 0.25, 480)` dp — the right column splits 50/50 between a vertical [StitchVerticalImageList] (top) and the [StitchControlsPanel] (bottom), each with its own internal scroll. The top image strip is **not** rendered on this size class. |
+/// | compact (<600 dp) | canvas fills the entire body ([Column] with one [Expanded(StitchPreviewCanvas)] child). The image strip / controls sheet move into modal sheets surfaced from the 3-chip [StitchEditorBottomBar] in the inner Scaffold's `bottomNavigationBar` slot. AppBar's export IconButton is **retained** (same position as medium) — it stays the primary export CTA on compact too. |
+/// | medium (600–840 dp) | image strip on top, canvas in the middle (fills the Expanded slot, surface scrolls internally for tall canvases), controls docked as a bottom [StitchControlsSheet]; AppBar's export IconButton is the primary CTA. |
+/// | expanded (840–1200 dp) | two-column [Row]: canvas on the left (fills the Expanded slot) and a fluid right column docked at `clamp(380, container * 0.25, 480)` dp — the right column splits 50/50 between a vertical [StitchVerticalImageList] (top) and the [StitchControlsPanel] (bottom), each with its own internal scroll. The top image strip is **not** rendered on this size class; the export CTA moves to a floating action button. |
 /// | large (≥1200 dp) | same as expanded — body fills the available width, side column stays in `[380, 480]` dp |
 class StitchEditorScreen extends ConsumerWidget {
   const StitchEditorScreen({super.key});
@@ -83,6 +90,7 @@ class StitchEditorScreen extends ConsumerWidget {
     );
 
     final sizeClass = windowSizeClassOf(context);
+    final isCompact = sizeClass == WindowSizeClass.compact;
     final useSidePanel =
         sizeClass == WindowSizeClass.expanded ||
         sizeClass == WindowSizeClass.large;
@@ -116,6 +124,15 @@ class StitchEditorScreen extends ConsumerWidget {
           //     child: const Text('导出'),
           //   ),
           // ),
+          //
+          // AppBar export IconButton is rendered on compact + medium
+          // (`!useSidePanel`). On expanded / large the
+          // [FloatingActionButton.extended] below takes over as the
+          // export CTA. Compact keeps the IconButton in the AppBar
+          // (rather than moving the CTA into the
+          // [StitchEditorBottomBar]) so the export position stays
+          // aligned with users' existing muscle memory; the bar only
+          // hosts add / images / params chips.
           if (!useSidePanel)
             Container(
               margin: EdgeInsets.only(right: 6),
@@ -154,6 +171,15 @@ class StitchEditorScreen extends ConsumerWidget {
               label: const Text('导出'),
             )
           : null,
+      // Compact-only editor bottom bar — sits in the inner Scaffold's
+      // `bottomNavigationBar` slot so Flutter stacks it above the
+      // outer `AppShell.bottomNavigationBar` (the outer shell's nav
+      // bar still owns tab switching; this one owns
+      // add / images / params within the editor; export stays in the
+      // AppBar). medium keeps its existing `StitchControlsSheet` +
+      // AppBar IconButton pair; expanded / large rely on the side
+      // panel + FAB above — neither needs the editor bottom bar.
+      bottomNavigationBar: isCompact ? const StitchEditorBottomBar() : null,
       body: const SafeArea(
         child: ImageDropZone(
           sessionKind: ImageImportSessionKind.stitch,
@@ -179,6 +205,7 @@ class _StitchEditorBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sizeClass = windowSizeClassOf(context);
+    final isCompact = sizeClass == WindowSizeClass.compact;
     final useSidePanel =
         sizeClass == WindowSizeClass.expanded ||
         sizeClass == WindowSizeClass.large;
@@ -226,6 +253,20 @@ class _StitchEditorBody extends StatelessWidget {
       );
     }
 
+    if (isCompact) {
+      // The image strip and parameter sheet move into modal sheets
+      // surfaced from [StitchEditorBottomBar] (mounted in the
+      // surrounding Scaffold's `bottomNavigationBar` slot), so the
+      // compact body is just the preview canvas filling the
+      // available height. The bar itself is **not** rendered here —
+      // it lives outside the body so the canvas can claim every
+      // pixel between the AppBar and the bar.
+      return const Column(children: [Expanded(child: StitchPreviewCanvas())]);
+    }
+
+    // Medium (600–840 dp): keep the single-column strip + canvas +
+    // sheet layout. Phone-landscape stays here because the bottom
+    // sheet remains thumb-reachable.
     return const Column(
       children: [
         StitchImageStrip(),

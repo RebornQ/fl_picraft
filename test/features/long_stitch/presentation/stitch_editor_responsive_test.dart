@@ -2,10 +2,12 @@ import 'dart:typed_data';
 
 import 'package:fl_picraft/features/image_import/domain/entities/image_import_session_kind.dart';
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
+import 'package:fl_picraft/features/image_import/domain/repositories/image_import_repository.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/screens/stitch_editor_screen.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_panel.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_sheet.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_editor_bottom_bar.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_image_strip.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_preview_canvas.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_vertical_image_list.dart';
@@ -65,35 +67,142 @@ Future<void> _setViewportSize(WidgetTester tester, Size size) async {
 
 void main() {
   group('StitchEditorScreen responsive layout', () {
-    testWidgets('compact (< 600 dp) docks controls as a bottom sheet', (
+    // ---- compact (< 600 dp) -----------------------------------------
+    //
+    // PR-2 of `05-23-mobile-canvas-redesign-for-long-image-stitching`:
+    // the compact branch swaps the strip + bottom sheet for a single
+    // 3-chip [StitchEditorBottomBar] (mounted in the inner Scaffold's
+    // `bottomNavigationBar` slot). The canvas claims the body alone;
+    // the strip / sheet are NOT rendered by default — they live in
+    // modal sheets surfaced from the bottom bar's chips. The AppBar
+    // export IconButton is **retained** on compact (D-4 revised) — it
+    // stays the export CTA across compact + medium so users keep the
+    // same muscle memory.
+    testWidgets('compact (< 600 dp) docks chips in a [StitchEditorBottomBar]; '
+        'strip / sheet are gone; canvas fills the body; AppBar keeps export', (
       tester,
     ) async {
-      await _setViewportSize(tester, const Size(400, 1200));
+      await _setViewportSize(tester, const Size(400, 800));
       await tester.pumpWidget(_stitchHarness());
       await tester.pumpAndSettle();
 
-      // Bottom sheet wrapper is present, containing the panel.
-      expect(find.byType(StitchControlsSheet), findsOneWidget);
-      expect(find.byType(StitchControlsPanel), findsOneWidget);
-      // Compact uses the horizontal strip at the top; the wide-screen
-      // vertical list is NOT rendered.
-      expect(find.byType(StitchImageStrip), findsOneWidget);
+      // Editor bottom bar is the only persistent chrome under the
+      // canvas on compact.
+      expect(find.byType(StitchEditorBottomBar), findsOneWidget);
+
+      // Old strip + bottom sheet pair is gone — they would compete
+      // with the bar for the same vertical space and re-introduce
+      // the ~71% screen-eating problem the PRD set out to fix.
+      expect(find.byType(StitchImageStrip), findsNothing);
+      expect(find.byType(StitchControlsSheet), findsNothing);
+
+      // Side-column vertical list is reserved for expanded / large.
       expect(find.byType(StitchVerticalImageList), findsNothing);
+
+      // Canvas is rendered (and, by virtue of being the sole
+      // [Expanded] child of the body Column, claims the available
+      // height).
+      expect(find.byType(StitchPreviewCanvas), findsOneWidget);
+
+      // AppBar export IconButton (Icons.save_outlined, tooltip
+      // "导出每张子图") IS rendered on compact — the bottom bar
+      // hosts only [+ 添加] / [🖼 N/20] / [⚙ 参数] (no export
+      // chip), so the AppBar action stays the export CTA across
+      // compact + medium for muscle-memory consistency.
+      expect(find.byTooltip('导出每张子图'), findsOneWidget);
+
+      // FAB is reserved for the side-panel size classes.
+      expect(find.byType(FloatingActionButton), findsNothing);
     });
 
-    testWidgets('medium (>= 600 dp) keeps the bottom sheet layout', (
+    testWidgets(
+      'compact empty state (imageCount == 0) disables [🖼] chip and the '
+      'canvas shows the empty hint; AppBar export IconButton is disabled',
+      (tester) async {
+        await _setViewportSize(tester, const Size(400, 800));
+        await tester.pumpWidget(_stitchHarness(images: const []));
+        await tester.pumpAndSettle();
+
+        // Canvas falls through to the `_EmptyHint` widget which renders
+        // a distinctive prompt — `find.text` matches it via the text
+        // contents because `_EmptyHint` is private and can't be
+        // matched by type from outside the canvas file.
+        expect(find.text('导入图片以预览拼接效果'), findsOneWidget);
+
+        // Bottom bar rendered (with the disabled count chip).
+        expect(find.byType(StitchEditorBottomBar), findsOneWidget);
+
+        // Pin the disabled count chip by its visible label.
+        // `find.byWidgetPredicate` catches the private subclasses that
+        // `find.byType(FilledButton)` misses.
+        final imagesChipBtn = tester.widget<FilledButton>(
+          find.ancestor(
+            of: find.text('0/$kMaxImportSessionImages'),
+            matching: find.byWidgetPredicate((w) => w is FilledButton),
+          ),
+        );
+        expect(
+          imagesChipBtn.onPressed,
+          isNull,
+          reason: 'image-count chip must be disabled on empty session',
+        );
+
+        // AppBar export IconButton is rendered (greyed out): its
+        // onPressed should be null when there are no images.
+        // `find.byTooltip` matches the Tooltip widget itself; use
+        // `find.ancestor` to climb up to the IconButton.
+        final exportIconButton = tester.widget<IconButton>(
+          find.ancestor(
+            of: find.byTooltip('导出每张子图'),
+            matching: find.byType(IconButton),
+          ),
+        );
+        expect(
+          exportIconButton.onPressed,
+          isNull,
+          reason: 'AppBar export IconButton must be disabled on empty session',
+        );
+      },
+    );
+
+    // ---- medium (>= 600 dp) -----------------------------------------
+    //
+    // Per PRD R-3 the medium branch is **unchanged** by PR-2: the
+    // strip + bottom sheet pair stays, the editor bottom bar does
+    // NOT render, and the AppBar IconButton remains the medium CTA.
+    testWidgets('medium (>= 600 dp) keeps the strip + controls sheet layout; '
+        'no editor bottom bar; AppBar export IconButton is the CTA', (
       tester,
     ) async {
       await _setViewportSize(tester, const Size(720, 1200));
       await tester.pumpWidget(_stitchHarness());
       await tester.pumpAndSettle();
 
+      // Compact's new bottom bar is hidden on medium.
+      expect(find.byType(StitchEditorBottomBar), findsNothing);
+
+      // Existing medium layout: top strip + canvas + bottom sheet.
+      expect(find.byType(StitchImageStrip), findsOneWidget);
       expect(find.byType(StitchControlsSheet), findsOneWidget);
       expect(find.byType(StitchControlsPanel), findsOneWidget);
-      expect(find.byType(StitchImageStrip), findsOneWidget);
+
+      // Side-column vertical list still reserved for expanded / large.
       expect(find.byType(StitchVerticalImageList), findsNothing);
+
+      // AppBar export IconButton is the medium-mode CTA — its
+      // tooltip "导出每张子图" pins it.
+      expect(find.byTooltip('导出每张子图'), findsOneWidget);
+
+      // FAB only appears on expanded / large.
+      expect(find.byType(FloatingActionButton), findsNothing);
     });
 
+    // ---- expanded (>= 840 dp) ---------------------------------------
+    //
+    // Behavior unchanged by PR-2 — keep all existing assertions, plus
+    // explicit checks that compact's bottom bar / medium's AppBar
+    // IconButton are absent on this size class so the regression net
+    // covers every branch.
     testWidgets(
       'expanded (>= 840 dp) docks a vertical list + controls panel in the side column',
       (tester) async {
@@ -108,6 +217,13 @@ void main() {
         // Top horizontal strip is replaced by the side-column vertical list.
         expect(find.byType(StitchImageStrip), findsNothing);
         expect(find.byType(StitchVerticalImageList), findsOneWidget);
+
+        // Compact's bottom bar is NOT mounted on expanded.
+        expect(find.byType(StitchEditorBottomBar), findsNothing);
+        // Medium's AppBar IconButton is also gone — the FAB is the CTA.
+        expect(find.byTooltip('导出每张子图'), findsNothing);
+        // FAB present (hasImages == true via the harness default).
+        expect(find.byType(FloatingActionButton), findsOneWidget);
 
         // Layout signal: the panel sits to the RIGHT of the canvas.
         final canvasOrigin = tester.getTopLeft(
@@ -137,6 +253,10 @@ void main() {
       expect(find.byType(StitchControlsPanel), findsOneWidget);
       expect(find.byType(StitchImageStrip), findsNothing);
       expect(find.byType(StitchVerticalImageList), findsOneWidget);
+      // Same compact bar / medium IconButton absence checks as expanded.
+      expect(find.byType(StitchEditorBottomBar), findsNothing);
+      expect(find.byTooltip('导出每张子图'), findsNothing);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
 
       final canvasOrigin = tester.getTopLeft(find.byType(StitchPreviewCanvas));
       final panelOrigin = tester.getTopLeft(find.byType(StitchControlsPanel));

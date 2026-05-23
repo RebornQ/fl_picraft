@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "检查 size-class 派发是否正确：compact 走新分支、medium/expanded/large 完全保持现状；测试用 _setViewportSize helper 覆盖 4 个 size class；不允许出现 MediaQuery.sizeOf(context).width < N 的硬比较"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "检查新建 widget 的 MD3 合规性：colorScheme.surface / primary / outlineVariant 使用、48dp tap target（除非明确标注例外）、elevation 层级、Semantics 语义"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "检查 Riverpod 用法：watch vs read 正确性、ConsumerWidget 选型、不在 build 里写 side-effect、imageImportControllerProvider family kind 严格用 .stitch"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查测试覆盖：底栏 4 chip 渲染 + disabled 状态、sheet 触发与内容、ImageDropZone 行为不变、ReorderableColumn long-press 在 modal sheet 内仍正常；flutter analyze / format / test 全绿"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "检查导入失败的 SnackBar listener 仍工作（compact 新底栏触发的 addFromGallery / paste / camera 失败时应仍弹 SnackBar）"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "检查新文件位置：4 个新 widget 必须在 lib/features/long_stitch/presentation/widgets/ 下，文件名 snake_case，类名 UpperCamelCase"}
