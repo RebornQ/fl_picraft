@@ -32,7 +32,13 @@ const double _kStitchControlsPanelMaxWidth = 480;
 ///
 /// Layout (top → bottom on medium widths; compact + expanded / large
 /// each use their own shape — see the responsive table below):
-/// 1. AppBar with back + title + (compact / medium) export action
+/// 1. AppBar with title + (compact / medium) export action — no leading
+///    back button: this screen is a `StatefulShellRoute` tab branch root,
+///    so the user uses the bottom nav to switch tabs (see
+///    `.trellis/spec/frontend/component-guidelines.md`
+///    → "StatefulShellRoute + per-branch screen + Android back-key
+///    contract"). System back / iOS edge-swipe still works via
+///    `AppShell.PopScope`.
 /// 2. Image strip (horizontal, drag-reorder) — medium only
 /// 3. Preview canvas (fills remaining space — owns its own scroll;
 ///    the grey surface ALWAYS fills the Expanded height regardless of
@@ -97,13 +103,6 @@ class StitchEditorScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: '返回',
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            : null,
         title: const Text(
           '长图拼接',
           style: TextStyle(fontWeight: FontWeight.bold),

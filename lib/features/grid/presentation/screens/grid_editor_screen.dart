@@ -105,7 +105,13 @@ Widget _buildControlsPanelChrome(
 /// Grid-split editor screen.
 ///
 /// Layout on compact / medium widths (matching `_3_宫格切图/code.html`):
-/// 1. AppBar with back + title + import action
+/// 1. AppBar with title + import action — no leading back button: this
+///    screen is a `StatefulShellRoute` tab branch root, so the user uses
+///    the bottom nav to switch tabs (see
+///    `.trellis/spec/frontend/component-guidelines.md`
+///    → "StatefulShellRoute + per-branch screen + Android back-key
+///    contract"). System back / iOS edge-swipe still works via
+///    `AppShell.PopScope`.
 /// 2. Preview canvas (aspect `cols / rows`) with grid overlay
 /// 3. Optional source-size warning
 /// 4. Grid type selector + bento parameter cards (all grouped inside
@@ -172,13 +178,6 @@ class GridEditorScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: '返回',
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            : null,
         title: const Text(
           '宫格切图',
           style: TextStyle(fontWeight: FontWeight.bold),
