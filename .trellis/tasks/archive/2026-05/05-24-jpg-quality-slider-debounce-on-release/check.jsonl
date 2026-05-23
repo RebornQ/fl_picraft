@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "check 阶段验证 flutter analyze 0 issue / dart format 0 file / flutter test 全绿；确认 StatefulWidget 改造后无残留 TODO / debug print，注释保持精简。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "check 阶段验证新增的 'Convention: 重渲染昂贵的预览滑块应在 onChangeEnd 提交' 章节：标题层级、Rationale、Example 三段是否齐全，是否符合既有 convention 块的写作风格；其中 Example 是否准确反映了 _QualitySlider 的实际实现。"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "check 阶段验证 _draftValue 仍然是 Local Widget State（line 21），未误升为 Riverpod 全局 provider；didUpdateWidget 的外部 value 同步逻辑是否覆盖了 PNG→JPG 切换、父 rebuild 等场景。"}
+{"file": ".trellis/tasks/05-24-jpg-quality-slider-debounce-on-release/prd.md", "reason": "check 阶段须逐条核对 AC checklist (8 项)：(1) 拖动不写 controller，(2) 数字 + 拇指实时跟随，(3) 松开恰好一次 setQuality，(4) 拖回原值短路，(5) PNG/JPG 切换草稿同步，(6) 既有测试通过，(7) 新增拖动断言测试，(8) spec convention 三段齐全。漏一项即 fail。"}

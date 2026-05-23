@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "本任务要新增一节 'Convention: 重渲染昂贵的预览滑块应在 onChangeEnd 提交'。实现时需对齐既有 convention 章节的格式（标题 / Rationale / Example），参考 'Convention: Require a typed mode parameter when a widget feeds a .family provider'（约 line 100）和 'Callback Naming'（line 90）。"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "判定 _QualitySlider 内部 _draftValue 属于 'Local Widget State'（line 21）而非 Riverpod 全局——这里的 'temporary input draft pending submit' 正是 Local State 的典型例子。实现时无需新增 provider。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "编码期 const / final / dart format / flutter_lints 等通用约束；StatefulWidget 改造后注释精简、不留 TODO。"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "`onChangeEnd: (double v) => widget.onChanged(v.round())` 涉及 double→int 转换；ValueChanged<int> 与 ValueChanged<double> 的强类型边界要保持清晰，不使用 dynamic。"}
+{"file": ".trellis/tasks/05-24-jpg-quality-slider-debounce-on-release/prd.md", "reason": "本任务的 R1-R5、AC、ADR-lite Decision、Implementation Plan 都在 PRD 中——sub-agent 实现时必须严格按这 5 条 Requirements + Implementation Plan 三步走。"}
