@@ -105,11 +105,11 @@ void main() {
       expect(find.byType(StitchPreviewCanvas), findsOneWidget);
 
       // AppBar export IconButton (Icons.save_outlined, tooltip
-      // "导出每张子图") IS rendered on compact — the bottom bar
+      // "导出拼图") IS rendered on compact — the bottom bar
       // hosts only [+ 添加] / [🖼 N/20] / [⚙ 参数] (no export
       // chip), so the AppBar action stays the export CTA across
       // compact + medium for muscle-memory consistency.
-      expect(find.byTooltip('导出每张子图'), findsOneWidget);
+      expect(find.byTooltip('导出拼图'), findsOneWidget);
 
       // FAB is reserved for the side-panel size classes.
       expect(find.byType(FloatingActionButton), findsNothing);
@@ -153,7 +153,7 @@ void main() {
         // `find.ancestor` to climb up to the IconButton.
         final exportIconButton = tester.widget<IconButton>(
           find.ancestor(
-            of: find.byTooltip('导出每张子图'),
+            of: find.byTooltip('导出拼图'),
             matching: find.byType(IconButton),
           ),
         );
@@ -190,8 +190,8 @@ void main() {
       expect(find.byType(StitchVerticalImageList), findsNothing);
 
       // AppBar export IconButton is the medium-mode CTA — its
-      // tooltip "导出每张子图" pins it.
-      expect(find.byTooltip('导出每张子图'), findsOneWidget);
+      // tooltip "导出拼图" pins it.
+      expect(find.byTooltip('导出拼图'), findsOneWidget);
 
       // FAB only appears on expanded / large.
       expect(find.byType(FloatingActionButton), findsNothing);
@@ -221,7 +221,7 @@ void main() {
         // Compact's bottom bar is NOT mounted on expanded.
         expect(find.byType(StitchEditorBottomBar), findsNothing);
         // Medium's AppBar IconButton is also gone — the FAB is the CTA.
-        expect(find.byTooltip('导出每张子图'), findsNothing);
+        expect(find.byTooltip('导出拼图'), findsNothing);
         // FAB present (hasImages == true via the harness default).
         expect(find.byType(FloatingActionButton), findsOneWidget);
 
@@ -255,7 +255,7 @@ void main() {
       expect(find.byType(StitchVerticalImageList), findsOneWidget);
       // Same compact bar / medium IconButton absence checks as expanded.
       expect(find.byType(StitchEditorBottomBar), findsNothing);
-      expect(find.byTooltip('导出每张子图'), findsNothing);
+      expect(find.byTooltip('导出拼图'), findsNothing);
       expect(find.byType(FloatingActionButton), findsOneWidget);
 
       final canvasOrigin = tester.getTopLeft(find.byType(StitchPreviewCanvas));

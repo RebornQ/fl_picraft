@@ -138,7 +138,7 @@ class StitchEditorScreen extends ConsumerWidget {
               margin: EdgeInsets.only(right: 6),
               child: IconButton(
                 icon: const Icon(Icons.save_outlined, size: 28),
-                tooltip: '导出每张子图',
+                tooltip: '导出拼图',
                 style: ButtonStyle(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,

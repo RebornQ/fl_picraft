@@ -27,7 +27,7 @@ import 'stitch_params_sheet.dart';
 ///
 /// The export CTA lives **outside** this bar — it stays in the
 /// AppBar's action slot (`Icons.save_outlined`, tooltip
-/// "导出每张子图") on every size class, matching the muscle-memory
+/// "导出拼图") on every size class, matching the muscle-memory
 /// position users already learned. The bar therefore does not
 /// claim a primary-CTA slot.
 ///
