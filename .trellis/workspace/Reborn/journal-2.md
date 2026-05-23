@@ -71,3 +71,37 @@ Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新
 ### Next Steps
 
 - None - task complete
+
+
+## Session 62: 长图拼接 compact 画布主导重设计
+
+**Date**: 2026-05-24
+**Task**: 长图拼接 compact 画布主导重设计
+**Branch**: `main`
+
+### Summary
+
+重设计 compact 屏宽（<600 dp）下的长图拼接编辑器：用「持久编辑器底栏（3 chip：+ 添加 / 🖼 N/20 / ⚙ 参数）+ 触发式 modal sheets」替代原「strip + canvas + sheet 三段 Column」，画布占屏从 ~29% 提升到 ~72%。导出 CTA 保留在 AppBar action（D-4 反转，对齐 medium 行为）。medium / expanded / large 完全保持现状。新增 5 个 widget（StitchEditorBottomBar / StitchAddActionSheet / StitchImageSheet / StitchParamsSheet / StitchSheetGripHandle）+ 4 个 test 文件，复用 StitchVerticalImageList / StitchControlsPanel 零代码重复。Spec 更新 responsive-layout.md 新增「Mobile-first canvas-dominant editor」pattern + 修订 stitch_editor 行 + 补充 DraggableScrollableSheet 边界（persistent sheet 不要用 / trigger-fired modal 推荐用）。Tooltip 文案 retune「导出每张子图」→「导出拼图」。最终 565 测试全过、analyze clean、format clean。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d4543b` | (see git log) |
+| `c956cd8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
