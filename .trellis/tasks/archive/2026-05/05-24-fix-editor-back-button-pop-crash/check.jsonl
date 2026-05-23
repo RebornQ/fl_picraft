@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "check 阶段验证 flutter analyze 0 issue / dart format 0 file / flutter test 全绿；确认删除按钮后无 unused import 残留，相关 dartdoc 注释已同步。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "check 阶段验证修复后的代码与 spec 'tab root is not back-able; use the bottom nav instead' 契约完全对齐——既不能保留 canPop 守卫、也不能引入新的 _onBackPressed 方法。同时确认 AppShell PopScope 兜底（spec 第 343 行三段式契约）行为完全不变。"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "check 阶段确认本次纯 UI 改动未误伤 controller / state / provider；ExportController / GridEditorController / StitchEditorController 一字未动。"}
+{"file": ".trellis/tasks/05-24-fix-editor-back-button-pop-crash/prd.md", "reason": "check 阶段须逐条核对 AC checklist (9 项)：(1)(2) 两 editor AppBar leading == null，(3) 不再有 race window 让按钮可见，(4) 新增 widget 测试断言通过，(5) Android back 仍能回 home tab，(6) 既有测试全绿，(7) analyze 干净，(8) format 干净，(9) 全套 test 绿。漏一项即 fail。"}
