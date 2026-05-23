@@ -105,3 +105,36 @@ Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新
 ### Next Steps
 
 - None - task complete
+
+
+## Session 63: JPG 质量滑块：拖动中不再触发预览重生成，改为 onChangeEnd 提交
+
+**Date**: 2026-05-24
+**Task**: JPG 质量滑块：拖动中不再触发预览重生成，改为 onChangeEnd 提交
+**Branch**: `main`
+
+### Summary
+
+导出页面 _QualitySlider 从 StatelessWidget 改造为 StatefulWidget：本地 _draftValue 缓冲拖动中值，Slider.onChanged 只 setState 草稿（数字 + 拇指实时跟随），Slider.onChangeEnd 才向上提交 setQuality。didUpdateWidget 在外部 value 变化时同步草稿，覆盖 PNG→JPG 切换与父 rebuild 场景。PreviewController / ExportController / ExportState 全部不动。新增 3 个 widget 测试覆盖 R1/R2/拖回原值短路。在 .trellis/spec/frontend/component-guidelines.md 沉淀新 convention 'Expensive-preview sliders submit on onChangeEnd, not onChanged' 含 What/Why/Example/When to apply/Required tests 五段，约束未来同类滑块。质量门：flutter analyze 0 issues、dart format 0 changes、目标测试 9/9、全套 567/567 通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bff9dd5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
