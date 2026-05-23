@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 63
+- **Total Sessions**: 64
 - **Last Active**: 2026-05-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~140 | Active |
+| `journal-2.md` | ~173 | Active |
 | `journal-1.md` | ~1997 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 64 | 2026-05-24 | 修复 stitch/grid editor AppBar 返回按钮的 go_router pop 崩溃 | `1017715` | `main` |
 | 63 | 2026-05-24 | JPG 质量滑块：拖动中不再触发预览重生成，改为 onChangeEnd 提交 | `bff9dd5` | `main` |
 | 62 | 2026-05-24 | 长图拼接 compact 画布主导重设计 | `8d4543b`, `c956cd8` | `main` |
 | 61 | 2026-05-23 | Export page polish — skeleton copy & disclaimer position | `b846c3f` | `main` |

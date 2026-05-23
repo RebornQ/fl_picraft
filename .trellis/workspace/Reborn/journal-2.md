@@ -138,3 +138,36 @@ Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新
 ### Next Steps
 
 - None - task complete
+
+
+## Session 64: 修复 stitch/grid editor AppBar 返回按钮的 go_router pop 崩溃
+
+**Date**: 2026-05-24
+**Task**: 修复 stitch/grid editor AppBar 返回按钮的 go_router pop 崩溃
+**Branch**: `main`
+
+### Summary
+
+删除 StitchEditorScreen / GridEditorScreen AppBar 的 leading: Navigator.canPop(context) ? IconButton : null 整段（former line 99-106 / 174-181）。原代码企图在 StatefulShellRoute branch root 上条件渲染返回按钮，但 canPop 在某些瞬态（从 /export 返回 / 热重载）短暂返回 true，按钮渲染并被点击时 GoRouter currentConfiguration 已空，触发 _handlePopPageWithRouteMatch 的 isNotEmpty 断言崩溃。修复彻底对齐 spec/frontend/component-guidelines.md 的 'a tab root is not back-able; use the bottom nav instead' 契约——branch root 不应该有返回按钮，由 AppShell.PopScope 统一处理 Android back / iOS edge-swipe 回 home tab。新增 4 个 widget 测试（每 editor 2 个），用 triple-finder 覆盖（AppBar.leading == null + Icons.arrow_back not found + Tooltip 返回 not found）锁定契约。质量门：flutter analyze 0 issues、dart format 0 changes、571/571 全套测试通过（含 4 新增）、AppShell 5/5 PopScope 测试不退化。0 findings during trellis-check audit.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1017715` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
