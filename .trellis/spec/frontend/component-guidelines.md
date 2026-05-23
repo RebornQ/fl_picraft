@@ -140,6 +140,85 @@ mistake into a build error.
 **See also**: `state-management.md` → "Pattern: Per-mode session
 isolation via `.family`".
 
+### Convention: Expensive-preview sliders submit on `onChangeEnd`, not `onChanged`
+
+**What**: When a slider drives a downstream pipeline whose evaluation
+is non-trivial (isolate hop, image encode, async render, network call),
+the widget MUST submit the final value via `Slider.onChangeEnd` and
+locally buffer mid-drag changes in widget state. `Slider.onChanged`
+updates local state only — it does NOT propagate to the controller /
+provider. Sync `didUpdateWidget` to absorb external value mutations
+(e.g. format toggle restoring a default) so the next render reflects
+them.
+
+**Why**: Each `onChanged` tick during a drag is ~30/s. Forwarding every
+tick to a provider re-schedules the downstream pipeline 30×/s, which
+(a) thrashes a debounce timer (300 ms in this project's preview
+controller) so it never fires until release anyway, (b) repeatedly
+transitions preview state to `Loading` causing flicker, and (c) queues
+isolate tasks the user will never see. Committing only on release
+collapses all this to a single render without sacrificing visual
+responsiveness — the thumb and value text still follow the finger via
+local `setState`.
+
+**Example** — `_QualitySlider` in the export feature
+(`lib/features/export/presentation/widgets/format_quality_card.dart`):
+
+```dart
+class _QualitySlider extends StatefulWidget {
+  const _QualitySlider({required this.value, required this.onChanged});
+  final int value;
+  final ValueChanged<int> onChanged; // submit-on-release contract
+
+  @override
+  State<_QualitySlider> createState() => _QualitySliderState();
+}
+
+class _QualitySliderState extends State<_QualitySlider> {
+  late int _draftValue = widget.value;
+
+  @override
+  void didUpdateWidget(_QualitySlider old) {
+    super.didUpdateWidget(old);
+    // External value can change without the user dragging (e.g. format
+    // toggle restoring a default). Resync the draft so the next render
+    // reflects it. While the user is actively dragging, `_draftValue`
+    // is already in sync via setState, so this branch only fires on
+    // real external mutations.
+    if (widget.value != old.value && widget.value != _draftValue) {
+      _draftValue = widget.value;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Slider(
+      value: _draftValue.toDouble(),
+      min: 1, max: 100, divisions: 99,
+      onChanged: (v) => setState(() => _draftValue = v.round()),  // local only
+      onChangeEnd: (v) => widget.onChanged(v.round()),             // commit
+    );
+  }
+}
+```
+
+**When to apply**: Any slider whose `onChanged` ultimately writes to a
+Riverpod provider that is observed by a controller running `compute()`
+/ isolate work, re-rasterizing an image, re-encoding bytes, or
+recomputing a memoized snapshot. Cheap sliders (volume %, scroll
+opacity, layout-only tweaks that drive a synchronous rebuild already
+covered by Flutter's frame budget) may continue using `onChanged`
+directly — the `didUpdateWidget` + draft ceremony is overhead that
+only pays off when the downstream work is genuinely expensive.
+
+**Required tests**: assert (a) mid-drag invocations of
+`Slider.onChanged` leave the upstream provider's state untouched;
+(b) a subsequent `Slider.onChangeEnd` invocation commits the final
+value exactly once. Invoke the callbacks directly via
+`tester.widget<Slider>(...).onChanged!(v)` rather than gesture
+simulation — it is deterministic and proves the wiring contract
+regardless of platform pointer dispatch.
+
 ---
 
 ## Styling Patterns

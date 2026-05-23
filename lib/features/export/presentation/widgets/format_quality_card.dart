@@ -139,11 +139,45 @@ class _FormatButton extends StatelessWidget {
   }
 }
 
-class _QualitySlider extends StatelessWidget {
+/// Quality slider whose mid-drag changes are buffered locally and only
+/// committed upward via [onChanged] on [Slider.onChangeEnd].
+///
+/// Rationale: the export preview pipeline is non-trivial (isolate hop,
+/// image encode). Forwarding every `onChanged` tick during a drag would
+/// thrash the 300 ms debounce in `PreviewController._scheduleRender`,
+/// flicker the preview to `PreviewLoading`, and queue isolate tasks the
+/// user will never see. Local-buffer + submit-on-release collapses all
+/// that to a single render without sacrificing visual responsiveness —
+/// the percentage text and thumb still follow the finger via `setState`
+/// on the local draft.
+///
+/// See `.trellis/spec/frontend/component-guidelines.md` →
+/// "Convention: Expensive-preview sliders submit on `onChangeEnd`".
+class _QualitySlider extends StatefulWidget {
   const _QualitySlider({required this.value, required this.onChanged});
 
   final int value;
   final ValueChanged<int> onChanged;
+
+  @override
+  State<_QualitySlider> createState() => _QualitySliderState();
+}
+
+class _QualitySliderState extends State<_QualitySlider> {
+  late int _draftValue = widget.value;
+
+  @override
+  void didUpdateWidget(_QualitySlider old) {
+    super.didUpdateWidget(old);
+    // External value updates (e.g. PNG→JPG re-show snapping back to the
+    // default, or a future preset reset) win over a stale draft. While
+    // the user is actively dragging, `_draftValue` is already in sync
+    // via setState, so this branch only fires on real external
+    // mutations.
+    if (widget.value != old.value && widget.value != _draftValue) {
+      _draftValue = widget.value;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +198,7 @@ class _QualitySlider extends StatelessWidget {
               ),
             ),
             Text(
-              '$value%',
+              '$_draftValue%',
               style: textTheme.labelMedium?.copyWith(
                 color: colorScheme.primary,
                 fontWeight: FontWeight.bold,
@@ -173,14 +207,15 @@ class _QualitySlider extends StatelessWidget {
           ],
         ),
         Slider(
-          value: value.toDouble().clamp(
+          value: _draftValue.toDouble().clamp(
             kMinExportQuality.toDouble(),
             kMaxExportQuality.toDouble(),
           ),
           min: kMinExportQuality.toDouble(),
           max: kMaxExportQuality.toDouble(),
           divisions: kMaxExportQuality - kMinExportQuality,
-          onChanged: (v) => onChanged(v.round()),
+          onChanged: (v) => setState(() => _draftValue = v.round()),
+          onChangeEnd: (v) => widget.onChanged(v.round()),
         ),
         Row(
           children: [

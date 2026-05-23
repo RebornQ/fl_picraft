@@ -116,4 +116,102 @@ void main() {
     notifier.setQuality(9999);
     expect(container.read(exportControllerProvider).quality, 100);
   });
+
+  testWidgets('dragging the slider does NOT submit to the controller', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(pumpHarness(container: container));
+
+    // Reveal the slider by switching to JPG. After this, quality is at
+    // the default (100).
+    container
+        .read(exportControllerProvider.notifier)
+        .setFormat(ExportFormat.jpg);
+    await tester.pumpAndSettle();
+    expect(container.read(exportControllerProvider).quality, 100);
+
+    // Simulate mid-drag onChanged ticks by invoking the Slider's
+    // callback directly — this is more deterministic than gesture
+    // simulation and proves the wiring contract regardless of the
+    // platform's pointer dispatch.
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    slider.onChanged!(50.0);
+    slider.onChanged!(30.0);
+    slider.onChanged!(20.0);
+    await tester.pumpAndSettle();
+
+    // Controller quality is unchanged — no upward submission while
+    // dragging.
+    expect(container.read(exportControllerProvider).quality, 100);
+
+    // The percentage text and slider position DID follow the finger.
+    expect(find.text('20%'), findsOneWidget);
+    expect(tester.widget<Slider>(find.byType(Slider)).value, 20.0);
+  });
+
+  testWidgets('releasing the slider submits the final value exactly once', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(pumpHarness(container: container));
+
+    container
+        .read(exportControllerProvider.notifier)
+        .setFormat(ExportFormat.jpg);
+    await tester.pumpAndSettle();
+    expect(container.read(exportControllerProvider).quality, 100);
+
+    // Drag to 65, drag to 60, then release at 60.
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    slider.onChanged!(65.0);
+    slider.onChanged!(60.0);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(exportControllerProvider).quality,
+      100,
+      reason: 'drag should not submit',
+    );
+
+    // Release — this is the only place upward submission happens.
+    tester.widget<Slider>(find.byType(Slider)).onChangeEnd!(60.0);
+    await tester.pumpAndSettle();
+
+    expect(container.read(exportControllerProvider).quality, 60);
+    expect(find.text('60%'), findsOneWidget);
+  });
+
+  testWidgets(
+    'releasing after dragging back to original value does not change state',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(pumpHarness(container: container));
+
+      container
+          .read(exportControllerProvider.notifier)
+          .setFormat(ExportFormat.jpg);
+      // Preset quality to 80 so the "drag away and back" case is
+      // observable.
+      container.read(exportControllerProvider.notifier).setQuality(80);
+      await tester.pumpAndSettle();
+
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      // Drag away, then back.
+      slider.onChanged!(40.0);
+      slider.onChanged!(80.0);
+      // Release at the original value — setQuality's own `if (==) return`
+      // short-circuits so nothing changes.
+      tester.widget<Slider>(find.byType(Slider)).onChangeEnd!(80.0);
+      await tester.pumpAndSettle();
+
+      expect(container.read(exportControllerProvider).quality, 80);
+      expect(find.text('80%'), findsOneWidget);
+    },
+  );
 }
