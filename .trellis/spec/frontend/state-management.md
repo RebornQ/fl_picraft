@@ -470,6 +470,93 @@ ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
 - `lib/features/grid/presentation/providers/grid_editor_provider.dart` — counter-example (pure-mirror form, no guard
   needed).
 
+### Pattern: Atomic multi-field setter when fields are coupled
+
+**Problem**: A controller exposes setters that each touch one field. When two fields are *coupled* — i.e. some combinations are semantically illegal — calling `setA(...)` then `setB(...)` from a UI handler produces an intermediate state where the pair is in an illegal combo. Consumers that re-render on every state change see one frame in that illegal combo, which can:
+
+- Flash the wrong preview (e.g. the layout algorithm reads the illegal pair and produces a garbage frame the user sees for one tick before the second setter "fixes" it).
+- Trigger derived computations / `ref.listen` callbacks that interpret the illegal combo as a meaningful transition.
+
+The naive fix is to write two `state = state.copyWith(...)` lines back-to-back inside the controller method. Each assignment is a separate emit; Riverpod broadcasts twice; the same intermediate-frame problem persists.
+
+**Solution**: Provide a *named* atomic operation on the controller that performs the coupled update in **one** `state.copyWith(...)`. Keep the single-field setters public for cases where only one field is changing, but call sites must use the atomic operation when the fields are semantically coupled.
+
+```dart
+// lib/features/long_stitch/presentation/providers/stitch_editor_provider.dart
+
+class StitchEditorController extends Notifier<StitchEditorState> {
+  // ❌ Wrong — two emits; consumers see (vertical, subtitleOnlyMode=true)
+  // for one frame before the second emit lands as (horizontal, false).
+  void toggleOrientationWrong() {
+    setMode(state.mode == StitchMode.vertical
+        ? StitchMode.horizontal
+        : StitchMode.vertical);
+    if (state.mode == StitchMode.horizontal) {
+      setSubtitleOnlyMode(false);
+    }
+  }
+
+  // ✅ Correct — single emit; coupled fields move together.
+  void toggleOrientation() {
+    state = switch (state.mode) {
+      StitchMode.vertical => state.copyWith(
+          mode: StitchMode.horizontal,
+          // Subtitle mode is meaningless in horizontal; clear it in the
+          // same emit so consumers never see the illegal pair.
+          subtitleOnlyMode: false,
+        ),
+      StitchMode.horizontal => state.copyWith(mode: StitchMode.vertical),
+    };
+  }
+
+  void selectMovieSubtitleMode() {
+    // Subtitle mode requires vertical; flipping just `subtitleOnlyMode`
+    // would yield (horizontal, true) for one frame if the caller was in
+    // horizontal. Emit both at once.
+    state = state.copyWith(
+      subtitleOnlyMode: true,
+      mode: StitchMode.vertical,
+    );
+  }
+}
+```
+
+**Required tests**: assert the coupled setter emits **exactly once** with a single listener subscription, not twice — otherwise a refactor that splits the `copyWith` back into two assignments silently regresses to the intermediate-frame bug.
+
+```dart
+test('selectMovieSubtitleMode emits once with both fields updated', () {
+  final container = ProviderContainer();
+  addTearDown(container.dispose);
+  final emitted = <StitchEditorState>[];
+  container.listen<StitchEditorState>(
+    stitchEditorControllerProvider,
+    (_, next) => emitted.add(next),
+  );
+  container
+      .read(stitchEditorControllerProvider.notifier)
+      .setMode(StitchMode.horizontal);
+  emitted.clear();
+
+  container
+      .read(stitchEditorControllerProvider.notifier)
+      .selectMovieSubtitleMode();
+
+  expect(emitted, hasLength(1));               // single emission
+  expect(emitted.single.mode, StitchMode.vertical);
+  expect(emitted.single.subtitleOnlyMode, isTrue);
+});
+```
+
+**When to use**:
+- Two or more state fields whose combinations have explicit semantic constraints (e.g. "X requires Y", "X is meaningless when Y").
+- A UI gesture is conceptually one action ("enter subtitle mode") even though it has to touch multiple fields to land.
+
+**When NOT to use**:
+- Fields are independent; chaining single setters is fine.
+- The "intermediate state" is itself a legal state the consumer should observe (e.g. a multi-step wizard where each step is meaningful).
+
+**Reference**: `lib/features/long_stitch/presentation/providers/stitch_editor_provider.dart` — `toggleOrientation` / `selectMovieSubtitleMode` / `selectNormalMode`; covered by `test/features/long_stitch/presentation/providers/stitch_editor_provider_atomic_setters_test.dart`.
+
 ### Pattern: Inject isolate-bound functions through a typedef + Provider for testability
 
 **Problem**: A controller depends on a function that hops to a background isolate via

@@ -219,6 +219,95 @@ value exactly once. Invoke the callbacks directly via
 simulation — it is deterministic and proves the wiring contract
 regardless of platform pointer dispatch.
 
+### Pattern: Dynamic-length `TabController` + nested horizontal scrollables in `TabBarView`
+
+**Problem A — Dynamic Tab count**: A `TabBar` / `TabBarView` pair needs to add or remove a Tab in response to state (e.g. a feature-flagged settings Tab that only appears when a toggle is on). Flutter's `TabController` locks `length` at construction; you can't mutate it. `DefaultTabController` hides the controller, but inside a `ConsumerStatefulWidget` you typically own the controller so you can observe the current index, animate transitions, or react to swipes — and you need to swap it when the Tab count changes.
+
+**Problem B — Nested horizontal scroll**: A Tab body contains a horizontal `ListView` (or a card row). `TabBarView` defaults to its own swipe physics; the two horizontal pan gestures fight in the gesture arena and the inner list often loses, making the inner scroll feel broken or inert.
+
+**Solution**:
+
+1. Own a `TabController` in the widget's `State`; recreate it whenever the Tab count needs to change (e.g. via `ref.listen` on the relevant provider). Defer dispose of the old controller until after the frame so in-flight listeners don't touch a disposed controller.
+2. Pass `physics: const NeverScrollableScrollPhysics()` to the `TabBarView` so it never claims horizontal pan; the user switches Tabs only by tapping the `TabBar`. Inner horizontal lists then own the horizontal-pan arena uncontested.
+
+```dart
+class _PanelState extends ConsumerState<Panel> with TickerProviderStateMixin {
+  late TabController _controller;
+  // Track the current visibility predicate so we only rebuild the controller
+  // when Tab count actually changes (not on every state update).
+  late bool _hasOptionalTab;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasOptionalTab = ref.read(
+      myStateProvider.select((s) => s.shouldShowOptionalTab),
+    );
+    _controller = TabController(length: _hasOptionalTab ? 4 : 3, vsync: this);
+    _syncOnFlip();
+  }
+
+  void _syncOnFlip() {
+    ref.listenManual<bool>(
+      myStateProvider.select((s) => s.shouldShowOptionalTab),
+      (prev, next) {
+        if (prev == next) return;
+        final old = _controller;
+        setState(() {
+          _hasOptionalTab = next;
+          _controller =
+              TabController(length: next ? 4 : 3, vsync: this);
+        });
+        // Defer dispose until after the frame so any in-flight listener
+        // (TabBar animation ticker, TabBarView's index subscription)
+        // doesn't touch a disposed controller.
+        WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TabBar(controller: _controller, tabs: [...]),
+        Expanded(
+          child: TabBarView(
+            controller: _controller,
+            physics: const NeverScrollableScrollPhysics(), // ← disables swipe
+            children: [...],
+          ),
+        ),
+      ],
+    );
+  }
+}
+```
+
+**Why `addPostFrameCallback` for dispose**: the old `TabController` may still have listeners (animation tickers, `_TabBarState`'s subscription) that fire one more time during the rebuild. Disposing inside `setState` synchronously can trip `AnimationController used after being disposed` in the next frame. Deferring the dispose by one frame lets the framework drain its listeners against the still-live old controller. Cheaper than tracking every listener manually.
+
+**Why disable `TabBarView` swipe when inner scroll exists**: with default physics, the user dragging a horizontal `ListView` inside a Tab body simultaneously satisfies the inner-list-pan and the outer-Tab-swipe gesture recognizers. The outer recognizer usually wins (it accepts on smaller deltas because it doesn't have to commit to a specific scroll direction first), so the user's drag is captured as a Tab swipe instead of a list scroll. `NeverScrollableScrollPhysics` removes `TabBarView` from the arena entirely. The user can still switch Tabs by tapping — that's the only way they should, in this layout.
+
+**When to use**:
+- Tab count depends on state (feature flags, mode-conditional Tabs, dynamic forms).
+- Any Tab body contains a horizontal `ListView` / `PageView` / card row that owns its own pan gesture.
+
+**When NOT to use**:
+- Static Tab count + Tab bodies are vertical scrolls only → use plain `DefaultTabController`; default `TabBarView` swipe is the expected UX.
+
+**Required tests**:
+- Tab count flip: trigger the underlying state change; assert the Tab appears / disappears and the consumer reads the new `TabController.length`. The test would surface a `dispose`-related framework exception as an uncaught error if the deferred-dispose pattern regresses.
+- Inner-list scroll: with `NeverScrollableScrollPhysics`, simulate a horizontal drag on the inner list and assert the list scrolls (not the Tab).
+
+**Reference**: `lib/features/long_stitch/presentation/widgets/stitch_controls_panel.dart` — dynamic 3/4-Tab swap on `subtitleOnlyMode`; basic Tab body `stitch_basic_tab_cards.dart` is the nested horizontal `ListView` that required `NeverScrollableScrollPhysics`. Tests:
+`test/features/long_stitch/presentation/widgets/stitch_controls_panel_test.dart::subtitle Tab is dynamically inserted / removed when subtitleOnlyMode flips`.
+
 ---
 
 ## Styling Patterns
