@@ -71,8 +71,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(StitchControlsPanel), findsOneWidget);
-      // Sanity: at least one slider row label rendered.
-      expect(find.text('图片间距'), findsOneWidget);
+      // After the 05-26 Tab refactor the panel exposes its TabBar
+      // first; assert the tab labels rather than a slider label.
+      expect(find.text('基础'), findsOneWidget);
+      expect(find.text('边框'), findsOneWidget);
+      expect(find.text('圆角 / 间距'), findsOneWidget);
     });
 
     testWidgets('renders a DraggableScrollableSheet wrapping the panel', (

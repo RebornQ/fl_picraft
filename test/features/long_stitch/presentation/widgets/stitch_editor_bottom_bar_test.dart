@@ -189,9 +189,12 @@ void main() {
         await tester.tap(find.text('参数'));
         await tester.pumpAndSettle();
 
-        // Mode segmented + at least one slider label confirm the
+        // After the toolbar Tab refactor (05-26), the params sheet
+        // opens with the "基础" Tab active. Tab labels confirm the
         // panel rendered inside the sheet.
-        expect(find.text('图片间距'), findsOneWidget);
+        expect(find.text('基础'), findsOneWidget);
+        expect(find.text('边框'), findsOneWidget);
+        expect(find.text('圆角 / 间距'), findsOneWidget);
       },
     );
 

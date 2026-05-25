@@ -8,16 +8,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Guard the height-cap formula for [StitchControlsSheet]:
-/// `max(200, min(screenHeight * 0.22, 320))`.
+/// Guard the height-cap formula for [StitchControlsSheet] after the
+/// `05-26-long-stitch-toolbar-tab-redesign` refactor:
+/// `max(260, min(screenHeight * 0.30, 400))`.
 ///
-/// These tests pin the formula to its current values so accidental
-/// regression (e.g. someone reverts to `0.28` / `360`) trips the
-/// assertion. The ratio / ceiling / floor are tested by sampling
-/// representative compact + medium viewport heights via
-/// `tester.view.physicalSize` (per the responsive-layout spec — wrapping
-/// in `MediaQuery` doesn't override the size that `MaterialApp` then
-/// re-injects).
+/// The floor / ratio / ceiling were bumped from the legacy
+/// `200 / 0.22 / 320` triple to absorb the new TabBar header (~48 dp)
+/// plus the tallest tab body (≤ 224 dp). These tests pin the new
+/// values so accidental regression (e.g. someone reverts to the
+/// legacy triple) trips the assertion.
 void main() {
   ImportedImage stub({String tag = 'a'}) {
     return ImportedImage(
@@ -66,43 +65,40 @@ void main() {
   }
 
   testWidgets(
-    'mid-tall viewport (800x1000) hits the ratio branch: maxHeight = 1000 * 0.22 = 220',
+    'mid-tall viewport (800x1100) hits the ratio branch: maxHeight = 1100 * 0.30 = 330',
     (tester) async {
-      // 1000 * 0.22 = 220 — above the 200 floor, below the 320 ceiling.
-      await setViewportSize(tester, const Size(800, 1000));
+      // 1100 * 0.30 = 330 — above the 260 floor, below the 400 ceiling.
+      await setViewportSize(tester, const Size(800, 1100));
       final maxHeight = await pumpAndMeasureMaxHeight(tester);
-      expect(maxHeight, closeTo(220.0, 0.001));
+      expect(maxHeight, closeTo(330.0, 0.001));
     },
   );
 
-  testWidgets('compact (360x800) — floor wins because 800 * 0.22 = 176 < 200', (
+  testWidgets('compact (360x800) — floor wins because 800 * 0.30 = 240 < 260', (
     tester,
   ) async {
-    // Captures the floor-guard behavior on a typical phone viewport.
-    // Documents that the PRD-stated "sheet ≤ 176 dp at 360x800" is
-    // superseded by the 200 dp floor on this height.
     await setViewportSize(tester, const Size(360, 800));
     final maxHeight = await pumpAndMeasureMaxHeight(tester);
-    expect(maxHeight, closeTo(200.0, 0.001));
+    expect(maxHeight, closeTo(260.0, 0.001));
   });
 
   testWidgets(
-    'tall viewport (800x2000) hits the ceiling branch: maxHeight = 320 (ceiling clamps the ratio)',
+    'tall viewport (800x2000) hits the ceiling branch: maxHeight = 400 (ceiling clamps the ratio)',
     (tester) async {
-      // 2000 * 0.22 = 440 -> clamped down to the 320 ceiling.
+      // 2000 * 0.30 = 600 -> clamped down to the 400 ceiling.
       await setViewportSize(tester, const Size(800, 2000));
       final maxHeight = await pumpAndMeasureMaxHeight(tester);
-      expect(maxHeight, closeTo(320.0, 0.001));
+      expect(maxHeight, closeTo(400.0, 0.001));
     },
   );
 
   testWidgets(
-    'ultra-short (720x412 landscape) hits the floor branch: maxHeight = 200 (floor protects against tiny windows)',
+    'ultra-short (720x412 landscape) hits the floor branch: maxHeight = 260 (floor protects against tiny windows)',
     (tester) async {
-      // 412 * 0.22 = 90.64 — well below the 200 floor.
+      // 412 * 0.30 = 123.6 — well below the 260 floor.
       await setViewportSize(tester, const Size(720, 412));
       final maxHeight = await pumpAndMeasureMaxHeight(tester);
-      expect(maxHeight, closeTo(200.0, 0.001));
+      expect(maxHeight, closeTo(260.0, 0.001));
     },
   );
 }

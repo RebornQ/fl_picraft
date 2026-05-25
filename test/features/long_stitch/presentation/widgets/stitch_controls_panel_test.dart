@@ -6,6 +6,8 @@ import 'package:fl_picraft/features/image_import/presentation/providers/image_im
 import 'package:fl_picraft/features/long_stitch/domain/entities/stitch_mode.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/providers/stitch_editor_provider.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_panel.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_mode_card.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_orientation_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,179 +22,330 @@ ImportedImage _stub({int width = 100, int height = 200, String tag = 'a'}) {
   );
 }
 
-Widget _pumpHarness({required List<ImportedImage> images}) {
-  return ProviderScope(
+ProviderContainer _makeContainer({required List<ImportedImage> images}) {
+  return ProviderContainer(
     overrides: [
       importedImagesProvider(
         ImageImportSessionKind.stitch,
       ).overrideWith((ref) => images),
     ],
-    child: const MaterialApp(
-      home: Scaffold(body: SingleChildScrollView(child: StitchControlsPanel())),
-    ),
   );
 }
 
+Future<void> _pumpPanel(
+  WidgetTester tester, {
+  required ProviderContainer container,
+}) async {
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(home: Scaffold(body: StitchControlsPanel())),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  group('StitchControlsPanel — subtitle-mode visibility rules', () {
-    testWidgets(
-      'when subtitle mode is INACTIVE, spacing slider is visible and trim toggle / band slider are hidden',
-      (tester) async {
-        await tester.pumpWidget(
-          _pumpHarness(
-            images: [
-              _stub(),
-              _stub(tag: 'b'),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
+  // Pin assertions to the Tab labels (NOT the basic-tab card labels —
+  // those also use the strings "电影台词" / "普通拼接").
+  Finder tabLabel(String text) =>
+      find.descendant(of: find.byType(Tab), matching: find.text(text));
 
-        // Default state: vertical + subtitle OFF → subtitle is NOT effective.
-        expect(find.text('图片间距'), findsOneWidget);
-        expect(find.text('自动剪裁黑边'), findsNothing);
-        expect(find.text('字幕高度'), findsNothing);
-      },
-    );
+  group('StitchControlsPanel — Tab structure', () {
+    testWidgets('renders 3 tabs by default (no subtitle)', (tester) async {
+      final container = _makeContainer(
+        images: [
+          _stub(tag: 'a'),
+          _stub(tag: 'b'),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await _pumpPanel(tester, container: container);
+
+      expect(tabLabel('基础'), findsOneWidget);
+      expect(tabLabel('电影台词'), findsNothing);
+      expect(tabLabel('边框'), findsOneWidget);
+      expect(tabLabel('圆角 / 间距'), findsOneWidget);
+    });
 
     testWidgets(
-      'when subtitle mode is ACTIVE, spacing slider is hidden and trim toggle / band slider are visible',
+      'subtitle Tab is dynamically inserted when subtitleOnlyMode flips on',
       (tester) async {
-        final container = ProviderContainer(
-          overrides: [
-            importedImagesProvider(
-              ImageImportSessionKind.stitch,
-            ).overrideWith((ref) => [_stub(), _stub(tag: 'b')]),
+        final container = _makeContainer(
+          images: [
+            _stub(tag: 'a'),
+            _stub(tag: 'b'),
           ],
         );
         addTearDown(container.dispose);
+        await _pumpPanel(tester, container: container);
 
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: const MaterialApp(
-              home: Scaffold(
-                body: SingleChildScrollView(child: StitchControlsPanel()),
-              ),
-            ),
-          ),
-        );
+        // Initially absent (no subtitle Tab).
+        expect(tabLabel('电影台词'), findsNothing);
 
         container
             .read(stitchEditorControllerProvider.notifier)
-            .setSubtitleOnlyMode(true);
+            .selectMovieSubtitleMode();
         await tester.pumpAndSettle();
 
-        expect(find.text('图片间距'), findsNothing);
-        expect(find.text('字幕高度'), findsOneWidget);
-        expect(find.text('自动剪裁黑边'), findsOneWidget);
-        // Default percent reads as 12%.
-        expect(find.text('12%'), findsOneWidget);
-      },
-    );
+        // Subtitle Tab is now in the TabBar.
+        expect(tabLabel('电影台词'), findsOneWidget);
 
-    testWidgets(
-      'toggling auto-trim flips controller state and shows a hint snackbar',
-      (tester) async {
-        final container = ProviderContainer(
-          overrides: [
-            importedImagesProvider(
-              ImageImportSessionKind.stitch,
-            ).overrideWith((ref) => [_stub(), _stub(tag: 'b')]),
-          ],
-        );
-        addTearDown(container.dispose);
-
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: const MaterialApp(
-              home: Scaffold(
-                body: SingleChildScrollView(child: StitchControlsPanel()),
-              ),
-            ),
-          ),
-        );
-
+        // Reverting clears the Tab. Toggle back to 普通拼接.
         container
             .read(stitchEditorControllerProvider.notifier)
-            .setSubtitleOnlyMode(true);
+            .selectNormalMode();
         await tester.pumpAndSettle();
 
-        // Two switches now visible: subtitle toggle (already ON) and
-        // the auto-trim toggle. Tap the auto-trim one (the second).
-        final switches = find.byType(Switch);
-        expect(switches, findsNWidgets(2));
-        await tester.tap(switches.at(1));
-        await tester.pumpAndSettle();
-
+        // Tab gone; basic-tab card still carries the label but that
+        // isn't a `Tab` descendant.
+        expect(tabLabel('电影台词'), findsNothing);
         expect(
-          container.read(stitchEditorControllerProvider).autoTrimBlackBars,
-          isTrue,
+          container.read(stitchEditorControllerProvider).subtitleOnlyMode,
+          isFalse,
         );
-        expect(find.text('已开启自动剪裁黑边，请检查预览效果'), findsOneWidget);
       },
     );
   });
 
-  group('StitchControlsPanel — section divider per mode', () {
+  group('StitchControlsPanel — basic-tab cards', () {
     testWidgets(
-      'vertical mode renders the section Divider between subtitle module and universal sliders',
+      'renders orientation + normal + subtitle cards in vertical mode',
       (tester) async {
-        await tester.pumpWidget(
-          _pumpHarness(
-            images: [
-              _stub(),
-              _stub(tag: 'b'),
-            ],
-          ),
+        final container = _makeContainer(
+          images: [
+            _stub(tag: 'a'),
+            _stub(tag: 'b'),
+          ],
         );
-        await tester.pumpAndSettle();
+        addTearDown(container.dispose);
+        await _pumpPanel(tester, container: container);
 
-        // Default state: vertical mode. Subtitle module is present
-        // (toggle row visible) so the divider should anchor between
-        // the subtitle module and the universal-sliders block below.
-        expect(find.byType(Divider), findsOneWidget);
+        // Default mode is vertical — all 3 cards present.
+        expect(find.byType(StitchOrientationCard), findsOneWidget);
+        expect(find.byType(StitchModeCard), findsNWidgets(2));
+        // The card row labels.
+        expect(find.text('普通拼接'), findsOneWidget);
+        expect(find.text('电影台词'), findsOneWidget);
       },
     );
 
     testWidgets(
-      'horizontal mode hides the section Divider since the subtitle module is gone',
+      'hides the 电影台词 card in horizontal mode (only 2 cards render)',
       (tester) async {
-        final container = ProviderContainer(
-          overrides: [
-            importedImagesProvider(
-              ImageImportSessionKind.stitch,
-            ).overrideWith((ref) => [_stub(), _stub(tag: 'b')]),
+        final container = _makeContainer(
+          images: [
+            _stub(tag: 'a'),
+            _stub(tag: 'b'),
           ],
         );
         addTearDown(container.dispose);
+        await _pumpPanel(tester, container: container);
 
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: container,
-            child: const MaterialApp(
-              home: Scaffold(
-                body: SingleChildScrollView(child: StitchControlsPanel()),
-              ),
-            ),
-          ),
-        );
-
+        // Switch to horizontal mode. `setMode` does not touch
+        // `subtitleOnlyMode`, but `subtitleOnlyMode` is already false
+        // at this point so the renderer's force-clear invariant holds
+        // either way (only `toggleOrientation` needs to clear it).
         container
             .read(stitchEditorControllerProvider.notifier)
             .setMode(StitchMode.horizontal);
         await tester.pumpAndSettle();
 
-        // Subtitle toggle / band slider / auto-trim toggle all hidden in
-        // horizontal mode, so the section divider should disappear too —
-        // it otherwise dangles between the mode segmented and the
-        // spacing slider with nothing to separate.
-        expect(find.byType(Divider), findsNothing);
-        // Sanity-check the universal sliders are still rendered.
-        expect(find.text('图片间距'), findsOneWidget);
-        expect(find.text('边框宽度'), findsOneWidget);
+        // Only orientation + 普通拼接 cards render — 电影台词 hidden.
+        expect(find.byType(StitchOrientationCard), findsOneWidget);
+        expect(find.byType(StitchModeCard), findsOneWidget);
+        expect(find.text('普通拼接'), findsOneWidget);
+        // 电影台词 disappears from both the basic-tab card row AND the
+        // Tab bar (the dynamic Tab is gated on
+        // `subtitleOnlyMode == true`, which can never be true in
+        // horizontal mode — toggleOrientation force-clears it).
+        expect(find.text('电影台词'), findsNothing);
       },
     );
+
+    testWidgets('tapping 电影台词 card in vertical mode enables subtitle mode', (
+      tester,
+    ) async {
+      final container = _makeContainer(
+        images: [
+          _stub(tag: 'a'),
+          _stub(tag: 'b'),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _pumpPanel(tester, container: container);
+
+      // Default is vertical + subtitleOnlyMode=false; the 电影台词
+      // card is rendered and tappable. The atomic flip's other arm
+      // (horizontal → vertical when `selectMovieSubtitleMode` is
+      // invoked programmatically) is covered by
+      // `stitch_editor_provider_atomic_setters_test.dart` — that path
+      // is no longer reachable via UI because the card is hidden in
+      // horizontal mode.
+      expect(
+        container.read(stitchEditorControllerProvider).mode,
+        StitchMode.vertical,
+      );
+
+      await tester.tap(find.text('电影台词'));
+      await tester.pumpAndSettle();
+
+      final state = container.read(stitchEditorControllerProvider);
+      expect(state.subtitleOnlyMode, isTrue);
+      expect(state.mode, StitchMode.vertical);
+    });
+
+    testWidgets(
+      'tapping orientation card while in subtitle mode flips to horizontal AND clears subtitleOnlyMode',
+      (tester) async {
+        final container = _makeContainer(
+          images: [
+            _stub(tag: 'a'),
+            _stub(tag: 'b'),
+          ],
+        );
+        addTearDown(container.dispose);
+        await _pumpPanel(tester, container: container);
+
+        container
+            .read(stitchEditorControllerProvider.notifier)
+            .selectMovieSubtitleMode();
+        await tester.pumpAndSettle();
+        expect(
+          container.read(stitchEditorControllerProvider).subtitleOnlyMode,
+          isTrue,
+        );
+
+        await tester.tap(find.byType(StitchOrientationCard));
+        await tester.pumpAndSettle();
+
+        final state = container.read(stitchEditorControllerProvider);
+        expect(state.mode, StitchMode.horizontal);
+        expect(
+          state.subtitleOnlyMode,
+          isFalse,
+          reason:
+              'Switching to horizontal must clear the subtitle flag in the '
+              'same emission (PRD §D1).',
+        );
+      },
+    );
+  });
+
+  group('StitchControlsPanel — subtitle Tab content', () {
+    testWidgets(
+      'subtitle Tab body shows band-height slider + auto-trim switch',
+      (tester) async {
+        final container = _makeContainer(
+          images: [
+            _stub(tag: 'a'),
+            _stub(tag: 'b'),
+          ],
+        );
+        addTearDown(container.dispose);
+        await _pumpPanel(tester, container: container);
+
+        container
+            .read(stitchEditorControllerProvider.notifier)
+            .selectMovieSubtitleMode();
+        await tester.pumpAndSettle();
+
+        // The subtitle Tab is now in the TabBar at index 1; navigate to
+        // it via the controller's animateTo by tapping the Tab text. Find
+        // the Tab label (text wrapped inside a Tab widget) — there are
+        // two "电影台词" texts now (basic-tab card + Tab label). Tap the
+        // Tab label specifically by finding it inside a Tab widget.
+        final tabFinder = find.descendant(
+          of: find.byType(Tab),
+          matching: find.text('电影台词'),
+        );
+        expect(tabFinder, findsOneWidget);
+        await tester.tap(tabFinder);
+        await tester.pumpAndSettle();
+
+        expect(find.text('字幕高度'), findsOneWidget);
+        expect(find.text('自动剪裁黑边'), findsOneWidget);
+        expect(find.text('12%'), findsOneWidget);
+      },
+    );
+
+    testWidgets('auto-trim switch toggles state + shows hint snackbar', (
+      tester,
+    ) async {
+      final container = _makeContainer(
+        images: [
+          _stub(tag: 'a'),
+          _stub(tag: 'b'),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _pumpPanel(tester, container: container);
+
+      container
+          .read(stitchEditorControllerProvider.notifier)
+          .selectMovieSubtitleMode();
+      await tester.pumpAndSettle();
+
+      // Navigate to the subtitle Tab.
+      await tester.tap(
+        find.descendant(of: find.byType(Tab), matching: find.text('电影台词')),
+      );
+      await tester.pumpAndSettle();
+
+      // Only the auto-trim switch is in the subtitle Tab body.
+      final autoTrimSwitch = find.byType(Switch);
+      expect(autoTrimSwitch, findsOneWidget);
+      await tester.tap(autoTrimSwitch);
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(stitchEditorControllerProvider).autoTrimBlackBars,
+        isTrue,
+      );
+      expect(find.text('已开启自动剪裁黑边，请检查预览效果'), findsOneWidget);
+    });
+  });
+
+  group('StitchControlsPanel — corners/spacing tab', () {
+    testWidgets('spacing slider is disabled in vertical subtitle mode', (
+      tester,
+    ) async {
+      final container = _makeContainer(
+        images: [
+          _stub(tag: 'a'),
+          _stub(tag: 'b'),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _pumpPanel(tester, container: container);
+
+      container
+          .read(stitchEditorControllerProvider.notifier)
+          .selectMovieSubtitleMode();
+      await tester.pumpAndSettle();
+
+      // Navigate to the 圆角 / 间距 Tab.
+      await tester.tap(
+        find.descendant(of: find.byType(Tab), matching: find.text('圆角 / 间距')),
+      );
+      await tester.pumpAndSettle();
+
+      // Hint text is shown.
+      expect(find.text('字幕模式下间距由算法控制'), findsOneWidget);
+
+      // The 图片间距 slider has onChanged == null (disabled).
+      final spacingLabel = find.text('图片间距');
+      expect(spacingLabel, findsOneWidget);
+
+      // The slider is the second Slider widget (圆角 first, 图片间距 second).
+      final sliders = tester.widgetList<Slider>(find.byType(Slider)).toList();
+      expect(sliders, hasLength(2));
+      expect(
+        sliders[1].onChanged,
+        isNull,
+        reason: '图片间距 slider must be disabled in vertical subtitle mode',
+      );
+    });
   });
 }

@@ -4,145 +4,270 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/stitch_editor_state.dart';
 import '../../domain/entities/stitch_mode.dart';
 import '../providers/stitch_editor_provider.dart';
-import 'stitch_mode_segmented.dart';
+import 'stitch_basic_tab_cards.dart';
 
-/// Reusable controls panel for the long-stitch editor.
+/// Tabbed controls panel for the long-stitch editor.
 ///
-/// Carries the same controls historically rendered inside
-/// [StitchControlsSheet] (mode segmented, "仅保留字幕" toggle, subtitle
-/// band height slider, spacing / border / corner sliders, border color
-/// swatches). The compact / medium screen widths wrap this widget in
-/// [StitchControlsSheet] (which adds a top-rounded Material elevation)
-/// and dock it to the bottom of the editor. The expanded / large
-/// widths drop the elevation and dock this panel to the right edge of
-/// the canvas instead — see
-/// `stitch_editor_screen.dart` for the responsive switch.
+/// Four logical tabs surface every parameter the editor exposes, with
+/// the "电影台词" tab dynamically inserted only while
+/// `subtitleOnlyMode == true` (PRD §D2). Tab order is fixed:
 ///
-/// Behavior matches the previous `StitchControlsSheet` exactly:
+/// 1. **基础** — orientation toggle, normal / movie-subtitle picker
+///    (see [StitchBasicTabCards]).
+/// 2. **电影台词** *(conditional)* — subtitle band-height slider +
+///    auto-trim black bars switch.
+/// 3. **边框** — border width slider + 6-swatch color picker.
+/// 4. **圆角 / 间距** — corner-radius slider + image-spacing slider.
 ///
-/// * Mode segmented control (vertical / horizontal)
-/// * "仅保留字幕" toggle — wires the movie-subtitle flag-overlay
-///   (PRD §3.3). Visible only when the active mode is vertical;
-///   `onChanged` is `null` (Material auto-greys the switch) when the
-///   editor holds fewer than 2 images, since the algorithm degrades to
-///   plain vertical anyway.
-/// * "字幕高度" slider — visible only when subtitle mode is actually
-///   active (toggle on AND vertical AND ≥2 images), per the PRD edge
-///   cases. Expressed as a percentage of the first image's scaled
-///   height.
-/// * "自动剪裁黑边" toggle — only visible when subtitle mode is
-///   actually rendering bands. Drives the renderer-side letterbox
-///   detection / trim.
-/// * "图片间距" slider — hidden while subtitle mode renders bands
-///   because the algorithm ignores spacing (bands butt up against each
-///   other) and showing a no-op slider was a source of user confusion.
-/// * Border-width / corner-radius sliders
-/// * Border color picker (compact, 6 swatches)
-class StitchControlsPanel extends ConsumerWidget {
+/// The TabBarView disables horizontal swipe (per PRD §D6) so the
+/// basic tab's horizontal card list never fights the TabBarView's
+/// own scroll arena.
+///
+/// Tab persistence is intentionally absent (PRD §D3): every fresh
+/// mount lands on the "基础" tab. When `subtitleOnlyMode` flips off
+/// while the "电影台词" tab is active, the controller falls back to
+/// "基础" rather than landing on a now-missing tab.
+class StitchControlsPanel extends ConsumerStatefulWidget {
   const StitchControlsPanel({super.key});
+
+  @override
+  ConsumerState<StitchControlsPanel> createState() =>
+      _StitchControlsPanelState();
+}
+
+class _StitchControlsPanelState extends ConsumerState<StitchControlsPanel>
+    with TickerProviderStateMixin {
+  TabController? _controller;
+  bool _subtitleVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _subtitleVisible = ref
+        .read(stitchEditorControllerProvider)
+        .subtitleOnlyMode;
+    _controller = TabController(length: _subtitleVisible ? 4 : 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _syncControllerLength(bool subtitleVisible) {
+    if (subtitleVisible == _subtitleVisible) return;
+    final old = _controller;
+    final oldIndex = old?.index ?? 0;
+    // Map old index → new index across the dynamic insertion.
+    int newIndex;
+    if (subtitleVisible) {
+      // Inserted subtitle tab at position 1. Everything from old
+      // position ≥ 1 shifts right by one. Initial selection on the
+      // subtitle tab itself happens via the basic-tab card tap, which
+      // emits state ahead of this listener — we keep the focus on
+      // the basic tab so the user's eye stays anchored.
+      newIndex = oldIndex == 0 ? 0 : oldIndex + 1;
+    } else {
+      // Removed subtitle tab (was at position 1). If we were sitting
+      // on it, fall back to the basic tab (PRD §D3 first sentence).
+      if (oldIndex == 0) {
+        newIndex = 0;
+      } else if (oldIndex == 1) {
+        newIndex = 0;
+      } else {
+        newIndex = oldIndex - 1;
+      }
+    }
+    final next = TabController(
+      length: subtitleVisible ? 4 : 3,
+      vsync: this,
+      initialIndex: newIndex,
+    );
+    setState(() {
+      _controller = next;
+      _subtitleVisible = subtitleVisible;
+    });
+    // Dispose the old controller after the new one is wired so any
+    // animation listeners on the TabBar don't read a disposed
+    // controller during the swap.
+    old?.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // React to subtitleOnlyMode changes without watching the entire
+    // state — `setState` inside the listener keeps the TabController
+    // length in lock-step with PRD §D2 (dynamic insertion).
+    ref.listen<bool>(
+      stitchEditorControllerProvider.select((s) => s.subtitleOnlyMode),
+      (prev, next) => _syncControllerLength(next),
+    );
+
+    final state = ref.watch(stitchEditorControllerProvider);
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = _controller!;
+
+    final tabs = <Widget>[
+      const Tab(text: '基础'),
+      if (_subtitleVisible) const Tab(text: '电影台词'),
+      const Tab(text: '边框'),
+      const Tab(text: '圆角 / 间距'),
+    ];
+
+    final tabViews = <Widget>[
+      _BasicTabContent(state: state),
+      if (_subtitleVisible) _SubtitleTabContent(state: state),
+      _BorderTabContent(state: state),
+      _CornersSpacingTabContent(state: state),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TabBar(
+            controller: controller,
+            isScrollable: false,
+            labelColor: colorScheme.primary,
+            unselectedLabelColor: colorScheme.onSurfaceVariant,
+            indicatorColor: colorScheme.primary,
+            tabs: tabs,
+          ),
+          const SizedBox(height: 8),
+          // TabBarView needs a bounded height — give it just enough
+          // room for the tallest tab body (subtitle: slider + switch;
+          // border: slider + swatch wrap; corners/spacing: two
+          // sliders; basic: horizontal card row + caption).
+          SizedBox(
+            height: 224,
+            child: TabBarView(
+              controller: controller,
+              physics: const NeverScrollableScrollPhysics(),
+              children: tabViews,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BasicTabContent extends StatelessWidget {
+  const _BasicTabContent({required this.state});
+
+  final StitchEditorState state;
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [StitchBasicTabCards()],
+      ),
+    );
+  }
+}
+
+class _SubtitleTabContent extends ConsumerWidget {
+  const _SubtitleTabContent({required this.state});
+
+  final StitchEditorState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(stitchEditorControllerProvider.notifier);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final subtitleEffective = state.imageCount >= 2;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SliderRow(
+            label: '字幕高度',
+            value: state.subtitleBandHeightPercent,
+            min: kMinSubtitleBandHeightPercent,
+            max: kMaxSubtitleBandHeightPercent,
+            valueText: '${(state.subtitleBandHeightPercent * 100).round()}%',
+            onChanged: notifier.setSubtitleBandHeightPercent,
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '自动剪裁黑边',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Switch(
+                value: state.autoTrimBlackBars,
+                onChanged: subtitleEffective
+                    ? (v) => _onToggleAutoTrim(context, notifier, v)
+                    : null,
+              ),
+            ],
+          ),
+          if (!subtitleEffective)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '需要至少 2 张图片才能启用电影台词效果',
+                style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _onToggleAutoTrim(
+    BuildContext context,
+    StitchEditorController notifier,
+    bool enabled,
+  ) {
+    notifier.setAutoTrimBlackBars(enabled);
+    if (!enabled) return;
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(const SnackBar(content: Text('已开启自动剪裁黑边，请检查预览效果')));
+  }
+}
+
+class _BorderTabContent extends ConsumerWidget {
+  const _BorderTabContent({required this.state});
+
+  final StitchEditorState state;
 
   static const _borderSwatches = <Color>[
     Colors.black,
     Colors.white,
-    Color(0xFF4F378A), // primary
-    Color(0xFF625B71), // secondary
-    Color(0xFFBA1A1A), // error
-    Color(0xFFCBC4D2), // outlineVariant
+    Color(0xFF4F378A),
+    Color(0xFF625B71),
+    Color(0xFFBA1A1A),
+    Color(0xFFCBC4D2),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(stitchEditorControllerProvider);
     final notifier = ref.read(stitchEditorControllerProvider.notifier);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final subtitleApplicable = state.mode == StitchMode.vertical;
-    final subtitleEffective =
-        subtitleApplicable && state.subtitleOnlyMode && state.imageCount >= 2;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          StitchModeSegmented(value: state.mode, onChanged: notifier.setMode),
-          const SizedBox(height: 12),
-          // Subtitle toggle — hidden when horizontal mode is active
-          // (PRD: "When horizontal mode active, the toggle is hidden").
-          if (subtitleApplicable)
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '仅保留字幕',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Switch(
-                  value: state.subtitleOnlyMode,
-                  // Disabled (greyed out) when fewer than 2 images
-                  // because the algorithm has nothing to overlay.
-                  onChanged: state.imageCount >= 2
-                      ? (v) => _onToggleSubtitle(context, notifier, state, v)
-                      : null,
-                ),
-              ],
-            ),
-          // Band-height slider — only meaningful while subtitle mode
-          // is actually rendering bands. Expressed as a percentage of
-          // the first image's scaled height so it stays meaningful
-          // across different source resolutions.
-          if (subtitleEffective)
-            _SliderRow(
-              label: '字幕高度',
-              value: state.subtitleBandHeightPercent,
-              min: kMinSubtitleBandHeightPercent,
-              max: kMaxSubtitleBandHeightPercent,
-              valueText: '${(state.subtitleBandHeightPercent * 100).round()}%',
-              onChanged: notifier.setSubtitleBandHeightPercent,
-            ),
-          // Auto-trim toggle — same visibility rules as the band-height
-          // slider so the two stay grouped in the subtitle-mode block.
-          if (subtitleEffective)
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '自动剪裁黑边',
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Switch(
-                  value: state.autoTrimBlackBars,
-                  onChanged: (v) => _onToggleAutoTrim(context, notifier, v),
-                ),
-              ],
-            ),
-          // Section divider — separates the subtitle module (toggle /
-          // band-height slider / auto-trim toggle) from the universal
-          // sliders below. Hidden in horizontal mode where the entire
-          // subtitle module is gone, since a divider with nothing
-          // above it just dangles between mode picker and spacing
-          // slider.
-          if (subtitleApplicable) const Divider(height: 24),
-          // Spacing slider — hidden in subtitle mode because the layout
-          // algorithm butts bands together and the slider would have
-          // no visible effect.
-          if (!subtitleEffective)
-            _SliderRow(
-              label: '图片间距',
-              value: state.spacing,
-              min: 0,
-              max: kMaxStitchSpacing,
-              valueText: '${state.spacing.round()} px',
-              onChanged: notifier.setSpacing,
-            ),
           _SliderRow(
             label: '边框宽度',
             value: state.border.width,
@@ -152,11 +277,6 @@ class StitchControlsPanel extends ConsumerWidget {
             onChanged: notifier.setBorderWidth,
           ),
           const SizedBox(height: 4),
-          // Wrap (instead of Row) so the 48×48 a11y-friendly swatch hit
-          // areas can flow onto a second line on narrow phones without
-          // forcing horizontal overflow. The label rides at the start
-          // of the first run so wide screens still show "label · 6
-          // swatches" on one line.
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
@@ -177,7 +297,35 @@ class StitchControlsPanel extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _CornersSpacingTabContent extends ConsumerWidget {
+  const _CornersSpacingTabContent({required this.state});
+
+  final StitchEditorState state;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(stitchEditorControllerProvider.notifier);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Per PRD: subtitle mode forces spacing := 0 in the layout
+    // algorithm, so the slider has no effect. Disable it with a hint
+    // instead of hiding (so users can see the parameter exists and
+    // understand why it's inert).
+    final spacingDisabled =
+        state.subtitleOnlyMode && state.mode == StitchMode.vertical;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           _SliderRow(
             label: '圆角',
             value: state.cornerRadius,
@@ -186,64 +334,28 @@ class StitchControlsPanel extends ConsumerWidget {
             valueText: '${state.cornerRadius.round()} px',
             onChanged: notifier.setCornerRadius,
           ),
+          const SizedBox(height: 4),
+          _SliderRow(
+            label: '图片间距',
+            value: state.spacing,
+            min: 0,
+            max: kMaxStitchSpacing,
+            valueText: '${state.spacing.round()} px',
+            onChanged: spacingDisabled ? null : notifier.setSpacing,
+          ),
+          if (spacingDisabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '字幕模式下间距由算法控制',
+                style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
         ],
       ),
     );
-  }
-
-  /// Toggle handler that also surfaces the PRD's "image height < band
-  /// height" warning via snackbar when the user enables subtitle mode
-  /// on a list whose images are too short to fully fill the requested
-  /// band.
-  void _onToggleSubtitle(
-    BuildContext context,
-    StitchEditorController notifier,
-    StitchEditorState state,
-    bool enabled,
-  ) {
-    notifier.setSubtitleOnlyMode(enabled);
-    if (!enabled) return;
-    if (state.images.isEmpty) return;
-
-    // Recompute the band height in pixels from the percent — the state
-    // field is percent-relative, so the truncation check has to lift
-    // the percent into the same scaled space the layout uses.
-    final firstW = state.images.first.width;
-    final firstH = state.images.first.height;
-    if (firstW <= 0 || firstH <= 0) return;
-    final bandPx = (firstH * state.subtitleBandHeightPercent).round();
-    if (bandPx <= 0) return;
-    var anyTruncated = false;
-    for (var i = 1; i < state.images.length; i++) {
-      final img = state.images[i];
-      if (img.width <= 0) continue;
-      final scaledHeight = img.height * firstW / img.width;
-      if (scaledHeight < bandPx) {
-        anyTruncated = true;
-        break;
-      }
-    }
-    if (anyTruncated) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(const SnackBar(content: Text('部分图片高度小于字幕条高度，将使用其完整高度')));
-    }
-  }
-
-  /// Toggle handler for the auto-trim switch. Shows a one-shot hint
-  /// snackbar every time the user flips the toggle ON so they know to
-  /// double-check the preview — black-bar detection is a heuristic and
-  /// can false-positive on dark scenes.
-  void _onToggleAutoTrim(
-    BuildContext context,
-    StitchEditorController notifier,
-    bool enabled,
-  ) {
-    notifier.setAutoTrimBlackBars(enabled);
-    if (!enabled) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(const SnackBar(content: Text('已开启自动剪裁黑边，请检查预览效果')));
   }
 }
 
@@ -262,12 +374,13 @@ class _SliderRow extends StatelessWidget {
   final double min;
   final double max;
   final String valueText;
-  final ValueChanged<double> onChanged;
+  final ValueChanged<double>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final disabled = onChanged == null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -280,14 +393,18 @@ class _SliderRow extends StatelessWidget {
               Text(
                 label,
                 style: textTheme.labelMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                  color: disabled
+                      ? colorScheme.onSurfaceVariant.withValues(alpha: 0.5)
+                      : colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 valueText,
                 style: textTheme.labelMedium?.copyWith(
-                  color: colorScheme.primary,
+                  color: disabled
+                      ? colorScheme.primary.withValues(alpha: 0.5)
+                      : colorScheme.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -319,10 +436,6 @@ class _ColorSwatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // 24×24 swatches are below the 48×48 a11y minimum on their own,
-    // so we wrap the visible disc in a transparent 48×48 hit area and
-    // expose `selected` semantics so screen readers announce the
-    // active swatch.
     return Semantics(
       button: true,
       selected: selected,

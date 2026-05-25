@@ -102,6 +102,46 @@ class StitchEditorController extends Notifier<StitchEditorState> {
     state = state.copyWith(subtitleOnlyMode: enabled);
   }
 
+  /// Atomic setter for the "电影台词" basic-tab card. Forces the
+  /// movie-subtitle path on and pins the mode to vertical in a single
+  /// state emission so the preview canvas never paints an intermediate
+  /// `horizontal + subtitleOnlyMode=true` frame (which the algorithm
+  /// treats as degenerate). Mirrors the basic-tab "电影台词" card tap
+  /// in PRD §D1.
+  void selectMovieSubtitleMode() {
+    if (state.subtitleOnlyMode && state.mode == StitchMode.vertical) return;
+    state = state.copyWith(subtitleOnlyMode: true, mode: StitchMode.vertical);
+  }
+
+  /// Atomic setter for the "普通拼接" basic-tab card. Clears the
+  /// subtitle flag while preserving the active orientation (vertical
+  /// or horizontal). Pair to [selectMovieSubtitleMode].
+  void selectNormalMode() {
+    if (!state.subtitleOnlyMode) return;
+    state = state.copyWith(subtitleOnlyMode: false);
+  }
+
+  /// Atomic setter for the basic-tab orientation card. Flips the mode
+  /// to the opposite orientation. When switching vertical → horizontal,
+  /// the subtitle flag is force-cleared because the movie-subtitle path
+  /// only makes sense in vertical mode (PRD §D1) — without this
+  /// side-effect the preview canvas would flash an intermediate
+  /// `horizontal + subtitleOnlyMode=true` frame that the renderer
+  /// treats as degenerate. Switching horizontal → vertical leaves
+  /// [StitchEditorState.subtitleOnlyMode] alone (it was already false
+  /// during horizontal mode anyway).
+  void toggleOrientation() {
+    switch (state.mode) {
+      case StitchMode.vertical:
+        state = state.copyWith(
+          mode: StitchMode.horizontal,
+          subtitleOnlyMode: false,
+        );
+      case StitchMode.horizontal:
+        state = state.copyWith(mode: StitchMode.vertical);
+    }
+  }
+
   /// Update the bottom subtitle band height (as a fraction of the
   /// first image's scaled height). Clamped to
   /// [kMinSubtitleBandHeightPercent] – [kMaxSubtitleBandHeightPercent].
