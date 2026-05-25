@@ -171,3 +171,37 @@ Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新
 ### Next Steps
 
 - None - task complete
+
+
+## Session 65: 长图拼接工具栏 Tab 化改造
+
+**Date**: 2026-05-26
+**Task**: 长图拼接工具栏 Tab 化改造
+**Branch**: `main`
+
+### Summary
+
+把 StitchControlsPanel 扁平控件重构为动态 3/4 Tab + 横向卡片。引入原子 setter（selectMovieSubtitleMode / selectNormalMode / toggleOrientation）保证耦合字段单次发射，避免 (horizontal+subtitleOnlyMode=true) 错位帧。基础 Tab 横向卡片（方向 / 普通拼接 / 电影台词）；电影台词卡片在横向模式下隐藏，电影台词 Tab 仅在 subtitleOnlyMode=true 时存在。TabBarView 禁 swipe、TabController length 动态切换（ref.listen + postFrame dispose）。StitchControlsSheet maxHeight 提升到 max(260, min(h*0.30, 400))。新增 3 个卡片 widget + 1 个 setter 测试，删除 stitch_mode_segmented。575 tests pass，analyze/format clean。沉淀两条 spec：state-management.md 加 atomic multi-field setter pattern；component-guidelines.md 加 dynamic TabBar + nested horizontal scroll pattern。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `620ebb8` | (see git log) |
+| `afbadc7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
