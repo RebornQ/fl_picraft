@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/errors/user_facing_messages.dart';
+import '../../../../core/widgets/discard_editor_dialog.dart';
 import '../../../export/presentation/providers/export_dispatch.dart';
 import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
@@ -101,89 +102,126 @@ class StitchEditorScreen extends ConsumerWidget {
     final useSidePanel =
         sizeClass == WindowSizeClass.expanded ||
         sizeClass == WindowSizeClass.large;
+    // Compact secondary-page entry (`/m/stitch`): the screen sits on top
+    // of the AppShell's root navigator, so `Navigator.canPop` is true.
+    // Branch tab roots (the `/stitch` shell branch) return false because
+    // the branch's own Navigator is at its root. Use this single check
+    // to drive both the PopScope confirmation contract and the AppBar
+    // leading back-arrow — both should fire on compact secondary pages
+    // and never on the desktop tab. See ADR-2 in
+    // `.trellis/tasks/05-26-mobile-stitch-secondary-page/prd.md`.
+    final isSecondaryPage = Navigator.canPop(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          '长图拼接',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          // TODO 备注：勿删，保留备用
-          // Padding(
-          //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          //   child: FilledButton(
-          //     onPressed: state.hasImages
-          //         ? () => _onExportPressed(context, ref)
-          //         : null,
-          //     style: FilledButton.styleFrom(
-          //       backgroundColor: colorScheme.primary,
-          //       foregroundColor: colorScheme.onPrimary,
-          //       shape: const StadiumBorder(),
-          //     ),
-          //     child: const Text('导出'),
-          //   ),
-          // ),
-          //
-          // AppBar export IconButton is rendered on compact + medium
-          // (`!useSidePanel`). On expanded / large the
-          // [FloatingActionButton.extended] below takes over as the
-          // export CTA. Compact keeps the IconButton in the AppBar
-          // (rather than moving the CTA into the
-          // [StitchEditorBottomBar]) so the export position stays
-          // aligned with users' existing muscle memory; the bar only
-          // hosts add / images / params chips.
-          if (!useSidePanel)
-            Container(
-              margin: EdgeInsets.only(right: 6),
-              child: IconButton(
-                icon: const Icon(Icons.save_outlined, size: 28),
-                tooltip: '导出拼图',
-                style: ButtonStyle(
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+    return PopScope(
+      // Block the auto-pop while there are images to lose; let it
+      // through (canPop: true) when the editor is empty so the back
+      // gesture is instant. Branch tab roots never get here because
+      // `isSecondaryPage` is false and we plug a passthrough PopScope
+      // (canPop: true, no-op callback) — the shell's own PopScope above
+      // handles tab-root pops.
+      canPop: !isSecondaryPage || !state.hasImages,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!isSecondaryPage) return; // defensive — shell handles tab roots
+        final confirmed = await showDiscardEditorDialog(context);
+        if (!confirmed) return;
+        // Clear the session before popping so re-entering the editor
+        // from the home FeatureCard lands on an empty canvas (per
+        // ADR-4 in the PRD; matches the "未导出的拼图将丢失" dialog
+        // copy).
+        ref.read(stitchEditorControllerProvider.notifier).clear();
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          // Show the back arrow only on the compact secondary-page entry.
+          // Branch tab roots stay leading-less (canPop is false there
+          // anyway so Flutter wouldn't paint one) — this is the explicit
+          // toggle so a future refactor that wraps the AppBar in a
+          // hand-rolled `Row` doesn't accidentally lose the arrow.
+          automaticallyImplyLeading: isSecondaryPage,
+          title: const Text(
+            '长图拼接',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          actions: [
+            // TODO 备注：勿删，保留备用
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            //   child: FilledButton(
+            //     onPressed: state.hasImages
+            //         ? () => _onExportPressed(context, ref)
+            //         : null,
+            //     style: FilledButton.styleFrom(
+            //       backgroundColor: colorScheme.primary,
+            //       foregroundColor: colorScheme.onPrimary,
+            //       shape: const StadiumBorder(),
+            //     ),
+            //     child: const Text('导出'),
+            //   ),
+            // ),
+            //
+            // AppBar export IconButton is rendered on compact + medium
+            // (`!useSidePanel`). On expanded / large the
+            // [FloatingActionButton.extended] below takes over as the
+            // export CTA. Compact keeps the IconButton in the AppBar
+            // (rather than moving the CTA into the
+            // [StitchEditorBottomBar]) so the export position stays
+            // aligned with users' existing muscle memory; the bar only
+            // hosts add / images / params chips.
+            if (!useSidePanel)
+              Container(
+                margin: EdgeInsets.only(right: 6),
+                child: IconButton(
+                  icon: const Icon(Icons.save_outlined, size: 28),
+                  tooltip: '导出拼图',
+                  style: ButtonStyle(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  alignment: AlignmentGeometry.center,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 6,
+                  ),
+                  onPressed: state.hasImages
+                      ? () => _onExportPressed(context, ref)
+                      : null,
                 ),
-                alignment: AlignmentGeometry.center,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 6,
-                ),
-                onPressed: state.hasImages
-                    ? () => _onExportPressed(context, ref)
-                    : null,
               ),
-            ),
-        ],
-      ),
-      // TODO 备注：勿删，保留备用
-      floatingActionButton: useSidePanel && state.hasImages
-          ? FloatingActionButton.extended(
-              // Namespaced hero tag so this FAB doesn't collide with the
-              // grid editor's export FAB when both editor branches are
-              // kept alive by `StatefulShellRoute`. Without a unique tag
-              // Flutter's default `_kDefaultHeroTag` triggers the
-              // "multiple heroes share the same tag within a subtree"
-              // assertion the moment the user taps either FAB.
-              heroTag: 'stitch-export-fab',
-              onPressed: () => _onExportPressed(context, ref),
-              tooltip: '导出拼接图',
-              icon: const Icon(Icons.output),
-              label: const Text('导出'),
-            )
-          : null,
-      // Compact-only editor bottom bar — sits in the inner Scaffold's
-      // `bottomNavigationBar` slot so Flutter stacks it above the
-      // outer `AppShell.bottomNavigationBar` (the outer shell's nav
-      // bar still owns tab switching; this one owns
-      // add / images / params within the editor; export stays in the
-      // AppBar). medium keeps its existing `StitchControlsSheet` +
-      // AppBar IconButton pair; expanded / large rely on the side
-      // panel + FAB above — neither needs the editor bottom bar.
-      bottomNavigationBar: isCompact ? const StitchEditorBottomBar() : null,
-      body: const SafeArea(
-        child: ImageDropZone(
-          sessionKind: ImageImportSessionKind.stitch,
-          child: _StitchEditorBody(),
+          ],
+        ),
+        // TODO 备注：勿删，保留备用
+        floatingActionButton: useSidePanel && state.hasImages
+            ? FloatingActionButton.extended(
+                // Namespaced hero tag so this FAB doesn't collide with the
+                // grid editor's export FAB when both editor branches are
+                // kept alive by `StatefulShellRoute`. Without a unique tag
+                // Flutter's default `_kDefaultHeroTag` triggers the
+                // "multiple heroes share the same tag within a subtree"
+                // assertion the moment the user taps either FAB.
+                heroTag: 'stitch-export-fab',
+                onPressed: () => _onExportPressed(context, ref),
+                tooltip: '导出拼接图',
+                icon: const Icon(Icons.output),
+                label: const Text('导出'),
+              )
+            : null,
+        // Compact-only editor bottom bar — sits in the inner Scaffold's
+        // `bottomNavigationBar` slot so Flutter stacks it above the
+        // outer `AppShell.bottomNavigationBar` (the outer shell's nav
+        // bar still owns tab switching; this one owns
+        // add / images / params within the editor; export stays in the
+        // AppBar). medium keeps its existing `StitchControlsSheet` +
+        // AppBar IconButton pair; expanded / large rely on the side
+        // panel + FAB above — neither needs the editor bottom bar.
+        bottomNavigationBar: isCompact ? const StitchEditorBottomBar() : null,
+        body: const SafeArea(
+          child: ImageDropZone(
+            sessionKind: ImageImportSessionKind.stitch,
+            child: _StitchEditorBody(),
+          ),
         ),
       ),
     );

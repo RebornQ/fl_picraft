@@ -175,12 +175,37 @@ class _FeatureCardsLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = this.isCompact;
+
+    // Compact entry points push into the root-level sibling routes
+    // (`/m/stitch`, `/m/grid`) so the editors cover the bottom nav and
+    // present as true secondary pages with an AppBar back arrow + the
+    // PopScope-intercepted exit confirmation. Other size classes keep
+    // the legacy `context.go(...)` into the StatefulShellRoute branch
+    // so the desktop tab experience is unchanged (per ADR-2 in
+    // `.trellis/tasks/05-26-mobile-stitch-secondary-page/prd.md`).
+    void goStitch() {
+      if (isCompact) {
+        context.push('/m/stitch');
+      } else {
+        context.go('/stitch');
+      }
+    }
+
+    void goGrid() {
+      if (isCompact) {
+        context.push('/m/grid');
+      } else {
+        context.go('/grid');
+      }
+    }
+
     final longStitchCard = FeatureCard(
       title: '长图拼接',
       description: '将多张图片无缝拼接为竖向、横向或电影台词长图。',
       actionLabel: '点击进入',
       icon: Icons.view_agenda_outlined,
-      onActionPressed: () => context.go('/stitch'),
+      onActionPressed: goStitch,
     );
     final gridCard = FeatureCard(
       title: '宫格切图',
@@ -188,7 +213,7 @@ class _FeatureCardsLayout extends StatelessWidget {
       actionLabel: '点击进入',
       icon: Icons.grid_view_outlined,
       primaryAction: false,
-      onActionPressed: () => context.go('/grid'),
+      onActionPressed: goGrid,
     );
 
     if (isCompact) {

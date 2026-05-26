@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/errors/user_facing_messages.dart';
+import '../../../../core/widgets/discard_editor_dialog.dart';
 import '../../../export/presentation/providers/export_dispatch.dart';
 import '../../../image_import/domain/entities/image_import_session_kind.dart';
 import '../../../image_import/domain/entities/imported_image.dart';
@@ -175,40 +176,42 @@ class GridEditorScreen extends ConsumerWidget {
     final useSidePanel =
         sizeClass == WindowSizeClass.expanded ||
         sizeClass == WindowSizeClass.large;
+    // Same compact secondary-page check as the stitch editor — see the
+    // sibling screen's doc-comment for the full rationale. We use
+    // `state.hasSource` (not `hasImages`) here because the grid editor's
+    // session is a single source image, not a list.
+    final isSecondaryPage = Navigator.canPop(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          '宫格切图',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          Container(
-            margin: EdgeInsets.only(
-              right: useSidePanel
-                  ? 6
-                  : state.hasSource
-                  ? 0
-                  : 6,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.add_photo_alternate_outlined, size: 28),
-              tooltip: '导入图片',
-              style: ButtonStyle(
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              ),
-              alignment: AlignmentGeometry.center,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-              onPressed: () => _onImportPressed(context, ref),
-            ),
+    return PopScope(
+      canPop: !isSecondaryPage || !state.hasSource,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!isSecondaryPage) return;
+        final confirmed = await showDiscardEditorDialog(context);
+        if (!confirmed) return;
+        ref.read(gridEditorControllerProvider.notifier).clear();
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: isSecondaryPage,
+          title: const Text(
+            '宫格切图',
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          if (!useSidePanel && state.hasSource)
+          actions: [
             Container(
-              margin: EdgeInsets.only(right: 6),
+              margin: EdgeInsets.only(
+                right: useSidePanel
+                    ? 6
+                    : state.hasSource
+                    ? 0
+                    : 6,
+              ),
               child: IconButton(
-                icon: const Icon(Icons.save_outlined, size: 28),
-                tooltip: '导出每张子图',
+                icon: const Icon(Icons.add_photo_alternate_outlined, size: 28),
+                tooltip: '导入图片',
                 style: ButtonStyle(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
@@ -218,33 +221,52 @@ class GridEditorScreen extends ConsumerWidget {
                   vertical: 12,
                   horizontal: 6,
                 ),
-                onPressed: state.hasSource
-                    ? () => _onExportPressed(context, ref)
-                    : null,
+                onPressed: () => _onImportPressed(context, ref),
               ),
             ),
-        ],
-      ),
-      // TODO 备注：勿删，保留备用
-      floatingActionButton: useSidePanel && state.hasSource
-          ? FloatingActionButton.extended(
-              // Namespaced hero tag so this FAB doesn't collide with the
-              // stitch editor's export FAB when both editor branches are
-              // kept alive by `StatefulShellRoute`. Without a unique tag
-              // Flutter's default `_kDefaultHeroTag` triggers the
-              // "multiple heroes share the same tag within a subtree"
-              // assertion the moment the user taps either FAB.
-              heroTag: 'grid-export-fab',
-              onPressed: () => _onExportPressed(context, ref),
-              tooltip: '导出每张子图',
-              icon: const Icon(Icons.output),
-              label: const Text('导出'),
-            )
-          : null,
-      body: const SafeArea(
-        child: ImageDropZone(
-          sessionKind: ImageImportSessionKind.grid,
-          child: _GridEditorBody(),
+            if (!useSidePanel && state.hasSource)
+              Container(
+                margin: EdgeInsets.only(right: 6),
+                child: IconButton(
+                  icon: const Icon(Icons.save_outlined, size: 28),
+                  tooltip: '导出每张子图',
+                  style: ButtonStyle(
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  alignment: AlignmentGeometry.center,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 6,
+                  ),
+                  onPressed: state.hasSource
+                      ? () => _onExportPressed(context, ref)
+                      : null,
+                ),
+              ),
+          ],
+        ),
+        // TODO 备注：勿删，保留备用
+        floatingActionButton: useSidePanel && state.hasSource
+            ? FloatingActionButton.extended(
+                // Namespaced hero tag so this FAB doesn't collide with the
+                // stitch editor's export FAB when both editor branches are
+                // kept alive by `StatefulShellRoute`. Without a unique tag
+                // Flutter's default `_kDefaultHeroTag` triggers the
+                // "multiple heroes share the same tag within a subtree"
+                // assertion the moment the user taps either FAB.
+                heroTag: 'grid-export-fab',
+                onPressed: () => _onExportPressed(context, ref),
+                tooltip: '导出每张子图',
+                icon: const Icon(Icons.output),
+                label: const Text('导出'),
+              )
+            : null,
+        body: const SafeArea(
+          child: ImageDropZone(
+            sessionKind: ImageImportSessionKind.grid,
+            child: _GridEditorBody(),
+          ),
         ),
       ),
     );
