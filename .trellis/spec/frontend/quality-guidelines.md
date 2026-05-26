@@ -306,6 +306,63 @@ test('stitch picks do not appear in grid session', () async {
 
 **Don't reach for `tester.pumpAndSettle()` to mask the timer leak** — it can pass on one machine and flake on CI. If the widget tree adds no value to the assertion, the right fix is dropping `testWidgets` entirely, not pumping harder.
 
+### Pattern: Poke the consumer to fire `ref.listen` side-effects on lazy `Provider.family` derivations in `ProviderContainer` tests
+
+**Problem**: A controller registers `ref.listen<T>(derivedProvider, ...)` whose callback **writes to a third provider** as a side effect (e.g. flipping a `StateProvider<bool>` on an `empty → non-empty` edge). In a `ProviderContainer` test, the standard "drive the source, then read the third provider" shape:
+
+```dart
+await container
+    .read(imageImportControllerProvider(.stitch).notifier)
+    .pickFromGallery();
+
+// Reads the StateProvider that the listener is supposed to have flipped.
+expect(container.read(stitchControlsInlineVisibleProvider), isTrue); // ❌ FAILS — still false
+```
+
+silently fails — the `isTrue` assertion sees the **stale default**. The side-effect never ran. Listener body is correct, edge predicate is correct, repository mock is correct; nothing about the production code is broken.
+
+**Symptom**: The same test passes once you add `await Future<void>.delayed(Duration.zero)` or once you `container.read(controllerProvider)` between the trigger and the assertion. That's the tell.
+
+**Cause**: The listener was registered on `importedImagesProvider` — a `Provider.family` that **derives** its value from `imageImportControllerProvider(.stitch)` via `ref.watch`. When the source's state changes, Riverpod marks the derivation **dirty** but does NOT eagerly re-evaluate it. The derivation only re-runs (and only then fires its `ref.listen` subscribers) when **someone reads it** — a watcher or another read. In a real app a widget `ref.watch`es the controller, which keeps the derivation hot, so listeners fire as you expect. In a `ProviderContainer` test there is no widget tree — if your `expect` only reads the **destination** `StateProvider` (which has no dependency on the derivation), the derivation stays dirty-but-unread and the listener never fires.
+
+**Solution**: introduce a tiny helper that **pokes the consumer** (the controller that owns the listener) before reading the destination provider. Touching the controller forces Riverpod to walk its dependency chain, evaluates the dirty derivation, fires the listener, and only then returns the now-up-to-date destination value:
+
+```dart
+/// Read the visibility flag while *also* poking the controller so
+/// the derived `importedImagesProvider` (a lazy `Provider.family`)
+/// re-evaluates and fires its listener. Without this poke, a direct
+/// `container.read(stitchControlsInlineVisibleProvider)` can miss
+/// the most recent edge because no one has asked the derived
+/// provider for its new value yet — Riverpod only fires listeners
+/// during evaluation of dirty derived providers.
+bool readVisible(ProviderContainer container) {
+  container.read(stitchEditorControllerProvider); // wakes the lazy chain
+  return container.read(stitchControlsInlineVisibleProvider);
+}
+```
+
+Then every assertion in the test reads `readVisible(container)` instead of touching the `StateProvider` directly.
+
+**The other half of the fix — sync the source before driving a downstream method**: a related failure shows up when the test calls a controller method that reads the controller's *own* mirrored state (e.g. `StitchEditorController.reorder` checks `state.images.length`). After `await pickFromGallery()` the source provider has the new list, but **the listener hasn't fired yet**, so `state.images` is still the stale snapshot from `build()`. The downstream method early-returns on the stale length. Fix it the same way: read the consumer once between the trigger and the downstream method call — typically a single `expect(readVisible(container), isTrue)` between import and `reorder` is enough to force the sync.
+
+**When this pattern applies**:
+
+- Test uses plain `test` + `ProviderContainer` (per the [pattern above](#pattern-plain-test-over-testwidgets-for-asyncnotifier-only-assertions)).
+- The controller under test calls `ref.listen` on a `Provider.family` (or any derived `Provider`) and the callback has a **side effect on another provider**, not just on the controller's own `state`.
+- Assertions target the **destination** provider, not the controller's state. (If you only check the controller's `state`, the existing `container.read(controllerProvider)` already wakes the chain — this gotcha is invisible.)
+
+**When NOT to use**:
+
+- The listener body only mutates `state = state.copyWith(...)`. Reading the controller already wakes the chain, so `container.read(controllerProvider).someField` is enough — no helper needed (this is why the existing `stitch_editor_provider_test.dart` subtitle-reset tests didn't trip on this gotcha).
+- The test uses `testWidgets` with a real widget tree that `ref.watch`es the controller — the watcher keeps the derivation hot, listeners fire synchronously.
+
+**Don't reach for `await Future.delayed(Duration.zero)`**: it happens to flush microtasks and so masks the symptom, but it tells the next reader the test is racing on async timing when in fact it's a synchronous lazy-evaluation issue. Use the explicit `read(controllerProvider)` poke so the dependency is visible.
+
+**Reference**:
+
+- `test/features/long_stitch/presentation/providers/stitch_editor_provider_auto_expand_test.dart` — the `readVisible(container)` helper plus the "force sync before `reorder`" comment.
+- The production listener it tests: `lib/features/long_stitch/presentation/providers/stitch_editor_provider.dart` → see also [`state-management.md` → "Pattern: Mirror a family provider with `ref.listen`"](./state-management.md#pattern-mirror-a-family-provider-with-reflisten--guard-the-first-fire-when-resetting-on-an-empty--non-empty-edge) for why the listener body itself looks the way it does.
+
 ### Pattern: Avoid `pumpAndSettle()` when the widget tree has an indefinite animation
 
 **Problem**: A widget test wraps a tree that contains `CircularProgressIndicator`,

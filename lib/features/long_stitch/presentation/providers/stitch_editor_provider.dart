@@ -44,18 +44,39 @@ class StitchEditorController extends Notifier<StitchEditorState> {
       // transitions from empty to non-empty (user re-picks after a
       // clear / remove-all), the previous percent no longer matches
       // the new batch's visual geometry, so we reset it to the
-      // default. The `state.images.isEmpty` guard prevents the
+      // default. The `stateWasEmpty` snapshot below prevents the
       // listener's first-fire (where `prev` is null) from clobbering
       // the percent on initial mount with a pre-existing list.
       final wasEmpty = prev == null || prev.isEmpty;
-      final shouldResetSubtitle =
-          wasEmpty && next.isNotEmpty && state.images.isEmpty;
+      // Snapshot the editor's own image-list emptiness BEFORE the
+      // copyWith — both the subtitle-reset rule and the compact
+      // auto-expand rule edge-trigger on the controller state's
+      // emptiness, not on the import provider's prev/next (which can
+      // fire with `prev == null` on controller rebuild and clobber
+      // user-visible state).
+      final stateWasEmpty = state.images.isEmpty;
+      final shouldResetSubtitle = wasEmpty && next.isNotEmpty && stateWasEmpty;
       state = state.copyWith(
         images: next,
         subtitleBandHeightPercent: shouldResetSubtitle
             ? kDefaultSubtitleBandHeightPercent
             : state.subtitleBandHeightPercent,
       );
+      // Compact inline parameter panel auto-expand/collapse (PRD
+      // `05-27-stitch-auto-expand-params`): edge-trigger on the
+      // editor's own image-list emptiness — `empty → non-empty`
+      // expands the panel; `non-empty → empty` collapses it.
+      // Mid-session changes (add / remove single / reorder while
+      // already non-empty) never flip the flag, so the user's
+      // explicit `[⚙ 参数]` chip choice in "has-images" mode is
+      // preserved. Only the compact viewport reads this provider;
+      // medium / expanded / large render an always-visible panel and
+      // ignore the flag (see `.trellis/spec/frontend/responsive-layout.md`).
+      if (stateWasEmpty && next.isNotEmpty) {
+        ref.read(stitchControlsInlineVisibleProvider.notifier).state = true;
+      } else if (!stateWasEmpty && next.isEmpty) {
+        ref.read(stitchControlsInlineVisibleProvider.notifier).state = false;
+      }
     });
     return StitchEditorState.initial().copyWith(images: initial);
   }

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Baseline for Definition of Done — flutter analyze 0 warning, dart format, flutter test green, testing conventions for controller-level unit tests."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "After R8 spec update lands, re-read this file to verify the new 'auto-expand on first image' UX clause is internally consistent with surrounding compact editor conventions."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Confirms no regression on medium/expanded/large layouts — sheet/panel paths must remain untouched (R1, R6)."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Validate R2's 'extend existing ref.listen instead of adding a new listener provider' is the right reuse decision rather than over-abstraction."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Provider → widget visibility chain still flows cleanly: stitchControlsInlineVisibleProvider drives StitchInlineControlsContainer's AnimatedSize without leaking edge-trigger semantics into the widget layer."}

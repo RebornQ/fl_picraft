@@ -660,6 +660,88 @@ Three invariants:
   page). A future surface that pushes the editor for non-compact
   reasons gets the dialog for free.
 
+### Convention: Compact editor auto-expand inline parameter panel on image-list edges
+
+> Captured from `05-27-stitch-auto-expand-params`. Extends the
+> compact secondary-page convention above with a UX rule for the
+> long-stitch inline parameter panel
+> (`StitchInlineControlsContainer`).
+
+**What**: On `WindowSizeClass.compact`, `stitchControlsInlineVisibleProvider`
+(the flag driving whether `StitchInlineControlsContainer` is
+expanded between the canvas and `StitchEditorBottomBar`) auto-flips
+on the editor's own image-list emptiness edges, **not** on every
+import event:
+
+| Transition | Provider flips to | Why |
+|---|---|---|
+| `state.images.isEmpty → next.isNotEmpty` | `true` | First image arrives — surface the controls so the new user discovers them without hunting for the `[⚙ 参数]` chip |
+| `state.images.isNotEmpty → next.isEmpty` | `false` | Canvas is empty again — symmetric reset, matches the initial-mount default |
+| `[1..N] → [1..M]` (mid-session add/remove/reorder while non-empty) | unchanged | The user has already seen the panel and may have explicitly collapsed it via the chip — do not clobber that choice |
+
+Implementation lives inside the existing
+`ref.listen<List<ImportedImage>>(importedImagesProvider(.stitch), …)`
+block in `StitchEditorController.build()` (same block as the
+`05-18-subtitle-reset-on-reselect` rule). Both rules share a single
+`stateWasEmpty` snapshot taken **before** `state = state.copyWith(...)`
+so the edge is read from the controller's own state rather than the
+import provider's `prev/next` (which can fire with `prev == null`
+on a controller rebuild and clobber the user's last chip choice
+when the editor is re-entered with a pre-populated session).
+
+**Why**: The default-collapsed panel was originally chosen to keep
+the canvas dominant before any images are present, but new compact
+users had no signal that parameters lived behind the bottom-bar
+chip. Auto-expanding **only** on the empty→non-empty edge gives
+maximum discoverability for first-time use while leaving the mid-
+session "I just want canvas" intent intact. The non-empty→empty
+collapse is the symmetric pair — when the canvas drops to empty,
+the panel drops with it so re-entering the same session lands on
+the same initial visual.
+
+The "edge on `state.images`, not on `prev/next`" design is the
+critical guard. A controller rebuild (e.g. moving from `/stitch`
+branch route to `/m/stitch` sibling route on a window-class drag,
+or hot-reload) starts a new listener whose first fire arrives with
+`prev == null` and `next == [seed images]`. If the rule were
+written against `prev` it would auto-expand on every rebuild and
+silently override the user's last chip choice — measured visually
+as "the panel keeps popping back even though I closed it".
+
+**How to apply** (extending the rule to another editor — e.g. a
+future grid auto-expand):
+
+- Keep the auto-flip side-effect **inside the controller's existing
+  `ref.listen` on the source-of-truth image list** (single
+  listener — don't add a parallel watcher provider).
+- Snapshot `state.images.isEmpty` **before** the `copyWith` so the
+  edge test reads pre-update state.
+- Only flip the visibility provider on true edges
+  (`stateWasEmpty != next.isEmpty`); leave mid-session list changes
+  untouched.
+- The visibility provider must be a plain `StateProvider<bool>`
+  with a `false` default so initial mounts (and the
+  `stateWasEmpty` guard on the listener first-fire) read the same
+  baseline.
+- Medium / expanded / large layouts render their always-visible
+  control surface and ignore the provider — confirm any new editor
+  follows the same sheet / inline / panel tri-form before wiring
+  the rule (see [`responsive-layout.md`](./responsive-layout.md) →
+  "Sheet → Panel dual-form extraction").
+
+**Don't**:
+
+- Don't fire the auto-expand on every successful import (would
+  clobber user collapse mid-session; the inline panel was
+  originally toggleable for a reason).
+- Don't introduce a "user has collapsed once" flag in
+  `StitchEditorState` — the edge-on-`state.images` design already
+  achieves the same behavior without persisting an extra field.
+- Don't read `prev`/`next` from the import provider to test the
+  edge — that fires spuriously on listener first-fires after
+  controller rebuilds. Always edge off the controller's own
+  pre-update snapshot.
+
 ### Convention: Placeholder screens for in-progress features
 
 **What**: When a route is registered before its owning feature task lands,

@@ -470,6 +470,16 @@ ref.listen<List<ImportedImage>>(importedImagesProvider(kind), (prev, next) {
 - `lib/features/grid/presentation/providers/grid_editor_provider.dart` — counter-example (pure-mirror form, no guard
   needed).
 
+**Testing nuance — listener side-effects on a *third* provider don't fire on bare `container.read`**: when the
+listener body writes to a separate `StateProvider` / `NotifierProvider` (e.g. `stitchControlsInlineVisibleProvider`
+flipped by `stitch_editor_provider.dart`'s listener on an `empty → non-empty` edge), a `ProviderContainer` test that
+only reads the **destination** provider sees stale values — the `Provider.family` derivation in the middle is lazy and
+stays dirty until something reads it. The fix is a `read(controllerProvider)` "poke" between the trigger and the
+assertion (see `quality-guidelines.md` → "Pattern: Poke the consumer to fire `ref.listen` side-effects on lazy
+`Provider.family` derivations in `ProviderContainer` tests" for the helper, the symptom matrix, and the worked
+example). The subtitle-reset tests next door don't trip on this because they assert on the controller's own `state`,
+which inherently wakes the chain.
+
 ### Pattern: Atomic multi-field setter when fields are coupled
 
 **Problem**: A controller exposes setters that each touch one field. When two fields are *coupled* — i.e. some combinations are semantically illegal — calling `setA(...)` then `setB(...)` from a UI handler produces an intermediate state where the pair is in an illegal combo. Consumers that re-render on every state change see one frame in that illegal combo, which can:

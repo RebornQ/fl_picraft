@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Need the ref.listen / AsyncNotifierProvider.family / StateProvider patterns. Specifically the empty→non-empty edge-trigger idiom already used by the subtitle-reset block in the same file we'll be editing."}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "Confirms only compact consumes stitchControlsInlineVisibleProvider via the inline tri-form; medium/expanded/large use sheet/panel and are out of scope. Anchors R1 ('compact only')."}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Hosts the compact editor convention chapter (added by 05-26-mobile-stitch-secondary-page) we will extend with R8's 'auto-expand on first image' UX rule."}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Riverpod provider naming + side-effect conventions for ref.read(...notifier).state = … pattern used by R3/R4."}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "List<ImportedImage>.isEmpty boundary check; ensures null-safe edge detection in the listener."}
