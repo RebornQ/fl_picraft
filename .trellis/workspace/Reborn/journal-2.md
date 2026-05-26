@@ -205,3 +205,36 @@ Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新
 ### Next Steps
 
 - None - task complete
+
+
+## Session 66: Compact 参数面板从 modal 改内联 toggle 容器
+
+**Date**: 2026-05-26
+**Task**: Compact 参数面板从 modal 改内联 toggle 容器
+**Branch**: `main`
+
+### Summary
+
+把长图拼接编辑器 compact (<600dp) 的参数 sheet 从 showModalBottomSheet 弹窗，改造为内联可折叠 StitchInlineControlsContainer (200dp 固定高度 + AnimatedSize + FadeTransition + ValueKey cross-fade)。新增 stitchControlsInlineVisibleProvider (StateProvider<bool>, 不持久化) 驱动显隐，_ParamsChip 改 ConsumerWidget 实现 FilledButton.icon ⇄ tonalIcon toggle。同步修复 TabBar 不可滚动 (isScrollable: true + tabAlignment: TabAlignment.start) 与滚动时 TabBar 不固定问题——通过 StitchControlsPanel 引入 LayoutBuilder dual-mode 契约，兼容有界 (compact inline) 与无界 (medium sheet / expanded dock 的 SingleChildScrollView) 三种父容器。medium/expanded/large 布局不变；showStitchParamsSheet 函数保留备用。Spec 沉淀：responsive-layout.md 新增 tri-form variant (sheet+inline+panel) 与 LayoutBuilder dual-mode pattern。wireframe 草图同步更新 3 处文本。质量门槛：dart format clean / flutter analyze clean / flutter test 583 passed 0 failed。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8d52bd0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

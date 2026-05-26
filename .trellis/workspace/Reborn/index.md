@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 65
+- **Total Sessions**: 66
 - **Last Active**: 2026-05-26
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~207 | Active |
+| `journal-2.md` | ~240 | Active |
 | `journal-1.md` | ~1997 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 66 | 2026-05-26 | Compact 参数面板从 modal 改内联 toggle 容器 | `8d52bd0` | `main` |
 | 65 | 2026-05-26 | 长图拼接工具栏 Tab 化改造 | `620ebb8`, `afbadc7` | `main` |
 | 64 | 2026-05-24 | 修复 stitch/grid editor AppBar 返回按钮的 go_router pop 崩溃 | `1017715` | `main` |
 | 63 | 2026-05-24 | JPG 质量滑块：拖动中不再触发预览重生成，改为 onChangeEnd 提交 | `bff9dd5` | `main` |
