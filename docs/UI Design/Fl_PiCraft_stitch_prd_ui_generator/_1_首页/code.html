@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#1e192b",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#633b48",
+                        "primary-fixed-dim": "#cfbcff",
+                        "primary": "#4f378a",
+                        "on-primary-fixed-variant": "#4f378a",
+                        "on-secondary-container": "#686177",
+                        "tertiary-fixed": "#ffd9e3",
+                        "background": "#fef7ff",
+                        "surface-container-low": "#f9f1fd",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed": "#e8def9",
+                        "secondary-fixed-dim": "#ccc2dc",
+                        "outline": "#7a7582",
+                        "on-tertiary-fixed": "#31111d",
+                        "tertiary": "#633b48",
+                        "on-primary-container": "#e0d2ff",
+                        "primary-container": "#6750a4",
+                        "secondary-container": "#e8def9",
+                        "on-primary-fixed": "#22005d",
+                        "on-secondary": "#ffffff",
+                        "on-surface-variant": "#494551",
+                        "surface-bright": "#fef7ff",
+                        "surface": "#fef7ff",
+                        "primary-fixed": "#e9ddff",
+                        "outline-variant": "#cbc4d2",
+                        "tertiary-container": "#7d5260",
+                        "tertiary-fixed-dim": "#eeb8c8",
+                        "surface-dim": "#dfd7e3",
+                        "on-background": "#1d1a22",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#cfbcff",
+                        "surface-variant": "#e7e0eb",
+                        "on-surface": "#1d1a22",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f6eefa",
+                        "inverse-surface": "#322f37",
+                        "secondary": "#625b71",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#ffcbda",
+                        "on-secondary-fixed-variant": "#4a4358",
+                        "surface-container": "#f3ebf7",
+                        "surface-container-high": "#ede6f1",
+                        "surface-tint": "#6750a4",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e7e0eb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "display": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body">
+<div class="relative flex min-h-screen w-full flex-col bg-surface overflow-x-hidden">
+<div class="flex items-center bg-surface p-4 pb-2 justify-between">
+<div class="flex size-12 shrink-0 items-center">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary-container" data-alt="A close-up portrait of a young digital artist with a friendly expression. The scene is bathed in soft, natural morning light coming from a large window. The background is a clean, minimalist creative studio with hints of purple and lavender decor to match the UI theme. The overall aesthetic is bright, professional, and welcoming for a modern creator tool." style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCrBqFi7_ImcoEMU9m8gl6QnRa0FhUs9mx6IGSoBXEozdmSgEgWOZd1n5MDq7h6Epuh9NRt50VuZf2aV6T-kWCs694WN4-bVGWRMRoUi3WbnmjyBcPb_xHa2bKakVHuWqpUdwpFpqLs-pRd--jDVnSKT_cQQh6cITMOdQncXWydW5pme40GBnAz7_h4ZQQp87kDS8CIoPaWSueZK7mwidweCbIcnq00Pn4KFZTxWIRl97nSBuYEwGWNg9jl4Gjrgx8kBH4BfFlQHZc");'>
+</div>
+</div>
+<div class="flex-1 px-2">
+<h2 class="text-on-surface text-lg font-bold leading-tight tracking-[-0.015em]">你好，创作者</h2>
+<p class="text-secondary text-xs">欢迎回来</p>
+</div>
+<button class="text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+<div class="px-4 py-6">
+<h3 class="text-on-surface tracking-light text-2xl font-bold leading-tight text-left">今天想创作点什么？</h3>
+</div>
+<div class="px-4 space-y-4">
+<!-- Long Stitch Card -->
+<div class="flex items-stretch justify-between gap-4 rounded-xl bg-surface-container-low p-4 shadow-sm border border-outline-variant">
+<div class="flex flex-[2_2_0px] flex-col justify-between">
+<div class="flex flex-col gap-1">
+<p class="text-on-surface text-base font-bold leading-tight">长图拼接</p>
+<p class="text-on-surface-variant text-sm font-normal leading-normal">将多张图片无缝拼接为竖向、横向或电影台词长图。</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 mt-4 bg-primary text-on-primary text-sm font-medium leading-normal w-fit">
+<span>导入新图片</span>
+</button>
+</div>
+<div class="w-24 h-24 bg-center bg-no-repeat bg-cover rounded-lg shrink-0 border border-outline-variant" data-alt="A high-quality 3D render showing a vertical sequence of cinematic film frames being stitched together seamlessly. The frames depict a serene mountain landscape at sunset with vibrant purple and orange skies. The aesthetic is modern and sleek, featuring clean edges and soft shadows on a white background. This visual represents a premium mobile photo editing experience." style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCN2F-_3M3Yc7IbPMJg00oF0NotsXUx8gfFSSXaH76PO1Uxft4M8Hu3hazIWCT9QS2sjphfGC4E78AA3OJo_tH5nr5_0jUhU6VvFNuQS3GlcGqwFs3q7pYrEYKB-giGmdSmt2IyqyowzQm_PNbY8qHVN0w2O0EDh0x8eh4dVHHDEtPpmmRB6EiJCJLaOxkTzjCCe2elI0YDWc0KcD_FSOb_dFk_XPUBgqyhlcHqHH714VjVSN00xCRaK1c9EqwtmkCOTG21j6yik_o");'>
+</div>
+</div>
+<!-- Grid Split Card -->
+<div class="flex items-stretch justify-between gap-4 rounded-xl bg-surface-container-low p-4 shadow-sm border border-outline-variant">
+<div class="flex flex-[2_2_0px] flex-col justify-between">
+<div class="flex flex-col gap-1">
+<p class="text-on-surface text-base font-bold leading-tight">宫格切图</p>
+<p class="text-on-surface-variant text-sm font-normal leading-normal">将图片切分为创意九宫格或自定义布局，非常适合社交媒体分享。</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-9 px-4 mt-4 bg-secondary-container text-on-secondary-container text-sm font-medium leading-normal w-fit">
+<span>导入新图片</span>
+</button>
+</div>
+<div class="w-24 h-24 bg-center bg-no-repeat bg-cover rounded-lg shrink-0 border border-outline-variant" data-alt="A clean top-down graphic of a square photograph split into a 3x3 grid. The central image is a minimalist lavender flower against a soft white background. The lines of the grid are thin and elegant, suggesting a high-end social media layout tool. The lighting is bright and even, maintaining the light-mode UI consistency with subtle purple accents." style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDHMGpwhJChFIG_s3p1DFv1WTRRhGOq1Yl23rjnYd1uhfdneU1ixCcSWQg_8_Ob1AKWpAYFULF1KVQMVkNnDmGqohgf7nx_EZzAgrPXtpK5j2t5HWSFlMtzy5tI5SRWxtqsC-Rb3zyDzq8-NO4mZjUbkbBXl-3oNLZCFRNeh1nZN7aDJpSDLuiEFfVW3aWl3MAqF09vnE7qvEZKS_8Igk_z27BAZLhnpgaTRfz1wj_UuAVXsoTswMBrXojWbGdpdu16psUie0t_7pw");'>
+</div>
+</div>
+</div>
+<!-- Tips Section -->
+<div class="p-4 mt-4">
+<div class="rounded-xl bg-tertiary-container/10 border border-tertiary-container/20 p-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+<span class="text-tertiary font-bold text-sm">小贴士</span>
+</div>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                您可以尝试“电影台词模式”，它能在保留底部文字区域的同时自动叠加拼接。
+            </p>
+</div>
+</div>
+<!-- Quick Gallery Preview -->
+<div class="px-4 pt-4 pb-20">
+<div class="flex justify-between items-center mb-4">
+<h4 class="text-on-surface font-bold">最近作品</h4>
+<a class="text-primary text-sm font-medium flex items-center gap-1" href="#">
+                查看全部
+                <span class="material-symbols-outlined text-sm">chevron_right</span>
+</a>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="aspect-square rounded-lg bg-cover bg-center border border-outline-variant" data-alt="A small square thumbnail of a travel collage, featuring urban cityscapes and modern architecture. The tones are bright and airy, with clear blue skies and clean white building surfaces. The image looks like a saved project in a professional photo app gallery." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA5u3X7JkACTlUBZXj8UPW7YtEdorCWt3gBXld5JZROZZe2lr8aKPY-S0fot5zyN0bzr_h94yGbOx2eXuPBTzABLWW6a372u-2VXfvTO6z-DOIzHG2lPibB9bdHpbuy00gbGzr_VsHrtVUSlxhK9YJBE4_oCKqBTpXb-E1XNNEHdJLwJJviiGW_zMBP9BzqOPgHqxyYyjRMR7jhpt9JJrJdXhqiV2bGK-cxEFPckBa98638oooT43RJM2LFdrPwdgEdps27heSulSc')"></div>
+<div class="aspect-square rounded-lg bg-cover bg-center border border-outline-variant" data-alt="A thumbnail of a food photography grid, showing vibrant colorful dishes arranged in a clean layout. High-key lighting highlights the textures of fresh ingredients. The composition is artistic and modern, typical of high-quality social media content." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCK9NOEsEWtddICQx6hZwvahPytMXxSSO8XugVjIMAlI98dZsjoVRJBgNCPqOwVLD7eJheQicZLJDwoY6Kb8lxR3xGjgZcUvygmWNqfuTfpCGIwKmGGxx6ykjSLKnJljdMUW1xuMYjF6zRX9FVRudHD0-ndq6g850-EiYe-5XAfHkjmG2TLDJype8rwbityKvXnTgEFuHgVNefmisNV4BEVMa82xQWiKxHIKPTglt43pemYR67QoAS5dit2PEhTS6cD4-pgdDfYuUw')"></div>
+<div class="aspect-square rounded-lg bg-cover bg-center border border-outline-variant" data-alt="A landscape photography thumbnail showing a serene sunset over a lake. The colors transition from soft purple to warm orange. The image is crisp and clear, presented as a saved work in a mobile application." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDFxsLoCipM27JHyMjzqDwP0A8jnmMvt18Swftw62d6WSXKdHwsQB3PfzwdkPu2qTXJZR0IdRiQ_WzbWnAu3iN9AJQX7E5hQapciGRRB4VI3iiSZbOTzGkI15GwJpDSZ2QFJaFFnZjTTDTEnPQ20_j77e1IaIVXxY_Tlzz7usua3UWNSai-jnKMw4mkcp1OsqWHPjfbDANX7uuRznQyBryC0GNn17YxpAeldph_naZYzkaAc6irFZvnTJOxMj7vkjWpWNsVLQF5Dfo')"></div>
+</div>
+</div>
+<!-- Fixed Bottom NavBar -->
+<div class="fixed bottom-0 w-full z-50">
+<div class="flex gap-2 border-t border-outline-variant bg-surface px-4 pb-3 pt-2">
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-on-surface" href="#">
+<div class="flex h-8 items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4" data-icon="Images" data-size="24px" data-weight="regular">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">image</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">作品库</p>
+</a>
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-secondary" href="#">
+<div class="flex h-8 items-center justify-center" data-icon="Needle" data-size="24px" data-weight="fill">
+<span class="material-symbols-outlined">imagesmode</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">长图拼接</p>
+</a>
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-secondary" href="#">
+<div class="flex h-8 items-center justify-center" data-icon="Table" data-size="24px" data-weight="regular">
+<span class="material-symbols-outlined">grid_view</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">宫格切图</p>
+</a>
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-secondary" href="#">
+<div class="flex h-8 items-center justify-center" data-icon="Gear" data-size="24px" data-weight="regular">
+<span class="material-symbols-outlined">settings</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">设置</p>
+</a>
+</div>
+</div>
+</div>
+</body></html>

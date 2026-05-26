@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Export &amp; Preview - Fl PiCraft</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+        }
+        /* Custom scrollbar for better UI */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbc4d2; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #7a7582; }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-high": "#ede6f1",
+                    "on-tertiary-container": "#ffcbda",
+                    "tertiary-fixed": "#ffd9e3",
+                    "on-secondary-fixed": "#1e192b",
+                    "on-secondary-fixed-variant": "#4a4358",
+                    "primary-fixed-dim": "#cfbcff",
+                    "secondary-fixed": "#e8def9",
+                    "inverse-primary": "#cfbcff",
+                    "tertiary-container": "#7d5260",
+                    "surface-bright": "#fef7ff",
+                    "surface-tint": "#6750a4",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#633b48",
+                    "surface-dim": "#dfd7e3",
+                    "surface-container-highest": "#e7e0eb",
+                    "primary-container": "#6750a4",
+                    "outline-variant": "#cbc4d2",
+                    "on-surface": "#1d1a22",
+                    "surface": "#fef7ff",
+                    "on-primary-fixed-variant": "#4f378a",
+                    "surface-variant": "#e7e0eb",
+                    "secondary-fixed-dim": "#ccc2dc",
+                    "on-tertiary-fixed-variant": "#633b48",
+                    "surface-container-low": "#f9f1fd",
+                    "primary-fixed": "#e9ddff",
+                    "on-surface-variant": "#494551",
+                    "background": "#fef7ff",
+                    "tertiary-fixed-dim": "#eeb8c8",
+                    "secondary": "#625b71",
+                    "on-secondary-container": "#686177",
+                    "error": "#ba1a1a",
+                    "inverse-surface": "#322f37",
+                    "secondary-container": "#e8def9",
+                    "on-tertiary-fixed": "#31111d",
+                    "primary": "#4f378a",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#7a7582",
+                    "on-primary-fixed": "#22005d",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-error": "#ffffff",
+                    "on-background": "#1d1a22",
+                    "error-container": "#ffdad6",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#f3ebf7",
+                    "on-primary-container": "#e0d2ff",
+                    "inverse-on-surface": "#f6eefa"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "display": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen md:pb-0 md:pt-16">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-4 py-2 bg-surface shadow-sm md:flex">
+<div class="flex items-center gap-3">
+<button class="material-symbols-outlined p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-full">arrow_back</button>
+<h1 class="font-headline font-bold text-headline-sm text-primary">Fl PiCraft</h1>
+</div>
+<div class="hidden md:flex gap-4">
+<span class="text-on-surface-variant font-medium cursor-pointer hover:bg-surface-container-high px-3 py-1 rounded-lg transition-colors">作品库</span>
+<span class="text-on-surface-variant font-medium cursor-pointer hover:bg-surface-container-high px-3 py-1 rounded-lg transition-colors">长图拼接</span>
+<span class="text-on-surface-variant font-medium cursor-pointer hover:bg-surface-container-high px-3 py-1 rounded-lg transition-colors">宫格切图</span>
+<span class="text-primary font-bold px-3 py-1 rounded-lg">导出</span>
+</div>
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-xl font-medium active:scale-95 transition-transform duration-150">导出</button>
+</header>
+<main class="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-8 mt-12 md:mb-0">
+<!-- Large Preview Area -->
+<section class="lg:col-span-7 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-on-surface-variant font-semibold flex items-center gap-2"><span class="material-symbols-outlined text-sm">visibility</span> 预览</h2>
+<span class="text-xs text-outline font-medium bg-surface-container px-2 py-1 rounded">2048 x 8192 px</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant overflow-hidden aspect-[3/4] md:aspect-auto md:h-[618px] flex justify-center p-4 relative group">
+<div class="overflow-y-auto w-full max-w-md bg-white shadow-2xl rounded-sm">
+<!-- Simulating a long stitched image -->
+<img alt="Stitched Forest 1" class="w-full object-cover" data-alt="A lush, sun-drenched temperate forest with towering ancient trees. The light filters through the dense canopy in ethereal rays, creating a serene and mystical atmosphere. The color palette is dominated by vibrant moss greens, deep earthy browns, and soft golden highlights. The composition feels vertical and expansive, showcasing the natural grandeur of the woodland ecosystem." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtfUO1INJXk6tvwcw_C6ZsOCkFKU06n_2Z294pGGP9qSjn-viI41Aw0jbfmMK9xHSEFi_-Op-9CRPiqs_ZvkWixZOatAN0Vu8y-IbeHh-ZZKF0BJX5XKZl95Ytf4y_rSzCvbNcdPzUnp4AnWGBKTglMZMkNvx-wHjjMUw8z5ZyjNjg0CgyvSDcHjCN_YqCybCIQuLFfje7nOjCZ_bSCBCZ56LPzuL3clNWuhBQQ0j_n-O-XCzk4hRU_Bo1SzLMk_WAGaZcb9RXTzA"/>
+<img alt="Stitched Forest 2" class="w-full object-cover" data-alt="A cinematic misty mountain landscape at sunrise, viewed through a natural frame of pine branches. Rolling hills are shrouded in a delicate morning fog that glows with a soft, ethereal light. The atmosphere is peaceful and majestic, with a cool palette of blues and greens warmed by the rising sun. The visual style is crisp and detailed, emphasizing the vastness and tranquility of the mountain range." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMp-6hn6jIhn7_wxIsmA0ETEK1r0DLJjqOflwjZCDUirTNuM408LydVXwhA8DrPTwZyxwo9jkY5l7pq0p0aBb0xHvjd7UD99WYg30zra0DaGN-v3Q5nA2dZzNWgRtc-CoeI0BW_h33RJp9xrz7nWT4ezEzmaMGpXP61pe0UgXfWyGb46-LpkauBlvHncMKfX1c0k52eG_mOjGSwhgER5P6Pgw8X_u1RQMSf9TpbTcVE4-VWPnu_W5pUnkFOFd2StrgjdJwVws2OyA"/>
+<img alt="Stitched Forest 3" class="w-full object-cover" data-alt="A crystal clear alpine lake mirroring the surrounding snow-capped peaks and vibrant wildflower meadows. The scene is illuminated by the bright, high-key light of mid-morning, creating a pristine and airy aesthetic. The colors are punchy and saturated, featuring brilliant teals, pure whites, and pops of floral pink. The overall mood is uplifting and refreshing, representing a perfect summer day in the mountains." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5KuubTPX8NinsuMYXy6cxnm3_YqjbqITzVQTAe84TluEQedEPkrfejR4hoL_kFnSiJ4IPlbOuOZ2HAya-z3tJ7LOunnsMLp9sPakqlYsixnGdYzUa0JAGeBWD8PWp-T4k8Jfg0LljcZ4vOSJNSD9HitR8K7bnd1PE3JMD5Xxw2KHH1-rMdx9tp2YtKnQf5tY0wRX9vudKqOg8oGp1WUIGPLDl_MnxQk5nANlOTvyqY59MAoakXIrBZbXg4SeP6qYbE9l1yw0Zw-Q"/>
+</div>
+<!-- Zoom/Pan Controls -->
+<div class="absolute bottom-6 right-6 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="bg-surface p-3 rounded-full shadow-md text-on-surface-variant hover:bg-primary hover:text-on-primary transition-all">
+<span class="material-symbols-outlined">zoom_in</span>
+</button>
+<button class="bg-surface p-3 rounded-full shadow-md text-on-surface-variant hover:bg-primary hover:text-on-primary transition-all">
+<span class="material-symbols-outlined">zoom_out</span>
+</button>
+<button class="bg-surface p-3 rounded-full shadow-md text-on-surface-variant hover:bg-primary hover:text-on-primary transition-all">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Settings Panel -->
+<aside class="lg:col-span-5 flex flex-col gap-6">
+<div class="bg-surface-container rounded-xl p-6 shadow-sm flex flex-col gap-8">
+<!-- Format & Quality Section -->
+<section>
+<h3 class="text-label-md font-bold text-on-surface mb-4 uppercase tracking-wider">格式与质量</h3>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<button class="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-primary bg-primary-container text-primary font-bold transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">image</span>
+                            JPG
+                        </button>
+<button class="flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-outline-variant bg-surface text-on-surface-variant font-medium hover:bg-surface-container-highest transition-all">
+<span class="material-symbols-outlined">photo_library</span>
+                            PNG
+                        </button>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center">
+<label class="text-sm font-semibold text-on-surface-variant">质量</label>
+<span class="text-sm font-bold text-primary">85%</span>
+</div>
+<input class="w-full h-2 bg-outline-variant rounded-lg appearance-none cursor-pointer accent-primary" max="100" min="1" type="range" value="85"/>
+<div class="flex justify-between text-[10px] text-outline font-medium">
+<span>最小体积</span>
+<span>最高质量</span>
+</div>
+</div>
+</section>
+<!-- Watermark Section -->
+<section>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-label-md font-bold text-on-surface uppercase tracking-wider">水印</h3>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex flex-col gap-4 bg-surface-container-low p-4 rounded-xl border border-outline-variant">
+<div>
+<label class="text-xs font-bold text-outline mb-1 block uppercase">文字内容</label>
+<input class="w-full bg-surface border-outline-variant rounded-lg text-sm px-3 py-2 focus:ring-primary focus:border-primary" type="text" value="Fl PiCraft"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="text-xs font-bold text-outline mb-2 block uppercase">位置</label>
+<div class="grid grid-cols-3 gap-1 w-24">
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-surface border border-outline-variant rounded hover:bg-secondary-container transition-colors"></button>
+<button class="w-7 h-7 bg-primary border border-primary rounded shadow-sm"></button>
+</div>
+</div>
+<div class="flex flex-col justify-end"><label class="text-xs font-bold text-outline mb-1 block uppercase">透明度</label>
+<div class="flex items-center gap-2 min-w-0">
+<input class="flex-1 min-w-0 h-1.5 bg-outline-variant rounded-lg appearance-none cursor-pointer accent-primary" max="100" min="10" type="range" value="50"/>
+<span class="text-xs font-bold text-on-surface-variant w-10 flex-shrink-0">50%</span>
+</div></div>
+</div>
+</div>
+</section>
+<!-- Action Button -->
+<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-bold text-lg shadow-lg shadow-primary/20 hover:bg-primary/90 active:scale-95 transition-all flex items-center justify-center gap-3"><span class="material-symbols-outlined">save</span> 保存至相册</button>
+</div>
+<!-- Additional Details -->
+<div class="flex items-center gap-4 p-4 rounded-xl border border-dashed border-outline-variant">
+<div class="bg-tertiary-container/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-tertiary">info</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">拼接后的图片将保存至本地相册。我们不会上传任何数据到服务器。高分辨率导出大约需要2-3秒。</p>
+</div>
+</aside>
+</main>
+<!-- Bottom Nav Bar (Mobile Only) -->
+</body></html>

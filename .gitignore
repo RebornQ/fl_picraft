@@ -50,7 +50,4 @@ app.*.map.json
 .ace-tool/
 
 # 临时
-docs/*
-!docs/adr/
-!docs/adr/**
 .claude/commands/sw
