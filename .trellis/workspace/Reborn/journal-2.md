@@ -238,3 +238,38 @@ Two导出页 UX 微调：(1) PreviewSkeleton loading 文案 '加载中.../刷新
 ### Next Steps
 
 - None - task complete
+
+
+## Session 67: 移动端拼图入口收纳到二级页面
+
+**Date**: 2026-05-27
+**Task**: 移动端拼图入口收纳到二级页面
+**Branch**: `main`
+
+### Summary
+
+compact (<600dp) 下把 long-stitch / grid 编辑器从底部导航 tab 收纳为从首页 FeatureCard push 的二级页面：新增 /m/stitch /m/grid 根级 sibling 路由覆盖 AppShell；AppBottomNavBar 在 compact 仅渲染 [功能大全, 设置]，桌面端 4-tab 不变；编辑器顶层 PopScope 用 Navigator.canPop 单一信号驱动 AppBar 返回箭头 + 退出二次确认 + 共享 showDiscardEditorDialog；确认后 controller.clear() + Navigator.pop()。spec 沉淀新 convention，桌面端零退化（608/608 测试 +14 新增）。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `03e9677` | (see git log) |
+| `9de3eb5` | (see git log) |
+| `9583992` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
