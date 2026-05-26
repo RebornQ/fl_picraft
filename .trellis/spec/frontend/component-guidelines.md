@@ -480,6 +480,186 @@ branch's first route is still a top-level path (`/`, `/stitch`,
   history (PopScope doesn't intercept it). Out-of-scope for the
   05-16-bottom-nav-switch-optimization task.
 
+### Convention: Compact secondary-page editors (`/m/*` sibling routes) + PopScope discard confirmation
+
+> Captured from `05-26-mobile-stitch-secondary-page`. Builds on
+> the StatefulShellRoute convention above — does **not** replace it.
+
+**What**: On `WindowSizeClass.compact` (< 600 dp) the long-stitch and
+grid editors are entered as **secondary pages pushed from the home
+FeatureCards**, not as bottom-nav tabs. The implementation keeps the
+existing four-branch StatefulShellRoute intact for desktop / tablet
+and adds two **sibling root-level GoRoutes** that cover the shell:
+
+```dart
+// lib/app/router.dart — sibling routes, mounted on _rootNavigatorKey
+GoRoute(
+  path: '/m/stitch',
+  parentNavigatorKey: _rootNavigatorKey,
+  builder: (context, state) => const StitchEditorScreen(),
+),
+GoRoute(
+  path: '/m/grid',
+  parentNavigatorKey: _rootNavigatorKey,
+  builder: (context, state) => const GridEditorScreen(),
+),
+```
+
+The `/m/` prefix is the project's "mobile secondary page" convention.
+Same widget (`StitchEditorScreen` / `GridEditorScreen`) is reused —
+both entries (branch + sibling) build the same screen and rely on the
+editor's non-autoDispose Riverpod controllers (which live above the
+router in `ProviderScope`) to keep state coherent across the two
+entry points. **No state duplication, no parallel widget tree.**
+
+The home FeatureCard chooses entry style based on size class:
+
+```dart
+// lib/features/home/presentation/screens/home_screen.dart
+// inside _FeatureCardsLayout.build
+void goStitch() {
+  if (isCompact) {
+    context.push('/m/stitch');     // covers the shell on compact
+  } else {
+    context.go('/stitch');         // switches branch on desktop
+  }
+}
+```
+
+And the bottom nav trims its destinations on compact so the editor
+tabs disappear (see `AppBottomNavBar.destinationsFor`).
+
+**Why**: Compact viewports cannot afford four bottom-nav destinations
+without hurting touch targets, and an "always-on" tab for the editors
+collides with the task-style mental model ("enter editor → work → exit").
+The secondary-page shape gives compact users the familiar
+back-arrow / system-back exit affordance and a single explicit
+discard-confirmation gate, without disturbing the desktop tab UX. The
+double-route topology keeps desktop ZERO-changed while shipping the
+compact UX.
+
+**Compact bar destination filtering + index mapping** (lives in
+`AppBottomNavBar`):
+
+```dart
+static List<AppNavDestination> destinationsFor(WindowSizeClass sc) {
+  if (sc == WindowSizeClass.compact) {
+    return const [_homeDestination, _settingsDestination]; // 0, 3
+  }
+  return destinations; // all four
+}
+
+static int branchToDisplayIndex(int branchIndex, WindowSizeClass sc) {
+  if (sc != WindowSizeClass.compact) return branchIndex;
+  return switch (branchIndex) {
+    0 => 0,
+    3 => 1,
+    _ => 0, // stitch / grid: unreachable on compact, fall back to home
+  };
+}
+
+static int displayToBranchIndex(int displayIndex, WindowSizeClass sc) {
+  if (sc != WindowSizeClass.compact) return displayIndex;
+  return displayIndex == 0 ? 0 : 3;
+}
+```
+
+`AppShell` consumes these helpers so `NavigationBar.selectedIndex`
+paints the right destination and `goBranch(...)` receives the right
+branch even though display indices and branch indices no longer match
+on compact. The shell also schedules a `goBranch(0)` reconcile when
+the user drags the window from medium → compact while on a stitch /
+grid branch (otherwise the bar would paint "home" via the fall-back
+while the IndexedStack keeps showing the editor — a confusing
+mismatch).
+
+**PopScope discard-confirmation contract** (editor side):
+
+```dart
+// stitch_editor_screen.dart / grid_editor_screen.dart top-level
+final isSecondaryPage = Navigator.canPop(context);
+
+return PopScope(
+  canPop: !isSecondaryPage || !state.hasImages, // or hasSource for grid
+  onPopInvokedWithResult: (didPop, _) async {
+    if (didPop) return;
+    if (!isSecondaryPage) return; // shell handles tab-root pops
+    final confirmed = await showDiscardEditorDialog(context);
+    if (!confirmed) return;
+    ref.read(stitchEditorControllerProvider.notifier).clear();
+    if (!context.mounted) return;
+    Navigator.of(context).pop();
+  },
+  child: Scaffold(
+    appBar: AppBar(
+      automaticallyImplyLeading: isSecondaryPage, // explicit toggle
+      // ...
+    ),
+    // ...
+  ),
+);
+```
+
+Three invariants:
+
+1. **`Navigator.canPop(context)` is the single signal** for "I am a
+   secondary page". Branch tab roots return `false` (per the
+   StatefulShellRoute convention), pushed sibling routes return
+   `true`. No `isCompact` flag is passed in — the topology already
+   tells you.
+2. **`canPop: !isSecondaryPage || !state.hasData`** lets empty
+   editors pop instantly and intercepts only when there's something
+   to lose. Three exit gestures (AppBar back arrow, Android system
+   back, iOS edge swipe) all funnel through this single PopScope so
+   the confirmation can't be bypassed.
+3. **Confirm → clear() then pop** (in that order, synchronously).
+   Matches the dialog's "未导出的拼图将丢失" copy. The next entry
+   into the same editor lands on an empty canvas. The dialog itself
+   lives in `lib/core/widgets/discard_editor_dialog.dart` so the
+   stitch and grid call sites stay in lock-step (per the code-reuse
+   guide).
+
+**How to apply** (adding a new editor that needs the same shape):
+
+- Register the editor's branch route as usual; **also** add a
+  `/m/<editor>` sibling root-level route bound to `_rootNavigatorKey`.
+- In the home FeatureCard's `onActionPressed`, branch on
+  `windowSizeClassOf(context) == WindowSizeClass.compact` and push
+  the `/m/...` variant on compact, `go(...)` the branch route
+  otherwise.
+- Wrap the editor's top-level widget in `PopScope` with the
+  `Navigator.canPop`-driven `isSecondaryPage` predicate above.
+- Call `showDiscardEditorDialog` for the confirm; reuse the existing
+  helper rather than rolling a new dialog.
+- Set `AppBar.automaticallyImplyLeading: isSecondaryPage` so the
+  back arrow only appears on the secondary-page entry.
+
+**Trade-offs to accept**:
+
+- The same screen is mounted under two route paths; widget tests for
+  the secondary-page contract must use the `/m/...` path to reproduce
+  `Navigator.canPop == true`. The branch-route tests stay unchanged.
+- `PopScope.canPop` watches `state.hasImages` / `state.hasSource`, so
+  the editor must `ref.watch` the controller in its `build` to drive
+  rebuilds of the PopScope. The watch already exists for other
+  reasons in both editors, so this is free.
+- Branch index ↔ destination display index translation lives in
+  `AppBottomNavBar`; widget tests that previously assumed
+  `selectedIndex == branchIndex` must call `branchToDisplayIndex` to
+  stay correct on compact.
+
+**Don't**:
+
+- Don't invent a `hideBottomNav` flag on `AppShell` — keep the
+  shell's "host the nav" contract intact; compact just feeds it a
+  shorter destination list.
+- Don't duplicate `StitchEditorScreen` / `GridEditorScreen` under a
+  `compact_` variant; the same widget handles both entries.
+- Don't gate the discard dialog on size class — gate it on
+  `Navigator.canPop(context)` (i.e. on whether this is a secondary
+  page). A future surface that pushes the editor for non-compact
+  reasons gets the dialog for free.
+
 ### Convention: Placeholder screens for in-progress features
 
 **What**: When a route is registered before its owning feature task lands,

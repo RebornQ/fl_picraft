@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/05-26-mobile-stitch-secondary-page/prd.md", "reason": "AC、Definition of Done、Out of Scope 是质检主依据；任何与 PRD 不符的行为都要标红。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "本项目质量底线（lint / format / 测试覆盖）的硬约束。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "验证 StatefulShellRoute 既有约定未被推翻；新增 /m/* 二级页面是否走 parentNavigatorKey: _rootNavigatorKey 覆盖 shell 范式。"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "验证 compact / medium+ 双分支判定正确、桌面端三档行为零退化。"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "验证 controller.clear() 仅在确认退出时调用；桌面端 branch 切换不触发 clear。"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "验证 dialog 取消/系统后退/边缘滑动三入口的拦截路径都有正确 fallback。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层一致性检查：路由层 + Shell 层 + Editor 层 + Provider 层的语义对齐。"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "验证 stitch / grid 两侧 PopScope + dialog 逻辑确实复用了同一 helper，没有 copy-paste。"}

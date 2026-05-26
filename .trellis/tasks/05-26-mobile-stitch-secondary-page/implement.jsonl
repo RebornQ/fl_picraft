@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/05-26-mobile-stitch-secondary-page/prd.md", "reason": "本次任务的需求来源、ADR 决策、AC、Out of Scope；实现 sub-agent 必须按此 PRD 走。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "现有 StatefulShellRoute + per-branch screen 约定原文 + Modal 覆盖 shell 范式（/export 写法），本次新增 /m/* 二级页面需与之并存而非推翻。"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "size class 分支模式（compact / medium / expanded / large）的统一处理范式；本次 FeatureCard 分流、AppBottomNavBar 条件 destinations、AppBar 返回箭头判定都基于此。"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod 跨屏 handoff 规范 — 双路由方案能复用编辑器状态的理论基础（StitchEditorController 非 autoDispose，跨 push/pop 自然保留）。"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "新增共享 dialog widget（discard_editor_dialog 或同名）的放置位置约定。"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "PopScope.onPopInvokedWithResult 的 nullable 回调签名 + WindowSizeClass 枚举 exhaustive switch。"}
+{"file": ".trellis/spec/frontend/error-handling.md", "reason": "dialog 取消/异常路径的处理风格（user-facing message 而非崩溃）。"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "stitch 与 grid 两侧确认对话框 + PopScope 拦截逻辑必须抽公共 helper，避免重复。"}
