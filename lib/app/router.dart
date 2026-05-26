@@ -35,15 +35,30 @@ final GlobalKey<NavigatorState> _settingsNavigatorKey =
 /// Application-wide [GoRouter] configuration.
 ///
 /// Topology: one [StatefulShellRoute.indexedStack] hosting the four
-/// top-level tabs (功能大全 / 长图拼接 / 宫格切图 / 设置), plus a sibling
-/// root-level [GoRoute] for `/export` which is intentionally outside the
-/// shell so it covers the bottom nav while editing.
+/// top-level tabs (功能大全 / 长图拼接 / 宫格切图 / 设置), plus sibling
+/// root-level [GoRoute]s for `/export`, `/m/stitch`, `/m/grid` which are
+/// intentionally outside the shell so they cover the bottom nav.
 ///
 /// Tab branches are rendered through an [IndexedStack] internally, so
 /// inactive branches retain their element tree and state survives
 /// switches (per
 /// `.trellis/spec/frontend/component-guidelines.md` →
 /// "StatefulShellRoute + per-branch screen").
+///
+/// **Why `/m/stitch` + `/m/grid` exist** (since
+/// `05-26-mobile-stitch-secondary-page`): on `WindowSizeClass.compact`
+/// the bottom nav drops the two editor tabs and the home screen's
+/// FeatureCards instead **push** into these root-level sibling routes,
+/// which cover the shell and present each editor as a true secondary
+/// page (AppBar back arrow, PopScope-intercepted exit). The same
+/// [StitchEditorScreen] / [GridEditorScreen] widgets are reused — the
+/// underlying Riverpod state survives across the branch-vs-sibling
+/// entry points because controllers (`stitchEditorControllerProvider`,
+/// etc.) are non-autoDispose and live in `ProviderScope`, which sits
+/// above the router.
+///
+/// On medium / expanded / large the FeatureCards keep `context.go(...)`
+/// into the branch routes, so desktop behavior is unchanged.
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   navigatorKey: _rootNavigatorKey,
@@ -106,6 +121,24 @@ final GoRouter appRouter = GoRouter(
       name: 'export',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ExportScreen(),
+    ),
+    // Compact-only secondary-page entry points for the two editors.
+    // Mounted as root-level siblings so they cover the AppShell's bottom
+    // nav and Flutter's `automaticallyImplyLeading` gives them a back
+    // arrow out-of-the-box. The `/m/` prefix is the project's "mobile
+    // secondary page" convention — see the file-level doc-comment above
+    // and `.trellis/spec/frontend/component-guidelines.md`.
+    GoRoute(
+      path: '/m/stitch',
+      name: 'mobileStitch',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const StitchEditorScreen(),
+    ),
+    GoRoute(
+      path: '/m/grid',
+      name: 'mobileGrid',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const GridEditorScreen(),
     ),
   ],
 );
