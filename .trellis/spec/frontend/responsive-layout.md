@@ -155,6 +155,37 @@ Widget build(BuildContext context) {
 }
 ```
 
+### Variant: tri-form (sheet + inline + panel) when compact needs both peek and full-screen modes
+
+The base Sheet → Panel pattern above assumes compact / medium share a **single** form (modal sheet). When compact needs the controls to be **togglable inline alongside the canvas** (not modal — the user wants live parameter feedback while keeping the canvas visible), introduce a **third** form: an inline container that squeezes the canvas via `Expanded`.
+
+**Trigger**: the user wants to adjust parameters while watching the preview update in real time, and the modal sheet's "pop up → tweak → dismiss" loop feels too disruptive. Typical signal: the user complains the modal sheet "covers half the canvas" or "I have to keep reopening it".
+
+**Form mapping**:
+
+| size class | form | widget | mounted-state behavior |
+|---|---|---|---|
+| compact (<600 dp) | **inline container** (new) | `StitchInlineControlsContainer` | toggled by a bottom-bar chip; collapsed by default; mounts the panel between canvas and bottom bar; canvas's `Expanded` shrinks when panel expands |
+| medium (600–840 dp) | bottom sheet | `StitchControlsSheet` | always docked under canvas |
+| expanded / large | right dock | `StitchControlsPanel` (raw) | always docked next to canvas |
+
+**Inline container contract** (compact form):
+
+1. **Bounded parent → bounded child.** Wrap the panel in `SizedBox(height: kInlineHeight)` (e.g. `200`). The panel must implement the [`LayoutBuilder` dual-mode pattern](#pattern-same-widget-across-bounded--unbounded-parents-via-layoutbuilder-dual-mode) so the same `XxxControlsPanel` works inline (bounded) and docked (unbounded).
+2. **No outer `SingleChildScrollView`.** The inline container itself must NOT wrap the panel in a `SingleChildScrollView` — that would scroll the TabBar header out of view. Tab content scrolls inside each `TabBarView` child instead (each Tab content widget owns its own `SingleChildScrollView`).
+3. **Visibility via `StateProvider<bool>`.** Drive show/hide from a dedicated provider (e.g. `xxxControlsInlineVisibleProvider`); the toggle chip flips it. Don't persist — every fresh editor mount lands collapsed.
+4. **Toggle button visual state.** When the panel is expanded, the chip's visual changes from `FilledButton.tonalIcon` (default) to `FilledButton.icon` (primary fill, "selected"). Tooltip flips accordingly ("展开参数" ⇄ "收起参数").
+5. **Animation contract.** `AnimatedSize(duration: 250ms, curve: Curves.easeInOutCubicEmphasized)` for height; nested `AnimatedSwitcher` with `FadeTransition` for cross-fade between expanded and `SizedBox.shrink()`. Use distinct `ValueKey`s for the two children so the AnimatedSwitcher actually cross-fades (default `null` keys skip the transition).
+6. **Mount-only-when-expanded.** When the provider is `false`, the child is `SizedBox.shrink()`; the `XxxControlsPanel` (and its `TabController`) is released. Next expansion rebuilds — matches the "no persisted tab" convention.
+
+**Why the inline form earns its own widget instead of reusing `XxxControlsSheet`**:
+
+- The sheet's `Material(elevation: 8, borderRadius: vertical-top)` chrome is sized for a draggable modal — too heavy as a flush-mounted panel.
+- The inline form needs an explicit fixed height; the sheet sizes itself by its child + `DraggableScrollableSheet` snap stops.
+- The chip's selected-vs-default visual state is a fourth axis the sheet's open/close gesture doesn't have.
+
+**Where this hits in this project**: `05-26-compact` task — `StitchInlineControlsContainer` replaces `showStitchParamsSheet` on compact. The sheet function is kept (not deleted) so future entry points can still invoke it modally if needed; the bottom-bar chip just stops calling it.
+
 ### Convention: side panel width is fluid in `[380, 480]` dp
 
 Both editor screens compute the docked panel width as `clamp(380, container * 0.25, 480)` — a quarter of the available row width, clamped to a 380 dp lower bound (readability of the longest slider row) and a 480 dp upper bound (preserves visual primacy for the canvas on ultra-wide windows). The compact / medium layouts still use the bottom `XxxControlsSheet`; this convention only applies to expanded / large.
@@ -688,6 +719,64 @@ LayoutBuilder(
 ```
 
 **Where this hits in this project**: `stitch_preview_canvas.dart`. The compact layout puts the canvas in a `SingleChildScrollView`, so the preview's `LayoutBuilder` sees `maxHeight = ∞`. The expanded / large two-column layout gives the canvas a bounded `Expanded` parent, so the same widget works without the fallback — but writing the fallback once keeps the widget reusable across both layouts. The general rule applies to any future editor that follows the same compact-scrollable + expanded-docked split.
+
+### Pattern: Same widget across bounded + unbounded parents via `LayoutBuilder` dual-mode
+
+**Problem**: A shared widget (e.g. `StitchControlsPanel`) is mounted under three different parents that disagree on whether the main-axis maxHeight is bounded:
+
+- **compact inline** form: `SizedBox(height: 200, child: StitchControlsPanel())` → `maxHeight = 200` (bounded)
+- **medium bottom sheet**: `Material > SingleChildScrollView > StitchControlsPanel()` → `maxHeight = ∞` (unbounded)
+- **expanded right dock**: `SizedBox(width: panelWidth) > SingleChildScrollView > StitchControlsPanel()` → `maxHeight = ∞` (unbounded)
+
+The widget contains a `Column { TabBar, SizedBox(8), TabBarView }`. `TabBarView` requires a bounded child height (Flutter throws `RenderFlex layout failed` otherwise). So:
+
+- Under the bounded parent: the widget should `Expanded(child: TabBarView(...))` so the TabBar pins and the TabBarView claims **the remaining space the parent gave** (no internal scroll of the TabBar header).
+- Under the unbounded parent: the widget must fall back to `SizedBox(height: 224, child: TabBarView(...))` because `Expanded` would crash (unbounded parent ⇒ no remaining space to claim), and the outer `SingleChildScrollView` already handles overflow.
+
+**Correct pattern**: detect boundedness from `LayoutBuilder.constraints.maxHeight.isFinite`, and **flip both `Column.mainAxisSize` and the TabBarView wrapper** together:
+
+```dart
+return Padding(
+  padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+  child: LayoutBuilder(
+    builder: (context, constraints) {
+      final hasBoundedHeight = constraints.maxHeight.isFinite;
+      final tabBarView = TabBarView(
+        controller: controller,
+        physics: const NeverScrollableScrollPhysics(),
+        children: tabViews,
+      );
+      return Column(
+        // Bounded parent → max, so Expanded works.
+        // Unbounded parent → min, so the Column shrinks to children.
+        mainAxisSize:
+            hasBoundedHeight ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          TabBar(controller: controller, isScrollable: true, tabs: tabs),
+          const SizedBox(height: 8),
+          if (hasBoundedHeight)
+            Expanded(child: tabBarView)
+          else
+            SizedBox(height: 224, child: tabBarView),
+        ],
+      );
+    },
+  ),
+);
+```
+
+**Why both axes must flip together**:
+
+- `Column(mainAxisSize: max) + Expanded` requires a bounded parent — flipping only one half crashes the other parent.
+- `Column(mainAxisSize: min) + SizedBox` works under any parent — but under a bounded parent it would leave a gap below the SizedBox (chrome stops at intrinsic height instead of filling the slot) and the TabBar would scroll with the outer `SingleChildScrollView` when one is wrapped over the widget. The bounded-form `Expanded` keeps the TabBar pinned at the slot's top.
+
+**Where this hits in this project**: `stitch_controls_panel.dart` (`05-26-compact` task). Same widget mounts under three parents — compact inline (`SizedBox(height: 200)`), medium sheet (`SingleChildScrollView`), expanded dock (`SingleChildScrollView`). The dual-mode keeps a single widget contract: caller chooses parent boundedness; widget self-adapts.
+
+**Don't**:
+
+- Don't pass an `isInline` / `isCompact` flag through the constructor. The widget should be **self-describing** via its child constraints — this prevents call-site drift when a new size class adds yet another mount form.
+- Don't hard-code `Expanded` and leave a comment "only mount inside bounded parent". Even with the comment, the first developer who wraps the widget in a `SingleChildScrollView` for "safety" will crash production. The LayoutBuilder check is cheap and self-documenting.
+
 
 ### Gotcha: `Flexible(loose)` vs `Expanded` for the controls slot depends on whether the slot has chrome
 

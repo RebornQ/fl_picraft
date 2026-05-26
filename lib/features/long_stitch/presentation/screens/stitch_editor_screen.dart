@@ -14,6 +14,7 @@ import '../widgets/stitch_controls_panel.dart';
 import '../widgets/stitch_controls_sheet.dart';
 import '../widgets/stitch_editor_bottom_bar.dart';
 import '../widgets/stitch_image_strip.dart';
+import '../widgets/stitch_inline_controls_container.dart';
 import '../widgets/stitch_preview_canvas.dart';
 import '../widgets/stitch_vertical_image_list.dart';
 
@@ -253,14 +254,25 @@ class _StitchEditorBody extends StatelessWidget {
     }
 
     if (isCompact) {
-      // The image strip and parameter sheet move into modal sheets
-      // surfaced from [StitchEditorBottomBar] (mounted in the
-      // surrounding Scaffold's `bottomNavigationBar` slot), so the
-      // compact body is just the preview canvas filling the
-      // available height. The bar itself is **not** rendered here —
-      // it lives outside the body so the canvas can claim every
-      // pixel between the AppBar and the bar.
-      return const Column(children: [Expanded(child: StitchPreviewCanvas())]);
+      // The image strip and (legacy) parameter sheet move into modal
+      // sheets surfaced from [StitchEditorBottomBar] (mounted in the
+      // surrounding Scaffold's `bottomNavigationBar` slot). The
+      // parameter sheet has been replaced by an inline expandable
+      // panel ([StitchInlineControlsContainer]) — toggling the `[⚙ 参数]`
+      // chip animates the panel between the canvas and the bottom
+      // bar so the canvas keeps live visual feedback during parameter
+      // edits (PRD `05-26-compact`).
+      //
+      // The bar itself is **not** rendered here — it lives outside
+      // the body in the Scaffold's `bottomNavigationBar` slot so the
+      // canvas can claim every pixel between the AppBar and the bar
+      // (minus the inline panel's height when expanded).
+      return const Column(
+        children: [
+          Expanded(child: StitchPreviewCanvas()),
+          StitchInlineControlsContainer(),
+        ],
+      );
     }
 
     // Medium (600–840 dp): keep the single-column strip + canvas +

@@ -124,31 +124,59 @@ class _StitchControlsPanelState extends ConsumerState<StitchControlsPanel>
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TabBar(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Dual-mode height contract:
+          //
+          // * **Bounded parent** (e.g. compact inline container's
+          //   `SizedBox(height: 200)` — see `StitchInlineControlsContainer`):
+          //   the TabBar stays pinned at the top while `TabBarView`
+          //   absorbs the remaining height via `Expanded`. Internal
+          //   per-Tab `SingleChildScrollView`s handle overflow so users
+          //   can still reach controls when the slot is shorter than
+          //   the natural content. This requires `MainAxisSize.max` so
+          //   the `Column` claims the parent's full bounded height.
+          //
+          // * **Unbounded parent** (medium `StitchControlsSheet`'s
+          //   `SingleChildScrollView`, expanded/large dock's
+          //   `SingleChildScrollView`): `Expanded` is illegal under
+          //   `maxHeight == ∞`. Fall back to a fixed `SizedBox(height:
+          //   224)` for the TabBarView slot (sized for the tallest
+          //   tab body) and keep `MainAxisSize.min` so the column
+          //   measures to its intrinsic content — the outer scroll view
+          //   handles overflow.
+          final hasBoundedHeight = constraints.maxHeight.isFinite;
+          final tabBarView = TabBarView(
             controller: controller,
-            isScrollable: false,
-            labelColor: colorScheme.primary,
-            unselectedLabelColor: colorScheme.onSurfaceVariant,
-            indicatorColor: colorScheme.primary,
-            tabs: tabs,
-          ),
-          const SizedBox(height: 8),
-          // TabBarView needs a bounded height — give it just enough
-          // room for the tallest tab body (subtitle: slider + switch;
-          // border: slider + swatch wrap; corners/spacing: two
-          // sliders; basic: horizontal card row + caption).
-          SizedBox(
-            height: 224,
-            child: TabBarView(
-              controller: controller,
-              physics: const NeverScrollableScrollPhysics(),
-              children: tabViews,
-            ),
-          ),
-        ],
+            physics: const NeverScrollableScrollPhysics(),
+            children: tabViews,
+          );
+          return Column(
+            mainAxisSize: hasBoundedHeight
+                ? MainAxisSize.max
+                : MainAxisSize.min,
+            children: [
+              TabBar(
+                controller: controller,
+                // PRD `05-26-compact` follow-up: dynamic Tab count
+                // (3 or 4) on narrow inline columns can exceed the
+                // fixed-distribution layout; allow horizontal scrolling
+                // so all Tabs remain reachable on every viewport.
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: colorScheme.primary,
+                unselectedLabelColor: colorScheme.onSurfaceVariant,
+                indicatorColor: colorScheme.primary,
+                tabs: tabs,
+              ),
+              const SizedBox(height: 8),
+              if (hasBoundedHeight)
+                Expanded(child: tabBarView)
+              else
+                SizedBox(height: 224, child: tabBarView),
+            ],
+          );
+        },
       ),
     );
   }
@@ -161,7 +189,14 @@ class _BasicTabContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    // Wrap in SingleChildScrollView so the tab body can tolerate
+    // shorter parent slots (e.g. the compact inline container's
+    // 200 dp height, which leaves ~144 dp for TabBarView content).
+    // The horizontal card row inside [StitchBasicTabCards] is
+    // ~100 dp tall, comfortably within the slot — the scroll view
+    // exists as a safety net against future card-height changes,
+    // matching the convention used by the other Tab bodies.
+    return const SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

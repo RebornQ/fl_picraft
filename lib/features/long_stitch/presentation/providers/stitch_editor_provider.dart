@@ -251,3 +251,22 @@ final stitchEditorControllerProvider =
     NotifierProvider<StitchEditorController, StitchEditorState>(
       StitchEditorController.new,
     );
+
+/// Compact-only: whether the inline parameter panel is expanded.
+///
+/// Toggled by the `[⚙ 参数]` chip in [StitchEditorBottomBar]. When
+/// `true`, [StitchInlineControlsContainer] expands a
+/// [StitchControlsPanel] between the canvas and the bottom bar
+/// (PRD `05-26-compact`).
+///
+/// **Not persisted** — every fresh editor mount reads the default
+/// (`false`). Consistent with the toolbar-Tab no-persist decision in
+/// `05-26-long-stitch-toolbar-tab-redesign` PRD §D3. State survives
+/// `StatefulShellRoute` tab switches within a single session, so
+/// returning to the editor restores the user's last visible/hidden
+/// choice for the lifetime of the app process.
+///
+/// Only the compact size class reads or writes this provider; medium
+/// keeps the always-docked [StitchControlsSheet], expanded / large
+/// dock the panel on the right column — both ignore this flag.
+final stitchControlsInlineVisibleProvider = StateProvider<bool>((_) => false);

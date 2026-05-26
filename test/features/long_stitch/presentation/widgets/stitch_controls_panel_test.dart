@@ -348,4 +348,27 @@ void main() {
       );
     });
   });
+
+  group('StitchControlsPanel — TabBar layout contract', () {
+    testWidgets('TabBar is horizontally scrollable with start alignment', (
+      tester,
+    ) async {
+      final container = _makeContainer(
+        images: [
+          _stub(tag: 'a'),
+          _stub(tag: 'b'),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _pumpPanel(tester, container: container);
+
+      // Dynamic Tab counts (3 or 4) on narrow inline columns can
+      // overflow the default fixed-distribution TabBar; verify the
+      // panel opts into horizontal scrolling with start alignment so
+      // every Tab remains reachable on every viewport.
+      final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+      expect(tabBar.isScrollable, isTrue);
+      expect(tabBar.tabAlignment, TabAlignment.start);
+    });
+  });
 }

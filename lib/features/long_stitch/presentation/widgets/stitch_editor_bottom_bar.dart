@@ -6,7 +6,6 @@ import '../../../image_import/domain/repositories/image_import_repository.dart'
 import '../providers/stitch_editor_provider.dart';
 import 'stitch_add_action_sheet.dart';
 import 'stitch_image_sheet.dart';
-import 'stitch_params_sheet.dart';
 
 /// Persistent editor bottom bar surfaced under the canvas on
 /// compact viewports.
@@ -21,9 +20,12 @@ import 'stitch_params_sheet.dart';
 ///    [showStitchImageSheet] so the user can review / reorder /
 ///    remove images. Disabled while the session is empty (no
 ///    images to manage).
-/// 3. **`[⚙ 参数]`** — TonalButton that opens
-///    [showStitchParamsSheet] for the mode / spacing / border /
-///    corner / subtitle controls. Always enabled.
+/// 3. **`[⚙ 参数]`** — Toggle chip that expands / collapses the
+///    inline [StitchInlineControlsContainer] between the canvas and
+///    this bar (PRD `05-26-compact`). When the panel is visible the
+///    chip switches to a [FilledButton] (primary fill) selected
+///    state; otherwise it stays a [FilledButton.tonalIcon]. Always
+///    enabled.
 ///
 /// The export CTA lives **outside** this bar — it stays in the
 /// AppBar's action slot (`Icons.save_outlined`, tooltip
@@ -88,9 +90,7 @@ class StitchEditorBottomBar extends ConsumerWidget {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: _ParamsChip(
-                        onPressed: () => showStitchParamsSheet(context),
-                      ),
+                      child: const _ParamsChip(),
                     ),
                   ),
                 ],
@@ -156,25 +156,50 @@ class _ImagesChip extends StatelessWidget {
   }
 }
 
-/// `[⚙ 参数]` chip — TonalButton, always enabled.
-class _ParamsChip extends StatelessWidget {
-  const _ParamsChip({required this.onPressed});
-
-  final VoidCallback onPressed;
+/// `[⚙ 参数]` chip — toggles [stitchControlsInlineVisibleProvider].
+///
+/// Visual state mirrors the provider value:
+///
+/// * **collapsed** (`visible == false`) → [FilledButton.tonalIcon],
+///   tooltip "展开参数"
+/// * **expanded** (`visible == true`) → [FilledButton.icon] (primary
+///   fill) selected state, tooltip "收起参数"
+///
+/// Always enabled — the parameter panel can be opened even when no
+/// images are imported (the user may want to pre-configure border /
+/// corner before adding images). Tap flips the provider; the inline
+/// container in `_StitchEditorBody` animates between the two states.
+class _ParamsChip extends ConsumerWidget {
+  const _ParamsChip();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visible = ref.watch(stitchControlsInlineVisibleProvider);
+
+    void toggle() {
+      ref.read(stitchControlsInlineVisibleProvider.notifier).update((v) => !v);
+    }
+
+    final buttonStyle = FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(48),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+    );
+
     return Tooltip(
-      message: '拼接参数',
-      child: FilledButton.tonalIcon(
-        onPressed: onPressed,
-        icon: const Icon(Icons.tune, size: 18),
-        label: const Text('参数'),
-        style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(48),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-        ),
-      ),
+      message: visible ? '收起参数' : '展开参数',
+      child: visible
+          ? FilledButton.icon(
+              onPressed: toggle,
+              icon: const Icon(Icons.tune, size: 18),
+              label: const Text('参数'),
+              style: buttonStyle,
+            )
+          : FilledButton.tonalIcon(
+              onPressed: toggle,
+              icon: const Icon(Icons.tune, size: 18),
+              label: const Text('参数'),
+              style: buttonStyle,
+            ),
     );
   }
 }

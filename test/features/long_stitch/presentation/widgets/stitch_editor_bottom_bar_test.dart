@@ -1,20 +1,19 @@
 /// Widget tests for [StitchEditorBottomBar].
 ///
 /// PRD: `.trellis/tasks/05-23-mobile-canvas-redesign-for-long-image-stitching`
+/// Updated by `05-26-compact` — the `[⚙ 参数]` chip no longer opens a
+/// modal sheet; it now toggles [stitchControlsInlineVisibleProvider]
+/// which drives the inline parameter panel in the compact body.
 ///
 /// The compact-viewport editor bottom bar surfaces three chips:
 ///
 /// * `[+ 添加]` — always enabled, opens the add ActionSheet
 /// * `[🖼 N/20]` — count chip, disabled when no images
-/// * `[⚙ 参数]` — always enabled, opens the params sheet
+/// * `[⚙ 参数]` — always enabled, toggles the inline parameter panel
 ///
 /// The export CTA lives in the AppBar action slot on every size
 /// class — it is **not** part of the bar; those assertions belong
 /// in `stitch_editor_responsive_test.dart`.
-///
-/// The tests drive the chip's enabled / disabled state and verify
-/// that tapping each chip triggers the expected behavior (sheet
-/// opens for add/images/params).
 library;
 
 import 'dart:typed_data';
@@ -24,6 +23,7 @@ import 'package:fl_picraft/features/image_import/domain/entities/image_import_se
 import 'package:fl_picraft/features/image_import/domain/entities/imported_image.dart';
 import 'package:fl_picraft/features/image_import/domain/repositories/image_import_repository.dart';
 import 'package:fl_picraft/features/image_import/presentation/providers/image_import_provider.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/providers/stitch_editor_provider.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_editor_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -180,21 +180,81 @@ void main() {
       expect(find.text('拍照'), findsOneWidget);
     });
 
+    testWidgets('tapping [⚙ 参数] toggles stitchControlsInlineVisibleProvider', (
+      tester,
+    ) async {
+      final container = ProviderContainer(
+        overrides: [
+          importedImagesProvider(
+            ImageImportSessionKind.stitch,
+          ).overrideWith((ref) => [_stub(tag: 'a')]),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        _harness(
+          images: [_stub(tag: 'a')],
+          container: container,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Default: provider is false.
+      expect(
+        container.read(stitchControlsInlineVisibleProvider),
+        isFalse,
+        reason: 'provider default value should be false',
+      );
+
+      // Tap → true.
+      await tester.tap(find.text('参数'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(stitchControlsInlineVisibleProvider),
+        isTrue,
+        reason: 'first tap should expand the panel',
+      );
+
+      // Tap again → false.
+      await tester.tap(find.text('参数'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(stitchControlsInlineVisibleProvider),
+        isFalse,
+        reason: 'second tap should collapse the panel',
+      );
+    });
+
     testWidgets(
-      'tapping [⚙ 参数] opens a bottom sheet containing StitchControlsPanel',
+      '[⚙ 参数] chip swaps between FilledButton.tonalIcon and FilledButton.icon on toggle',
       (tester) async {
-        await tester.pumpWidget(_harness(images: [_stub(tag: 'a')]));
+        final container = ProviderContainer(
+          overrides: [
+            importedImagesProvider(
+              ImageImportSessionKind.stitch,
+            ).overrideWith((ref) => const []),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          _harness(images: const [], container: container),
+        );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('参数'));
+        // Collapsed state: tooltip reads "展开参数".
+        expect(find.byTooltip('展开参数'), findsOneWidget);
+        expect(find.byTooltip('收起参数'), findsNothing);
+
+        // Flip provider to true; the chip rebuilds with the
+        // selected-state tooltip.
+        container.read(stitchControlsInlineVisibleProvider.notifier).state =
+            true;
         await tester.pumpAndSettle();
 
-        // After the toolbar Tab refactor (05-26), the params sheet
-        // opens with the "基础" Tab active. Tab labels confirm the
-        // panel rendered inside the sheet.
-        expect(find.text('基础'), findsOneWidget);
-        expect(find.text('边框'), findsOneWidget);
-        expect(find.text('圆角 / 间距'), findsOneWidget);
+        expect(find.byTooltip('收起参数'), findsOneWidget);
+        expect(find.byTooltip('展开参数'), findsNothing);
       },
     );
 

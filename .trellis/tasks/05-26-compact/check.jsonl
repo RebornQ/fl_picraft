@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Spec 总入口,核对实现是否符合所有相关 frontend 指南"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "验证 compact (<600dp) 行为改造未破坏 medium/expanded/large 三个 size class 的既定 sheet/dock 布局"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核对 widget 实现:ConsumerWidget 用法、AnimatedSize/FadeTransition 动画规范、tooltip 切换、selected 视觉状态是否符合 Material 3"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "核对新增 provider 命名 / 作用域 / 不持久化策略是否符合 Riverpod 规范"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "门槛检查项:flutter analyze clean、dart format、flutter test 全绿、widget test 覆盖新行为"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Dart null safety + Riverpod 类型边界核查 (StateProvider<bool>、ref.watch/read 类型推断)"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "核对复用度 - 是否复用现有 StitchControlsPanel、是否最小化新增、是否保留 showStitchParamsSheet 函数本体"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核对跨层影响 - 新 provider 是否仅在 compact 入口被使用、medium/expanded 是否完全不订阅、避免无意义重建"}
+{"file": ".trellis/tasks/archive/2026-05/05-26-long-stitch-toolbar-tab-redesign/prd.md", "reason": "核对 StitchControlsPanel 内部 4-Tab 行为 (D1-D6) 未被破坏,本任务只改外层容器/入口"}

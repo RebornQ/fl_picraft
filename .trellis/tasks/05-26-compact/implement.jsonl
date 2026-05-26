@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec index — 入口导航,确认所有指南间的关系"}
+{"file": ".trellis/spec/frontend/responsive-layout.md", "reason": "核心规范:windowSizeClass + sheet/panel dual-form 模式。本任务正是 compact 从 modal 改 inline 的 dual-form 变体,必须遵循既定 size-class 语义不破坏 medium/expanded"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Widget 模式约束:ConsumerWidget、StatelessWidget 选择、Material 3 motion (AnimatedSize/SlideTransition/FadeTransition)、tooltip/a11y 等"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Riverpod provider 命名 + 作用域规则。本任务新增 stitchControlsInlineVisibleProvider (StateProvider<bool>),需符合既定 provider 命名 / scope / 不持久化的约定"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "实现阶段产出必须满足的 lint/test/格式门槛 (flutter analyze clean, dart format, flutter test)"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用思维指南。本任务核心策略是复用现有 StitchControlsPanel 与保留 showStitchParamsSheet 函数,新增最小面 widget。需要核对复用是否到位"}
+{"file": ".trellis/tasks/archive/2026-05/05-26-long-stitch-toolbar-tab-redesign/prd.md", "reason": "前置任务 PRD - 决定了 StitchControlsPanel 内部 4-Tab 结构 (基础/电影台词/边框/圆角间距) 与 D1-D6 决策。本任务必须保持这些行为不变,只改外层容器/入口"}

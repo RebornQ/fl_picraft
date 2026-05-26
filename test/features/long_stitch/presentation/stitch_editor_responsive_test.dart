@@ -9,6 +9,7 @@ import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_cont
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_controls_sheet.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_editor_bottom_bar.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_image_strip.dart';
+import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_inline_controls_container.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_preview_canvas.dart';
 import 'package:fl_picraft/features/long_stitch/presentation/widgets/stitch_vertical_image_list.dart';
 import 'package:flutter/material.dart';
@@ -103,6 +104,18 @@ void main() {
       // [Expanded] child of the body Column, claims the available
       // height).
       expect(find.byType(StitchPreviewCanvas), findsOneWidget);
+
+      // PRD `05-26-compact`: the compact body mounts the inline
+      // parameter container between the canvas and the bottom bar.
+      // The container itself is always mounted (it owns the
+      // expand / collapse animation); the inner [StitchControlsPanel]
+      // is only added when the user toggles the [⚙ 参数] chip.
+      expect(find.byType(StitchInlineControlsContainer), findsOneWidget);
+      expect(
+        find.byType(StitchControlsPanel),
+        findsNothing,
+        reason: 'panel defaults to hidden — provider value is false',
+      );
 
       // AppBar export IconButton (Icons.save_outlined, tooltip
       // "导出拼图") IS rendered on compact — the bottom bar
