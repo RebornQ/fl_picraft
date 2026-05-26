@@ -94,19 +94,55 @@ class _OrientationIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: EdgeInsets.symmetric(
+        vertical: isVertical ? 0 : 2,
+        horizontal: isVertical ? 2 : 0,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(width: 1, color: colorScheme.onSurfaceVariant),
+      ),
+      child: _buildArrowView(colorScheme),
+    );
+  }
+
+  Widget _buildArrowView(ColorScheme colorScheme) {
     if (isVertical) {
       // Three small stacked rectangles, top-to-bottom.
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: [Icon(Icons.vertical_distribute_outlined, size: 28)],
+        children: [
+          Icon(
+            Icons.keyboard_arrow_up_rounded,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ],
       );
     }
     // Three small rectangles laid out left-to-right.
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
-      children: [Icon(Icons.horizontal_distribute_outlined, size: 28)],
+      children: [
+        Icon(
+          Icons.keyboard_arrow_left_rounded,
+          size: 16,
+          color: colorScheme.onSurfaceVariant,
+        ),
+        Icon(
+          Icons.keyboard_arrow_right_rounded,
+          size: 16,
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ],
     );
   }
 }
