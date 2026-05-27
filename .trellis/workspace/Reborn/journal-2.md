@@ -307,3 +307,36 @@ Wired StitchEditorController's existing ref.listen to flip stitchControlsInlineV
 ### Next Steps
 
 - None - task complete
+
+
+## Session 69: Block save CTA until export preview ready + MD3 disabled tokens
+
+**Date**: 2026-05-28
+**Task**: Block save CTA until export preview ready + MD3 disabled tokens
+**Branch**: `main`
+
+### Summary
+
+Added canSaveProvider combining (preview is PreviewReady) + !isSaving + canExport; SaveActionButton now consumes it. Applied explicit MD3 disabled tokens (surfaceContainerHighest bg + onSurface@38% fg + elevation: 0) on the FAB so it visibly grays out when not tappable — default Flutter MD3 disabled treatment was too subtle. Override export_screen_a11y_test harness to PreviewReady because MD3 disabled tokens intentionally fail WCAG 4.5:1 (SC 1.4.3 exempts disabled, but Flutter textContrastGuideline doesn't differentiate). Sank two specs in component-guidelines.md: Convention 'Save CTA gated by preview-ready state' and Gotcha 'FAB.extended default disabled tokens too subtle'; cross-referenced in state-management.md NotifierProvider<SealedState> pattern. +17 tests (9 canSaveProvider unit + 8 SaveActionButton widget); 636 total green. flutter analyze 0 / dart format 0 diff.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c9ab52d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
