@@ -219,6 +219,123 @@ value exactly once. Invoke the callbacks directly via
 simulation — it is deterministic and proves the wiring contract
 regardless of platform pointer dispatch.
 
+### Convention: Save CTA gated by preview-ready state
+
+**What**: When a screen shows an asynchronously-rendered preview
+alongside a "save / commit / export" CTA, the CTA's enabled state MUST
+be derived from a dedicated `Provider<bool>` (e.g. `canSaveProvider`)
+that combines **three** orthogonal predicates in a single watch:
+
+1. The preview pipeline has landed on its "ready" sealed variant
+   (`PreviewReady`) — not loading, not stale-loading, not empty, not
+   error.
+2. No save is currently in flight (`ExportState.isSaving == false`).
+3. The upstream "can produce output" predicate is true
+   (e.g. `canExportProvider` — editor has source content).
+
+The CTA widget watches the combined provider directly. Single-field
+predicates (`isSaving` alone, `canExport` alone) MAY still be watched
+**in addition** when the visual chrome needs to differentiate sub-
+states of "disabled" — e.g. swapping a spinner for the save icon while
+`isSaving == true`. But `onPressed` is wired exclusively to the
+combined provider.
+
+**Why**: Without the preview-ready gate, the user can tap "save" while
+the preview is mid-render or showing a stale frame. The downstream
+save pipeline runs against either the freshly-committed inputs or a
+cached-but-not-yet-displayed version, producing a "what I just saved
+isn't what I saw" mismatch. Centralizing the gate in one provider
+guarantees every present and future CTA on the screen (save, share,
+batch-export presets) reads the same predicate — refactor a fourth
+condition into the conjunction and every consumer picks it up
+automatically.
+
+The `canExport` redundancy is **defense-in-depth**, not duplication.
+In production `PreviewReady` implies `canExport == true` (the preview
+controller would have fallen back to `PreviewEmpty` otherwise), but
+keeping the explicit guard makes (a) reading the code easier (three
+conjunction terms instead of an implicit transitive shortcut), (b)
+unit tests can pin the term independently, and (c) future expansions
+of `PreviewReady` semantics (e.g. "Ready with cached-from-prior-session
+bytes but no current source") still trip the gate.
+
+**Example** — `canSaveProvider` from the export feature
+(`lib/features/export/presentation/providers/export_dispatch.dart`):
+
+```dart
+final canSaveProvider = Provider<bool>((ref) {
+  final preview = ref.watch(previewControllerProvider);
+  if (preview is! PreviewReady) return false;
+  if (ref.watch(exportControllerProvider.select((s) => s.isSaving))) {
+    return false;
+  }
+  return ref.watch(canExportProvider);
+});
+
+// Consumer — `SaveActionButton.build`:
+final enabled = ref.watch(canSaveProvider);
+final isSaving = ref.watch(
+  exportControllerProvider.select((s) => s.isSaving),
+);
+return FloatingActionButton.extended(
+  onPressed: enabled ? () => _onSavePressed(context, ref) : null,
+  icon: isSaving ? const CircularProgressIndicator(strokeWidth: 2)
+                 : const Icon(Icons.save_outlined),
+  label: Text(isSaving ? '保存中…' : idleLabel),
+);
+```
+
+Note the `is PreviewReady` check directly on the sealed state —
+**no** `AsyncValue.when` wrapper. See `state-management.md` →
+"Pattern: `NotifierProvider<SealedState>` when the sealed already owns
+loading/error" — wrapping the sealed in `AsyncValue` would produce a
+4×4 case product on every derived predicate.
+
+**When to apply**: any CTA whose action commits some "render now,
+save the rendered result" pipeline where (a) the rendered output is
+asynchronously visible to the user as a preview, AND (b) the save
+operation could in principle pick up a different version of inputs
+than the user is currently looking at. Examples in this project:
+"保存" on the export screen; future "分享" / "批量预设导出" / "上传"
+buttons that derive from the same preview.
+
+**When NOT to apply**: actions that have no asynchronous preview to
+race against. A "delete" button on a list row reads the row directly
+from a provider — there's no rendered intermediate state. A
+"navigate to detail" button is similarly preview-free. Those keep
+their simpler `enabled = !inFlight && hasSelection` shape.
+
+**Disabled-state tooltip**: keep the tooltip copy stable across
+enabled / disabled — the Material disabled visual treatment is enough
+signal that the button is non-tappable, and an alternating "why
+disabled?" tooltip adds copy noise and i18n surface without
+improving clarity. Differentiate sub-states (saving vs idle) through
+the **icon + label**, not the tooltip.
+
+**Required tests**:
+
+1. **Provider unit tests** (plain `test` + `ProviderContainer`):
+   cover the equivalence classes — one test per sealed variant of the
+   preview state (Empty / Loading / Loading-with-stale / Error /
+   Ready), one test pinning the `isSaving == true` branch with
+   Ready, and one test pinning `canExport == false` (defense-in-depth
+   stays a contract).
+2. **Widget tests** on the CTA (`testWidgets` + `tester.widget(...).onPressed`):
+   for each sealed variant, assert `FloatingActionButton.onPressed`
+   is null / non-null as expected. Also assert the in-flight chrome
+   (spinner replaces icon, label flips to "保存中…") when
+   `isSaving == true`, since `canSaveProvider` already factors it
+   into the gate but the visual chrome reads it independently.
+
+**Reference**:
+
+* Provider: `lib/features/export/presentation/providers/export_dispatch.dart`
+  (`canSaveProvider`)
+* Consumer: `lib/features/export/presentation/widgets/save_action_button.dart`
+* Tests:
+  `test/features/export/presentation/providers/can_save_provider_test.dart`
+  + `test/features/export/presentation/widgets/save_action_button_test.dart`
+
 ### Pattern: Dynamic-length `TabController` + nested horizontal scrollables in `TabBarView`
 
 **Problem A — Dynamic Tab count**: A `TabBar` / `TabBarView` pair needs to add or remove a Tab in response to state (e.g. a feature-flagged settings Tab that only appears when a toggle is on). Flutter's `TabController` locks `length` at construction; you can't mutate it. `DefaultTabController` hides the controller, but inside a `ConsumerStatefulWidget` you typically own the controller so you can observe the current index, animate transitions, or react to swipes — and you need to swap it when the Tab count changes.
@@ -1450,6 +1567,77 @@ FloatingActionButton.extended(
 **Reference**: `lib/features/long_stitch/presentation/screens/stitch_editor_screen.dart`
 + `lib/features/grid/presentation/screens/grid_editor_screen.dart` 同时存在
 "导出"FAB，分别用 `heroTag: 'stitch-export-fab'` / `'grid-export-fab'` 避免冲突。
+
+
+### Gotcha: `FloatingActionButton.extended` 在 `onPressed: null` 时默认 MD3 灰化不足
+
+**Symptom**: 把 `FloatingActionButton.extended` 的 `onPressed` 设为 `null` 来禁用按钮，
+预期 Flutter MD3 主题会自动应用 disabled tokens；但实际渲染——尤其在浅色主题下——
+背景仍接近 `primaryContainer`、文字只是稍微变淡，用户看不出按钮"不可点"，照样去点
+然后困惑为什么没反应（产品上常被吐槽为"按钮反应迟钝"或"该 disable 没 disable"）。
+
+**Cause**: Flutter `FloatingActionButton.extended` 的默认 disabled 实现把 elevation
+保留、背景仅叠一层低 alpha、前景调暗有限——整体对比变化与 enabled 态只有 5–10%
+差异。MD3 spec 推荐的 disabled FAB token 是 `surfaceContainerHighest` 背景 +
+`onSurface@38%` 前景 + `elevation: 0` 三件套，但 Flutter 默认**不主动应用全套**，
+要 widget 显式声明才能呈现真正的"灰化"affordance。
+
+**Fix**: 在 disabled 分支显式传 MD3 disabled tokens，enabled 分支保留 `null` 让主题
+默认接管：
+
+```dart
+// ❌ Wrong — 视觉灰化不够，用户看不出 disabled
+FloatingActionButton.extended(
+  onPressed: enabled ? _onSavePressed : null,
+  icon: const Icon(Icons.save_outlined),
+  label: const Text('保存至相册'),
+)
+
+// ✅ Correct — MD3 disabled tokens 显式覆盖
+final colorScheme = Theme.of(context).colorScheme;
+return FloatingActionButton.extended(
+  onPressed: enabled ? _onSavePressed : null,
+  icon: const Icon(Icons.save_outlined),
+  label: const Text('保存至相册'),
+  backgroundColor: enabled
+      ? null  // 让主题决定 enabled 背景，不硬编码 primaryContainer
+      : colorScheme.surfaceContainerHighest,
+  foregroundColor: enabled
+      ? null
+      : colorScheme.onSurface.withValues(alpha: 0.38),
+  elevation: enabled ? null : 0,
+);
+```
+
+**为什么 enabled 分支传 `null`**: 把 enabled 态的颜色 / elevation 硬编码（例如
+`colorScheme.primaryContainer`）会污染未来的主题切换——日 / 夜模式、品牌色调整都得
+改 widget。`null` 让 Flutter / 项目 ThemeData 继续生效，只在 disabled 这条
+"主题没管够"的分支显式补齐。
+
+**Don't bake in custom disabled colors**——`Colors.grey` / hex 字面量会绕开
+`ColorScheme`，在主题变体（特别是 high-contrast 或自定义品牌色）下出错。永远用
+`colorScheme.surfaceContainerHighest` / `colorScheme.onSurface` 这种 token。
+
+**a11y 注意**: `onSurface@38%` 的对比度约 2.5:1，**故意**低于 WCAG SC 1.4.3 的
+4.5:1——WCAG 明确豁免 disabled UI controls（"不可交互元素不计入对比度要求"）。
+但 Flutter 的 `meetsGuideline(textContrastGuideline)` 不区分 enabled / disabled，
+所以**这种按钮所在 screen 的 a11y 测试，harness 必须 override 到 enabled 态**
+（如 `previewControllerProvider.overrideWith(...PreviewReady...)`）—— 见
+`test/features/export/presentation/export_screen_a11y_test.dart` 的注释解释。
+
+**Prevention**: 任何用 `FloatingActionButton.extended` 做主操作 CTA、且会在某些状态
+下 disable 的场景，都套这个三件套：`backgroundColor` / `foregroundColor` /
+`elevation` 显式 disabled tokens。同条规则适用于 `FilledButton.tonalIcon` / 大尺寸
+`FilledButton` 等"大型 CTA"按钮——它们的 MD3 disabled tokens 在 Flutter 默认实现里
+同样灰化不足。Widget 测试要锁定契约：disabled 时三属性等于 MD3 token 值、enabled
+时三属性为 `null`。
+
+**Reference**: `lib/features/export/presentation/widgets/save_action_button.dart`
+("Explicit MD3 disabled tokens" 注释块）；测试
+`test/features/export/presentation/widgets/save_action_button_test.dart` 的
+"MD3 disabled visual tokens" group 锁定该契约。a11y harness 调整范例见
+`test/features/export/presentation/export_screen_a11y_test.dart` 的
+`_StubPreviewController` 与 import-session override。
 
 
 ### Gotcha: `Scaffold.appBar` 槽位的 `Material` 即使透明也会吃掉下层 hit-test

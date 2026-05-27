@@ -17,15 +17,25 @@ import '../providers/export_dispatch.dart';
 /// (e.g. "保存 9 张至相册" when grid mode has 9 cells lined up).
 ///
 /// State contract:
-/// * Disabled (`onPressed: null`) while a save is in flight
-/// ([ExportState.isSaving]).
-/// * Disabled when the active editor has nothing to export
-/// (see [canExportProvider]).
+/// * Disabled (`onPressed: null`) until the preview pipeline has
+/// settled into [PreviewReady] — see [canSaveProvider] for the full
+/// predicate. This covers in-flight saves, empty editors, loading /
+/// stale-loading preview, and preview errors in a single watch.
+/// Disabled visual uses MD3 disabled tokens
+/// (`surfaceContainerHighest` background + `onSurface` at 38%
+/// foreground + elevation 0) so the灰化状态 is clearly distinguishable
+/// from enabled — the default FAB theme alone doesn't dim the
+/// extended FAB enough for users to tell at a glance.
 /// * In-flight icon is replaced by a [CircularProgressIndicator] and
 /// the label flips to "保存中…".
 /// * Calls [ExportController.save] and renders the returned
 /// [SaveResult] as a snackbar (success → "已保存 …",
 /// cancel → silent, failure → error snackbar).
+///
+/// **Tooltip**: kept as the stable `'保存至相册'` copy regardless of
+/// enabled state — disabled visual treatment alone signals
+/// non-tappable; an alternating tooltip would add copy noise without
+/// improving clarity (PRD §R4 / §Decision (ADR-lite)).
 ///
 /// **heroTag** is explicitly set to `'export-save-fab'`. Per
 /// `.trellis/spec/frontend/component-guidelines.md` →
@@ -37,13 +47,22 @@ class SaveActionButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Combined "may the user save right now?" predicate. Watches
+    // PreviewReady + !isSaving + canExport in a single Provider so the
+    // button doesn't have to re-derive the three-way conjunction
+    // here — see `canSaveProvider`'s doc-comment for the full
+    // rationale.
+    final enabled = ref.watch(canSaveProvider);
+    // Still need the isSaving single-value separately to drive the
+    // icon (spinner vs save_outlined) and the in-flight label
+    // ("保存中…" overrides the idle copy). `canSaveProvider` already
+    // factors isSaving into `enabled`, but the visual chrome needs to
+    // know which sub-state of "disabled" it is in.
     final isSaving = ref.watch(
       exportControllerProvider.select((s) => s.isSaving),
     );
-    final canExport = ref.watch(canExportProvider);
     final idleLabel = ref.watch(exportSaveButtonLabelProvider);
-
-    final enabled = !isSaving && canExport;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return FloatingActionButton.extended(
       // Namespaced hero tag — see class doc-comment. Without an
@@ -54,6 +73,19 @@ class SaveActionButton extends ConsumerWidget {
       heroTag: 'export-save-fab',
       onPressed: enabled ? () => _onSavePressed(context, ref) : null,
       tooltip: '保存至相册',
+      // Explicit MD3 disabled tokens — the default FloatingActionButton
+      // theme doesn't visibly dim the extended variant when
+      // `onPressed: null`, leaving users unsure whether the button is
+      // tappable. Setting `surfaceContainerHighest` + 38% `onSurface` +
+      // elevation 0 follows the MD3 disabled-button spec and gives a
+      // clearly灰化 affordance. Passing `null` in the enabled branch
+      // preserves the project / Flutter theme defaults so we don't
+      // hard-code primaryContainer-style colors.
+      backgroundColor: enabled ? null : colorScheme.surfaceContainerHighest,
+      foregroundColor: enabled
+          ? null
+          : colorScheme.onSurface.withValues(alpha: 0.38),
+      elevation: enabled ? null : 0,
       icon: isSaving
           ? const SizedBox(
               width: 18,

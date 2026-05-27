@@ -703,6 +703,17 @@ it in `AsyncValue`. Choose either:
 **Reference**: `lib/features/export/presentation/providers/preview_controller.dart`
 (`NotifierProvider<PreviewController, PreviewState>`).
 
+**See also — deriving a `Provider<bool>` from the sealed**: when a
+downstream consumer needs a boolean predicate over the sealed (e.g.
+"is the user allowed to save right now?"), match on the sealed
+variant directly inside the derived provider — do **not** wrap the
+controller's value in an `AsyncValue` first. The standard call-site
+in this project is `canSaveProvider` in
+`lib/features/export/presentation/providers/export_dispatch.dart`,
+which derives a `Provider<bool>` from `PreviewReady` + `isSaving` +
+`canExportProvider`. See `component-guidelines.md` → "Convention:
+Save CTA gated by preview-ready state" for the full convention.
+
 
 ---
 
